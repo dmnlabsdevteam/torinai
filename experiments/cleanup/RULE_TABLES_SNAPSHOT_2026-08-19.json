@@ -1,0 +1,574 @@
+{
+  "taken_at": "2026-08-19T16:13:02.563449+00:00",
+  "tables": {
+    "learned_rules": [
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "domain_id": "kite17",
+        "rule_kind": "zor",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"KEM\"}, {\"args\": [\"?X0\"], \"predicate\": \"NAL\"}, {\"args\": [\"?X1\"], \"predicate\": \"TOR\"}, {\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"VEX\"}], \"add_effects\": [{\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"ZOR\"}], \"delete_effects\": [], \"schema_version\": 1}",
+        "rendered_formula": "KEM(?X0, ?X1) \u2227 NAL(?X0) \u2227 TOR(?X1) \u2227 VEX(?X0, ?X1) \u2192 ZOR(?X0, ?X1)",
+        "epistemic_status": "validated",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": "held_out_disjoint_roots",
+        "validation_version": 1,
+        "positive_root_count": 2,
+        "negative_root_count": 4,
+        "detail": "confirmed by 2 independent observation(s)",
+        "created_at": "2026-08-17 20:10:28.695923+00:00",
+        "updated_at": "2026-08-17 20:10:28.708506+00:00",
+        "validated_at": "2026-08-17 20:10:28.708331+00:00",
+        "supersedes_rule_id": null
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "domain_id": "kite17",
+        "rule_kind": "move",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\", \"?X2\", \"?X1\"], \"predicate\": \"MOVE\"}, {\"args\": [\"?X1\"], \"predicate\": \"OPEN\"}, {\"args\": [\"?X2\", \"?X1\"], \"predicate\": \"PATH\"}], \"add_effects\": [{\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"AT\"}], \"delete_effects\": [{\"args\": [\"?X0\", \"?X2\"], \"predicate\": \"AT\"}], \"schema_version\": 1}",
+        "rendered_formula": "MOVE(?X0, ?X2, ?X1) \u2227 OPEN(?X1) \u2227 PATH(?X2, ?X1) \u2192 AT(?X0, ?X1) \u2296 AT(?X0, ?X2)",
+        "epistemic_status": "validated",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": "held_out_disjoint_roots",
+        "validation_version": 1,
+        "positive_root_count": 2,
+        "negative_root_count": 3,
+        "detail": "confirmed by 2 independent observation(s)",
+        "created_at": "2026-08-17 20:10:28.712212+00:00",
+        "updated_at": "2026-08-17 20:10:28.720487+00:00",
+        "validated_at": "2026-08-17 20:10:28.720323+00:00",
+        "supersedes_rule_id": null
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "domain_id": "kite17",
+        "rule_kind": "move",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\", \"?X2\"], \"predicate\": \"AT\"}, {\"args\": [\"?X0\", \"?X2\", \"?X1\"], \"predicate\": \"MOVE\"}, {\"args\": [\"?X1\"], \"predicate\": \"OPEN\"}, {\"args\": [\"?X2\", \"?X1\"], \"predicate\": \"PATH\"}], \"action\": {\"args\": [\"?X0\", \"?X2\", \"?X1\"], \"predicate\": \"MOVE\"}, \"add_effects\": [{\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"AT\"}], \"delete_effects\": [{\"args\": [\"?X0\", \"?X2\"], \"predicate\": \"AT\"}], \"schema_version\": 2}",
+        "rendered_formula": "AT(?X0, ?X2) \u2227 MOVE(?X0, ?X2, ?X1) \u2227 OPEN(?X1) \u2227 PATH(?X2, ?X1) \u2192 AT(?X0, ?X1) \u2296 AT(?X0, ?X2)",
+        "epistemic_status": "validated",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": "held_out_disjoint_roots",
+        "validation_version": 1,
+        "positive_root_count": 2,
+        "negative_root_count": 4,
+        "detail": "confirmed by 2 independent observation(s)",
+        "created_at": "2026-08-19 04:16:08.948116+00:00",
+        "updated_at": "2026-08-19 12:42:08.735338+00:00",
+        "validated_at": "2026-08-19 04:16:08.959832+00:00",
+        "supersedes_rule_id": "rule_d3244fd036c3"
+      },
+      {
+        "rule_id": "rule_c8de915232c7",
+        "domain_id": "syllogism2",
+        "rule_kind": "reasoning_pattern",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\"], \"predicate\": \"MAN\"}], \"action\": null, \"add_effects\": [{\"args\": [\"?X0\"], \"predicate\": \"MORTAL\"}], \"delete_effects\": [], \"schema_version\": 2}",
+        "rendered_formula": "MAN(?X0) \u2192 MORTAL(?X0)",
+        "epistemic_status": "candidate",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": null,
+        "validation_version": null,
+        "positive_root_count": 2,
+        "negative_root_count": 0,
+        "detail": "",
+        "created_at": "2026-08-19 16:07:53.092388+00:00",
+        "updated_at": "2026-08-19 16:07:53.092388+00:00",
+        "validated_at": null,
+        "supersedes_rule_id": null
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "domain_id": "kite17",
+        "rule_kind": "zor",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"KEM\"}, {\"args\": [\"?X0\"], \"predicate\": \"NAL\"}, {\"args\": [\"?X1\"], \"predicate\": \"TOR\"}, {\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"VEX\"}], \"action\": {\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"KEM\"}, \"add_effects\": [{\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"ZOR\"}], \"delete_effects\": [], \"schema_version\": 2}",
+        "rendered_formula": "KEM(?X0, ?X1) \u2227 NAL(?X0) \u2227 TOR(?X1) \u2227 VEX(?X0, ?X1) \u2192 ZOR(?X0, ?X1)",
+        "epistemic_status": "validated",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": "held_out_disjoint_roots",
+        "validation_version": 1,
+        "positive_root_count": 2,
+        "negative_root_count": 4,
+        "detail": "confirmed by 2 independent observation(s)",
+        "created_at": "2026-08-19 13:10:23.985679+00:00",
+        "updated_at": "2026-08-19 13:10:24.009238+00:00",
+        "validated_at": "2026-08-19 13:10:24.000220+00:00",
+        "supersedes_rule_id": "rule_dcd916b30f7f"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "domain_id": "kite17",
+        "rule_kind": "move",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\", \"?X2\", \"?X1\"], \"predicate\": \"MOVE\"}, {\"args\": [\"?X1\"], \"predicate\": \"OPEN\"}, {\"args\": [\"?X2\", \"?X1\"], \"predicate\": \"PATH\"}], \"action\": {\"args\": [\"?X0\", \"?X2\", \"?X1\"], \"predicate\": \"MOVE\"}, \"add_effects\": [{\"args\": [\"?X0\", \"?X1\"], \"predicate\": \"AT\"}], \"delete_effects\": [{\"args\": [\"?X0\", \"?X2\"], \"predicate\": \"AT\"}], \"schema_version\": 2}",
+        "rendered_formula": "MOVE(?X0, ?X2, ?X1) \u2227 OPEN(?X1) \u2227 PATH(?X2, ?X1) \u2192 AT(?X0, ?X1) \u2296 AT(?X0, ?X2)",
+        "epistemic_status": "refuted",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": "held_out_disjoint_roots",
+        "validation_version": 1,
+        "positive_root_count": 2,
+        "negative_root_count": 3,
+        "detail": "refuted by runtime observation edu02_1787151946: executed MOVE(z, LAB, VAULT); predicted AT(z,VAULT); world shows AT(z,HALL)",
+        "created_at": "2026-08-19 04:13:55.637647+00:00",
+        "updated_at": "2026-08-19 15:05:46.846259+00:00",
+        "validated_at": null,
+        "supersedes_rule_id": null
+      },
+      {
+        "rule_id": "rule_589ba8306c88",
+        "domain_id": "syllogism",
+        "rule_kind": "reasoning_pattern",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\"], \"predicate\": \"A_MAN\"}], \"action\": null, \"add_effects\": [{\"args\": [\"?X0\"], \"predicate\": \"MORTAL\"}], \"delete_effects\": [], \"schema_version\": 2}",
+        "rendered_formula": "A_MAN(?X0) \u2192 MORTAL(?X0)",
+        "epistemic_status": "candidate",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": null,
+        "validation_version": null,
+        "positive_root_count": 2,
+        "negative_root_count": 0,
+        "detail": "",
+        "created_at": "2026-08-19 16:07:27.692157+00:00",
+        "updated_at": "2026-08-19 16:07:27.692157+00:00",
+        "validated_at": null,
+        "supersedes_rule_id": null
+      },
+      {
+        "rule_id": "rule_0a4071cef2ef",
+        "domain_id": "syllogism_evidence",
+        "rule_kind": "reasoning_pattern",
+        "canonical_rule_json": "{\"body\": [{\"args\": [\"?X0\"], \"predicate\": \"MAN\"}], \"action\": null, \"add_effects\": [{\"args\": [\"?X0\"], \"predicate\": \"MORTAL\"}], \"delete_effects\": [], \"schema_version\": 2}",
+        "rendered_formula": "MAN(?X0) \u2192 MORTAL(?X0)",
+        "epistemic_status": "candidate",
+        "induction_method": "plotkin_lgg_minimal",
+        "induction_version": 1,
+        "validation_policy": null,
+        "validation_version": null,
+        "positive_root_count": 2,
+        "negative_root_count": 0,
+        "detail": "",
+        "created_at": "2026-08-19 16:09:58.436282+00:00",
+        "updated_at": "2026-08-19 16:09:58.436282+00:00",
+        "validated_at": null,
+        "supersedes_rule_id": null
+      }
+    ],
+    "learned_rule_evidence": [
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_d1",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.698132+00:00"
+      },
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_d2",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.700084+00:00"
+      },
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_no_NAL",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-17 20:10:28.700890+00:00"
+      },
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_no_VEX",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-17 20:10:28.701822+00:00"
+      },
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_no_TOR",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-17 20:10:28.702676+00:00"
+      },
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_no_KEM",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-17 20:10:28.703414+00:00"
+      },
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_h1",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.707133+00:00"
+      },
+      {
+        "rule_id": "rule_dcd916b30f7f",
+        "root_evidence_id": "zor_h2",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.707903+00:00"
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "root_evidence_id": "mv_d1",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.713001+00:00"
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "root_evidence_id": "mv_d2",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.713698+00:00"
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "root_evidence_id": "mv_no_OPEN",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-17 20:10:28.714381+00:00"
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "root_evidence_id": "mv_no_PATH",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-17 20:10:28.715190+00:00"
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "root_evidence_id": "mv_no_ACTION",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-17 20:10:28.715987+00:00"
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "root_evidence_id": "mv_h1",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.718907+00:00"
+      },
+      {
+        "rule_id": "rule_d3244fd036c3",
+        "root_evidence_id": "mv_h2",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-17 20:10:28.719813+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "mv_d1",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:13:55.640971+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "mv_d2",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:13:55.642828+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "mv_no_OPEN",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 04:13:55.643401+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "mv_no_PATH",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 04:13:55.644110+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "mv_no_ACTION",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 04:13:55.644905+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "mv_h1",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:13:55.647796+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "mv_h2",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:13:55.648477+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_d1",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:16:08.950109+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_d2",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:16:08.951634+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_no_OPEN",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 04:16:08.952517+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_no_PATH",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 04:16:08.953477+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_no_ACTION",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 04:16:08.954544+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_no_AT_SOURCE",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 04:16:08.955391+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_h1",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:16:08.958733+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "mv_h2",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 04:16:08.959398+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_d1",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 13:10:23.988179+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_d2",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 13:10:23.990968+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_no_NAL",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 13:10:23.991821+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_no_VEX",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 13:10:23.992627+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_no_TOR",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 13:10:23.993426+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_no_KEM",
+        "evidence_role": "induction_negative",
+        "supports": false,
+        "observed_at": "2026-08-19 13:10:23.994248+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_h1",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 13:10:23.998955+00:00"
+      },
+      {
+        "rule_id": "rule_0a5b9d83ac83",
+        "root_evidence_id": "zor_h2",
+        "evidence_role": "validation_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 13:10:23.999708+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "e2e_obs_f1ebc7b0-40e",
+        "evidence_role": "runtime_confirmation",
+        "supports": true,
+        "observed_at": "2026-08-19 14:55:08.473243+00:00"
+      },
+      {
+        "rule_id": "rule_dccaff4cba0f",
+        "root_evidence_id": "edu02_1787151946",
+        "evidence_role": "runtime_contradiction",
+        "supports": false,
+        "observed_at": "2026-08-19 15:05:46.842294+00:00"
+      },
+      {
+        "rule_id": "rule_edbe5a8b4ad8",
+        "root_evidence_id": "obs_419eb290cee5",
+        "evidence_role": "runtime_confirmation",
+        "supports": true,
+        "observed_at": "2026-08-19 15:45:24.028818+00:00"
+      },
+      {
+        "rule_id": "rule_589ba8306c88",
+        "root_evidence_id": "pat_d1",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 16:07:27.695021+00:00"
+      },
+      {
+        "rule_id": "rule_589ba8306c88",
+        "root_evidence_id": "pat_d2",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 16:07:27.698634+00:00"
+      },
+      {
+        "rule_id": "rule_c8de915232c7",
+        "root_evidence_id": "pat_d3",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 16:07:53.095550+00:00"
+      },
+      {
+        "rule_id": "rule_c8de915232c7",
+        "root_evidence_id": "pat_d4",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 16:07:53.098045+00:00"
+      },
+      {
+        "rule_id": "rule_0a4071cef2ef",
+        "root_evidence_id": "ev_pat_1",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 16:09:58.437587+00:00"
+      },
+      {
+        "rule_id": "rule_0a4071cef2ef",
+        "root_evidence_id": "ev_pat_2",
+        "evidence_role": "induction_positive",
+        "supports": true,
+        "observed_at": "2026-08-19 16:09:58.439131+00:00"
+      }
+    ],
+    "rule_authority_events": [
+      {
+        "event_id": "rac_a0216fc1910e",
+        "rule_id": "rule_dccaff4cba0f",
+        "old_status": "candidate",
+        "new_status": "validated",
+        "lost_authority": false,
+        "cause": "validation",
+        "observation_id": null,
+        "task_id": null,
+        "plan_id": null,
+        "goal_id": null,
+        "detail": "confirmed by 2 independent observation(s)",
+        "occurred_at": "2026-08-19 04:13:55.652830+00:00",
+        "consumed_at": null,
+        "consumed_by": null
+      },
+      {
+        "event_id": "rac_7d4ddecea8d1",
+        "rule_id": "rule_edbe5a8b4ad8",
+        "old_status": "candidate",
+        "new_status": "validated",
+        "lost_authority": false,
+        "cause": "validation",
+        "observation_id": null,
+        "task_id": null,
+        "plan_id": null,
+        "goal_id": null,
+        "detail": "confirmed by 2 independent observation(s)",
+        "occurred_at": "2026-08-19 04:16:08.963470+00:00",
+        "consumed_at": null,
+        "consumed_by": null
+      },
+      {
+        "event_id": "rac_6a23de5eb096",
+        "rule_id": "rule_0a5b9d83ac83",
+        "old_status": "candidate",
+        "new_status": "validated",
+        "lost_authority": false,
+        "cause": "validation",
+        "observation_id": null,
+        "task_id": null,
+        "plan_id": null,
+        "goal_id": null,
+        "detail": "confirmed by 2 independent observation(s)",
+        "occurred_at": "2026-08-19 13:10:24.004207+00:00",
+        "consumed_at": null,
+        "consumed_by": null
+      },
+      {
+        "event_id": "rac_31d36ed91c46",
+        "rule_id": "rule_dccaff4cba0f",
+        "old_status": "validated",
+        "new_status": "refuted",
+        "lost_authority": true,
+        "cause": "runtime_contradiction",
+        "observation_id": "edu02_1787151946",
+        "task_id": null,
+        "plan_id": null,
+        "goal_id": null,
+        "detail": "refuted by runtime observation edu02_1787151946: executed MOVE(z, LAB, VAULT); predicted AT(z,VAULT); world shows AT(z,HALL)",
+        "occurred_at": "2026-08-19 15:05:46.849247+00:00",
+        "consumed_at": null,
+        "consumed_by": null
+      }
+    ],
+    "rule_supersessions": [
+      {
+        "replacement_rule_id": "rule_edbe5a8b4ad8",
+        "superseded_rule_id": "rule_dccaff4cba0f",
+        "superseded_at": "2026-08-19 12:41:28.669098+00:00"
+      },
+      {
+        "replacement_rule_id": "rule_edbe5a8b4ad8",
+        "superseded_rule_id": "rule_d3244fd036c3",
+        "superseded_at": "2026-08-19 12:42:08.734340+00:00"
+      },
+      {
+        "replacement_rule_id": "rule_0a5b9d83ac83",
+        "superseded_rule_id": "rule_dcd916b30f7f",
+        "superseded_at": "2026-08-19 13:10:24.008256+00:00"
+      }
+    ]
+  },
+  "sha256": "c96efddd1d0239baee57c07574e014d7e65a41e5ddceb851559460ed54d2230f"
+}

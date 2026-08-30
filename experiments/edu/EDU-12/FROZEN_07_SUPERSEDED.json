@@ -1,0 +1,49 @@
+{
+  "freeze_id": "EDU-12_S0_ADMISSIBLE_07",
+  "frozen_at": "2026-08-20T18:17:40.695790+00:00",
+  "architecture_fingerprint": "3dea3b851101ebdd3eda7855af5ff70d1d26ddaff5c693af2cfd6d2004ceb418",
+  "substrate_files": 285,
+  "baseline": "manifest.json (first admissible S0)",
+  "rule": "During the frozen educational phase, failures may repair the EXPERIMENT but may not expand Torin's cognitive implementation.",
+  "may_be_repaired": [
+    "an exam that leaks an answer",
+    "a harness that bypasses the production ingress",
+    "a metric that cannot report failure",
+    "a database or process state that does not reset"
+  ],
+  "may_not_be_repaired": [
+    "Torin cannot learn percentages",
+    "Torin cannot synthesise programs",
+    "Torin cannot parse a legitimate held-out construction",
+    "Torin cannot transfer a concept"
+  ],
+  "why": "Repairing a cognitive capability mid-experiment destroys the distinction between 'Torin learned' and 'we upgraded Torin while teaching it'. A capability Torin cannot acquire through education IS the result.",
+  "supersedes": {
+    "freeze_id": "EDU-12_S0_ADMISSIBLE_06",
+    "fingerprint": "df74608a2d53b7aea7edf6748774ccf3366873283829eb3b5d931b3a4a7d0842",
+    "record": "FROZEN_06_SUPERSEDED.json"
+  },
+  "why_refrozen": "The same change as 06, completed. 06 was taken while the change was still in progress: outputs were learned, planned over and executed, and were still being DROPPED by two things that rebuild a rule -- persistence and analogical projection. A rule that means one thing in memory and another after a round trip is the defect this discipline exists to make visible, so the record moves rather than being amended in place.",
+  "change": {
+    "what": "Operators carry declared OUTPUTS with a BindingOrigin (STATE / ACTION_INPUT / ACTION_OUTPUT / DERIVED / UNBOUND). Range restriction stays strict and its definition of 'grounded' widens: a value has provenance if the state binds it, the action's arguments bind it, the action declares it as an output, or a function over already-grounded terms computes it. P(?x) -> MAGIC(?y) is still refused.",
+    "effect": "Which function produces a value is LEARNED, not written down: the value authority is searched for one that explains every demonstration, two rivals report MULTIPLE_HYPOTHESES, and one more demonstration separates them. Grounding computes outputs instead of enumerating candidate answers for them, closes over the terms actions produce so consumers can be grounded at all, and narrows each variable to the terms that can stand where it stands (a MOVE rule: 27 operators -> 4). The planner carries a guarantee beside the status, so a plan through a value only running it can produce is CONDITIONAL, never a proof.",
+    "unlocked": "Computational composition, verified across three unrelated chains with nothing domain-specific in the planner: arithmetic (GUARANTEED), read->parse->multiply->write (CONDITIONAL), lookup->compare->branch (CONDITIONAL). MEAN now composes from two derived folds with no fold, and no quotient, published by the world.",
+    "also_repaired": [
+      "GroundingReport.complete certified a model blind to a fact the world produces: 3 rules in, 3 used, none skipped, 48 operators, complete=True, planner UNREACHABLE, world reaching the goal in 3 steps",
+      "NO_RULE blamed counter-demonstrations for what was a range-restriction failure, sending the diagnosis to the wrong place",
+      "semantic_fingerprint ignored outputs, so two rules predicting different values shared an identity and record_induction would keep whichever landed first",
+      "the substrate execution path bound preconditions only from the operator's NAME, so any rule binding a variable the action does not name refused every time as 'preconditions absent'",
+      "rule_store dropped outputs on serialisation, so a rule that computes a value came back from the store meaning something else and no longer range restricted (schema v3; v1 and v2 still read)",
+      "analogical_projection rebuilt a rule without its outputs, projecting a computation into a rule concluding about a term nothing accounts for"
+    ]
+  },
+  "verification": {
+    "suite": "1059 passed, 3 skipped, 1 failed (this guard, before re-freezing)",
+    "chains": {
+      "arithmetic": "plan_found / guaranteed / TAKE_TOTAL -> TAKE_COUNT -> DIVIDE",
+      "file": "plan_found / conditional / READ -> PARSE_NUMBER -> MULTIPLY -> WRITE",
+      "lookup": "plan_found / conditional / LOOKUP -> COMPARE -> BRANCH"
+    },
+    "rederivation": "instruction set 9/9 rule_learned; MAXIMUM SUM LENGTH derived, EXCEEDING underdetermined into 2 procedures that agree; 5/5 at lengths 5,7,11,20,50 each; MEAN composed and guaranteed; 0 model attempts, 0 executed"
+  }
+}

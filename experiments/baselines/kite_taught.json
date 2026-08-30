@@ -1,0 +1,127 @@
+{
+  "domain": "kite17",
+  "rules": [
+    {
+      "rule_id": "rule_dcd916b30f7f",
+      "rule_kind": "zor",
+      "status": "validated",
+      "formula": "KEM(?X0, ?X1) \u2227 NAL(?X0) \u2227 TOR(?X1) \u2227 VEX(?X0, ?X1) \u2192 ZOR(?X0, ?X1)",
+      "canonical_json_sha256": "53cd685468dcbdbb0a16d88fdaef9b8dd5594a58983f6edf95d6a67389789030",
+      "canonical_json": {
+        "schema_version": 1,
+        "body": [
+          {
+            "predicate": "KEM",
+            "args": [
+              "?X0",
+              "?X1"
+            ]
+          },
+          {
+            "predicate": "NAL",
+            "args": [
+              "?X0"
+            ]
+          },
+          {
+            "predicate": "TOR",
+            "args": [
+              "?X1"
+            ]
+          },
+          {
+            "predicate": "VEX",
+            "args": [
+              "?X0",
+              "?X1"
+            ]
+          }
+        ],
+        "add_effects": [
+          {
+            "predicate": "ZOR",
+            "args": [
+              "?X0",
+              "?X1"
+            ]
+          }
+        ],
+        "delete_effects": []
+      },
+      "induction_roots": [
+        "zor_d1",
+        "zor_d2",
+        "zor_no_KEM",
+        "zor_no_NAL",
+        "zor_no_TOR",
+        "zor_no_VEX"
+      ],
+      "validation_roots": [
+        "zor_h1",
+        "zor_h2"
+      ]
+    },
+    {
+      "rule_id": "rule_d3244fd036c3",
+      "rule_kind": "move",
+      "status": "validated",
+      "formula": "MOVE(?X0, ?X2, ?X1) \u2227 OPEN(?X1) \u2227 PATH(?X2, ?X1) \u2192 AT(?X0, ?X1) \u2296 AT(?X0, ?X2)",
+      "canonical_json_sha256": "a181893860ccc41f22961a1285a1a229a608672572003e07643408885939cf79",
+      "canonical_json": {
+        "schema_version": 1,
+        "body": [
+          {
+            "predicate": "MOVE",
+            "args": [
+              "?X0",
+              "?X2",
+              "?X1"
+            ]
+          },
+          {
+            "predicate": "OPEN",
+            "args": [
+              "?X1"
+            ]
+          },
+          {
+            "predicate": "PATH",
+            "args": [
+              "?X2",
+              "?X1"
+            ]
+          }
+        ],
+        "add_effects": [
+          {
+            "predicate": "AT",
+            "args": [
+              "?X0",
+              "?X1"
+            ]
+          }
+        ],
+        "delete_effects": [
+          {
+            "predicate": "AT",
+            "args": [
+              "?X0",
+              "?X2"
+            ]
+          }
+        ]
+      },
+      "induction_roots": [
+        "mv_d1",
+        "mv_d2",
+        "mv_no_ACTION",
+        "mv_no_OPEN",
+        "mv_no_PATH"
+      ],
+      "validation_roots": [
+        "mv_h1",
+        "mv_h2"
+      ]
+    }
+  ]
+}

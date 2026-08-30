@@ -1,0 +1,84 @@
+{
+  "experiment": "EDU-12 program construction",
+  "recorded_at": "2026-08-20T19:48:57.733964+00:00",
+  "model_calls": 0,
+  "taught_on": {
+    "l1": [
+      2,
+      4,
+      6,
+      8
+    ],
+    "l2": [
+      10,
+      20,
+      30
+    ],
+    "l3": [
+      1,
+      2,
+      3,
+      10
+    ]
+  },
+  "learned": {
+    "MEAN_OF": [
+      "MEAN(?X1, ?X0)",
+      "MEAN_OF(?X1)"
+    ],
+    "COUNT_EXCEEDING": [
+      "COUNT_EXCEEDING(?X1)",
+      "EXCEEDING(?X1, ?X2, ?X0)",
+      "VALUE(?X2)"
+    ]
+  },
+  "plan_discovered_on": "l1",
+  "plan": [
+    "MEAN_OF(l1)",
+    "COUNT_EXCEEDING(l1)"
+  ],
+  "held_out": [
+    {
+      "input": "h1",
+      "values": [
+        5,
+        15,
+        25,
+        35
+      ],
+      "expected": 2,
+      "produced": "2",
+      "correct": true,
+      "note": "ok"
+    },
+    {
+      "input": "h2",
+      "values": [
+        7,
+        7,
+        7,
+        100
+      ],
+      "expected": 1,
+      "produced": "1",
+      "correct": true,
+      "note": "ok"
+    },
+    {
+      "input": "h3",
+      "values": [
+        1,
+        1,
+        1,
+        1,
+        96
+      ],
+      "expected": 1,
+      "produced": "1",
+      "correct": true,
+      "note": "ok"
+    }
+  ],
+  "held_out_correct": "3/3",
+  "passed": true
+}

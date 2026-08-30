@@ -1,0 +1,734 @@
+{
+  "exam_id": "EDU-12_STAGE3",
+  "sealed_at": "2026-08-20T02:22:56.089918+00:00",
+  "frozen_against": "EDU-12_S0_ADMISSIBLE",
+  "rule": "Torin must never see these during instruction, and the teacher must never receive them: a teacher shown the questions can train to them without anyone intending it.",
+  "exams": {
+    "mathematics": {
+      "subject": "mathematics",
+      "cognitive_demand": [
+        "abstraction",
+        "formal_manipulation",
+        "composition"
+      ],
+      "posttest_seal": "1986a390e27337370a4105898438ce2d19833e006baac565f1bfae8662552246",
+      "transfer_seal": "d42d04d0146c43390ef0e98be43d0a380d9fdc50d0254d6dc20223a5122d67b8",
+      "items": [
+        {
+          "item_id": "m_post1",
+          "exam": "posttest",
+          "item_hash": "8bc241a46f717116e4c4bf1923906075ae4a574ccda784217c8566f5c06acd2f",
+          "kind": "value",
+          "target_capability": [
+            "value"
+          ],
+          "required_cognitive_operations": [
+            "value"
+          ],
+          "difficulty": "held_out",
+          "expected_result": 39,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_post2",
+          "exam": "posttest",
+          "item_hash": "151f1815b73eb6ea0efff3176d0b334f675bcaf5e26bdbb91f0bf6809df649e6",
+          "kind": "value",
+          "target_capability": [
+            "value"
+          ],
+          "required_cognitive_operations": [
+            "value"
+          ],
+          "difficulty": "held_out",
+          "expected_result": 324,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_post3",
+          "exam": "posttest",
+          "item_hash": "e56105c7078664e34158b2b631b2c67d85e8947af2ca82b5d2bfd7ed0a145cca",
+          "kind": "value",
+          "target_capability": [
+            "value"
+          ],
+          "required_cognitive_operations": [
+            "value"
+          ],
+          "difficulty": "held_out",
+          "expected_result": 7,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_post4",
+          "exam": "posttest",
+          "item_hash": "b8a78a26837f5a62d810eaff50801ef732dedb27a9a6a53cb53d0ca6a97aa3d2",
+          "kind": "choice",
+          "target_capability": [
+            "choice"
+          ],
+          "required_cognitive_operations": [
+            "choice"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "left",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_post5",
+          "exam": "posttest",
+          "item_hash": "96e17338115771d98499d236241d330bd8ae8bb155bf26f2e8e659f8ae15bdfa",
+          "kind": "value",
+          "target_capability": [
+            "value"
+          ],
+          "required_cognitive_operations": [
+            "value"
+          ],
+          "difficulty": "held_out",
+          "expected_result": -25,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_post6",
+          "exam": "posttest",
+          "item_hash": "1609ef0c6482bddeadfa2d126edd5d0918a6a52def043f7ec45208539592ec84",
+          "kind": "value",
+          "target_capability": [
+            "value"
+          ],
+          "required_cognitive_operations": [
+            "value"
+          ],
+          "difficulty": "held_out",
+          "expected_result": -6,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_tr1",
+          "exam": "transfer",
+          "item_hash": "d350db06c47cdb10a2ed3db6a2df3c5d716a0765a84064d492adb8f65a055c38",
+          "kind": "value",
+          "target_capability": [
+            "sequence_difference",
+            "linear_equation"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "sequence_difference",
+            "linear_equation"
+          ],
+          "difficulty": "transfer",
+          "expected_result": 38,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_tr2",
+          "exam": "transfer",
+          "item_hash": "135e7d878decbfc13cd558ed0b95ad5cf829fce23d5d3de82bfd9f5392a51602",
+          "kind": "value",
+          "target_capability": [
+            "sequence_ratio",
+            "percentage_change"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "sequence_ratio",
+            "percentage_change"
+          ],
+          "difficulty": "transfer",
+          "expected_result": 100,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_tr3",
+          "exam": "transfer",
+          "item_hash": "6472b472fd8f471be6c91b138e9a218e2d7e94ee618ac9f1d41661ae3f6162f7",
+          "kind": "choice",
+          "target_capability": [
+            "ratio_comparison",
+            "percentage_change"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "ratio_comparison",
+            "percentage_change"
+          ],
+          "difficulty": "transfer",
+          "expected_result": "left",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "m_tr4",
+          "exam": "transfer",
+          "item_hash": "125661a3b973d9f2db3cecc842c7b662908735caca099f74d4e90b87dafbeb38",
+          "kind": "value",
+          "target_capability": [
+            "sequence_difference",
+            "sequence_ratio"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "sequence_difference",
+            "sequence_ratio"
+          ],
+          "difficulty": "transfer",
+          "expected_result": 47,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        }
+      ]
+    },
+    "programming": {
+      "subject": "programming",
+      "cognitive_demand": [
+        "procedure",
+        "execution",
+        "tool_use",
+        "debugging"
+      ],
+      "posttest_seal": "0cdb25cda415d2806fdbee000a231cc5048451a884f4dde3923c02aca9d4739f",
+      "transfer_seal": "eb146a958b16b80f9b42a5981e32adfadfa0747032d532138b4777ca17641744",
+      "items": [
+        {
+          "item_id": "p_post1",
+          "exam": "posttest",
+          "item_hash": "c3d37919fb6734e38dced4bc03fe39887d3764048154bd35359de97f5cb863e6",
+          "kind": "program",
+          "target_capability": [
+            "program"
+          ],
+          "required_cognitive_operations": [
+            "program"
+          ],
+          "difficulty": "held_out",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_post2",
+          "exam": "posttest",
+          "item_hash": "9929f40d3fadb33cd81b79b558a5ff5dd235b514881df39ecbc584b61fab04fc",
+          "kind": "program",
+          "target_capability": [
+            "program"
+          ],
+          "required_cognitive_operations": [
+            "program"
+          ],
+          "difficulty": "held_out",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_post3",
+          "exam": "posttest",
+          "item_hash": "c7666246aa0ae12a944bbd7798788d15a96e91275940797903772420ff8cbf52",
+          "kind": "program",
+          "target_capability": [
+            "program"
+          ],
+          "required_cognitive_operations": [
+            "program"
+          ],
+          "difficulty": "held_out",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_post4",
+          "exam": "posttest",
+          "item_hash": "65aafb8a6836ad17ab0d59d00a1c83561f33a008d0a82511953bd4903f63422e",
+          "kind": "repair",
+          "target_capability": [
+            "repair"
+          ],
+          "required_cognitive_operations": [
+            "repair"
+          ],
+          "difficulty": "held_out",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_post5",
+          "exam": "posttest",
+          "item_hash": "9d05e4de286630c0df06cb1b8b0b5c78be0ab76943cc0816bcb447688c1f2280",
+          "kind": "program",
+          "target_capability": [
+            "program"
+          ],
+          "required_cognitive_operations": [
+            "program"
+          ],
+          "difficulty": "held_out",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_post6",
+          "exam": "posttest",
+          "item_hash": "1117d5be89800ffddd8136c3a080733de3af34eaf417a2054ec75c8335acc5f9",
+          "kind": "program",
+          "target_capability": [
+            "program"
+          ],
+          "required_cognitive_operations": [
+            "program"
+          ],
+          "difficulty": "held_out",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_tr1",
+          "exam": "transfer",
+          "item_hash": "5c20fb09f5f05ea771471f87f71d4434269c91dd86a4ef405b6b6a38c7ca9acf",
+          "kind": "program",
+          "target_capability": [
+            "file_io",
+            "json_structure",
+            "iteration"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "file_io",
+            "json_structure",
+            "iteration"
+          ],
+          "difficulty": "transfer",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_tr2",
+          "exam": "transfer",
+          "item_hash": "4ac2c8199bd876984f480d7c8346f0d474ec3175d01e2d076e575585a111905b",
+          "kind": "program",
+          "target_capability": [
+            "iteration",
+            "conditional_filter"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "iteration",
+            "conditional_filter"
+          ],
+          "difficulty": "transfer",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_tr3",
+          "exam": "transfer",
+          "item_hash": "237c2c20a79cc8d847d64bfc9fe9387aad5149ef76c3ad5724141235a629de2f",
+          "kind": "program",
+          "target_capability": [
+            "file_io",
+            "iteration"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "file_io",
+            "iteration"
+          ],
+          "difficulty": "transfer",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "p_tr4",
+          "exam": "transfer",
+          "item_hash": "522b31232d60f9a9705762e579f4e622b341e81e658bea4467940a7adedc072f",
+          "kind": "program",
+          "target_capability": [
+            "json_structure",
+            "conditional_filter",
+            "file_io"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "json_structure",
+            "conditional_filter",
+            "file_io"
+          ],
+          "difficulty": "transfer",
+          "expected_result": null,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        }
+      ]
+    },
+    "causal_science": {
+      "subject": "causal_science",
+      "cognitive_demand": [
+        "hypothesis_formation",
+        "experimentation",
+        "uncertainty"
+      ],
+      "posttest_seal": "44714159a701d0f16508e73321ca8640f62bc098fa5950176a44a9315a212f27",
+      "transfer_seal": "e9293e1b45dfc3937945ef6c49656e7635a13ce6c7eb2b0818ba7cd271e848b2",
+      "items": [
+        {
+          "item_id": "s_post1",
+          "exam": "posttest",
+          "item_hash": "3a20322ea4330cdb4dc1321bf6c9482c88e7e4024a7d50fea7b4cdb32df35b62",
+          "kind": "causal_structure",
+          "target_capability": [
+            "causal_structure"
+          ],
+          "required_cognitive_operations": [
+            "causal_structure"
+          ],
+          "difficulty": "held_out",
+          "expected_result": {
+            "requires": [
+              "light",
+              "seed",
+              "water"
+            ],
+            "forbids": []
+          },
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_post2",
+          "exam": "posttest",
+          "item_hash": "2b5c4f6844d0e16226f5fedd0558064369b5836b6bbad2dd12968ace69a6e51f",
+          "kind": "causal_structure",
+          "target_capability": [
+            "causal_structure"
+          ],
+          "required_cognitive_operations": [
+            "causal_structure"
+          ],
+          "difficulty": "held_out",
+          "expected_result": {
+            "requires": [
+              "key"
+            ],
+            "forbids": [
+              "alarm"
+            ]
+          },
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_post3",
+          "exam": "posttest",
+          "item_hash": "d22697479d8c1b462179cce62ab918eac3f296e89e349c6085de7b59c309e96f",
+          "kind": "intervention",
+          "target_capability": [
+            "intervention"
+          ],
+          "required_cognitive_operations": [
+            "intervention"
+          ],
+          "difficulty": "held_out",
+          "expected_result": true,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_post4",
+          "exam": "posttest",
+          "item_hash": "a16a97d2dfbb598d5c6c15a4c62079781c3d2ea75117aff9c03f51d1ed3251a9",
+          "kind": "intervention",
+          "target_capability": [
+            "intervention"
+          ],
+          "required_cognitive_operations": [
+            "intervention"
+          ],
+          "difficulty": "held_out",
+          "expected_result": false,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_post5",
+          "exam": "posttest",
+          "item_hash": "56d6fd275115bf8cebbb902fb0f75cc45b05962cf0aa0243c2dce0169f3e3c1f",
+          "kind": "choice",
+          "target_capability": [
+            "choice"
+          ],
+          "required_cognitive_operations": [
+            "choice"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "undetermined",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_post6",
+          "exam": "posttest",
+          "item_hash": "1a17ee430d2e9896f817d233fbe772d9cd7b56343f1a9d2f0714d6c2d2605b33",
+          "kind": "choice",
+          "target_capability": [
+            "choice"
+          ],
+          "required_cognitive_operations": [
+            "choice"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "unreliable",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_tr1",
+          "exam": "transfer",
+          "item_hash": "f9ff6e922897ab46dda19975630c46a0fc2558f670fbcf137a6cd4993e4f55a0",
+          "kind": "causal_structure",
+          "target_capability": [
+            "necessary_condition",
+            "forbidding_condition",
+            "irrelevant_condition"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "necessary_condition",
+            "forbidding_condition",
+            "irrelevant_condition"
+          ],
+          "difficulty": "transfer",
+          "expected_result": {
+            "requires": [
+              "a",
+              "b"
+            ],
+            "forbids": [
+              "halt"
+            ]
+          },
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_tr2",
+          "exam": "transfer",
+          "item_hash": "0f4ba2334379eae7f6b9478ef2cc382cd741f6354b1f89c74e01abfb0916f867",
+          "kind": "choice",
+          "target_capability": [
+            "intervention_beats_observation",
+            "unreliable_action"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "intervention_beats_observation",
+            "unreliable_action"
+          ],
+          "difficulty": "transfer",
+          "expected_result": "set_c_without_d",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_tr3",
+          "exam": "transfer",
+          "item_hash": "fc6c60952a13cce9c4591cdefc6b63527b2705865f8b954fb3dc0d7deca133a8",
+          "kind": "intervention",
+          "target_capability": [
+            "necessary_condition",
+            "unreliable_action"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "necessary_condition",
+            "unreliable_action"
+          ],
+          "difficulty": "transfer",
+          "expected_result": true,
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "s_tr4",
+          "exam": "transfer",
+          "item_hash": "4fe5d316f3846e6e6183b54037ba474136b19c15783ff449b09e230f9be8358e",
+          "kind": "choice",
+          "target_capability": [
+            "irrelevant_condition",
+            "intervention_beats_observation"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "irrelevant_condition",
+            "intervention_beats_observation"
+          ],
+          "difficulty": "transfer",
+          "expected_result": "irrelevant",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        }
+      ]
+    },
+    "language": {
+      "subject": "language",
+      "cognitive_demand": [
+        "concepts",
+        "semantic_relations",
+        "reading",
+        "explanation"
+      ],
+      "posttest_seal": "46d0078ebe1192df222ff8907c407ce0a404444a37f3f47bf5a14f7589b73d3c",
+      "transfer_seal": "fa7dc9ce8a2bef9995cfdb9c96da2170a1f0f83434356b2ec7d62f51eea8ce65",
+      "items": [
+        {
+          "item_id": "l_post1",
+          "exam": "posttest",
+          "item_hash": "21fc8d7843abbbeb609ab8d7358dcb604d01fe20d511f488e21d17c103ce7370",
+          "kind": "choice",
+          "target_capability": [
+            "choice"
+          ],
+          "required_cognitive_operations": [
+            "choice"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "yes",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_post2",
+          "exam": "posttest",
+          "item_hash": "96387fae2cb00bdadaa6abae2a1a35a62ebfe1a1483ad2faa353787b247cd1d9",
+          "kind": "choice",
+          "target_capability": [
+            "choice"
+          ],
+          "required_cognitive_operations": [
+            "choice"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "yes",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_post3",
+          "exam": "posttest",
+          "item_hash": "d260e95c77f15bd8134edd2e4d34c9c55052f29b204c0f6a989ac97165cdba61",
+          "kind": "choice",
+          "target_capability": [
+            "choice"
+          ],
+          "required_cognitive_operations": [
+            "choice"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "undetermined",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_post4",
+          "exam": "posttest",
+          "item_hash": "441737663b16ed4dc1b84dbaa152dad28e2999d9db8fa68c7e795e3f202d8e40",
+          "kind": "value",
+          "target_capability": [
+            "value"
+          ],
+          "required_cognitive_operations": [
+            "value"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "contract",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_post5",
+          "exam": "posttest",
+          "item_hash": "caa989418a1398d3d5b4340233c3d1a58c9222b4783347edd31aecfaa62b7401",
+          "kind": "choice",
+          "target_capability": [
+            "choice"
+          ],
+          "required_cognitive_operations": [
+            "choice"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "no",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_post6",
+          "exam": "posttest",
+          "item_hash": "678b980b61c369c71e0fc4b205a57e425bfccb8837f7a83ac4c00d399dbf763a",
+          "kind": "value",
+          "target_capability": [
+            "value"
+          ],
+          "required_cognitive_operations": [
+            "value"
+          ],
+          "difficulty": "held_out",
+          "expected_result": "land",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_tr1",
+          "exam": "transfer",
+          "item_hash": "4e1b65e31d4fc3e4547749b42a5d31a56d6d39ffafb5071f4fd66de476848548",
+          "kind": "choice",
+          "target_capability": [
+            "is_a_transitivity",
+            "part_of"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "is_a_transitivity",
+            "part_of"
+          ],
+          "difficulty": "transfer",
+          "expected_result": "yes",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_tr2",
+          "exam": "transfer",
+          "item_hash": "12e65353188396ffe4b30afeb78ed7d8954d05ef1e1a4705064123ee0c29586b",
+          "kind": "choice",
+          "target_capability": [
+            "is_a_transitivity",
+            "stated_versus_implied"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "is_a_transitivity",
+            "stated_versus_implied"
+          ],
+          "difficulty": "transfer",
+          "expected_result": "yes",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_tr3",
+          "exam": "transfer",
+          "item_hash": "daf9d9d0450b8d013f165c10fdcc57238be87962ea05cd9c4a53693dda5952e2",
+          "kind": "choice",
+          "target_capability": [
+            "stated_versus_implied",
+            "part_of"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "stated_versus_implied",
+            "part_of"
+          ],
+          "difficulty": "transfer",
+          "expected_result": "undetermined",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        },
+        {
+          "item_id": "l_tr4",
+          "exam": "transfer",
+          "item_hash": "5c7d29bb949d45dcd9311906856643cb1ca450033282da413e9468c058abef25",
+          "kind": "value",
+          "target_capability": [
+            "definition_by_genus_and_difference",
+            "antonym"
+          ],
+          "required_cognitive_operations": [
+            "composition",
+            "definition_by_genus_and_difference",
+            "antonym"
+          ],
+          "difficulty": "transfer",
+          "expected_result": "higher",
+          "created_at": "2026-08-20T02:22:56.089918+00:00"
+        }
+      ]
+    }
+  }
+}

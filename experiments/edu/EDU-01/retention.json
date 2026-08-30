@@ -1,0 +1,315 @@
+{
+  "benchmark": "EDU-01",
+  "frozen_at": "2026-08-19T15:04:07.732440+00:00",
+  "note": "append-only; elapsed_hours is measured, never assumed",
+  "checkpoints": [
+    {
+      "probed_at": "2026-08-19T20:51:46.887168+00:00",
+      "elapsed_hours": 5.794,
+      "milestone": null,
+      "rule_id": "rule_edbe5a8b4ad8",
+      "rule_present": true,
+      "rule_body_unchanged": true,
+      "score": 9,
+      "of": 9,
+      "frozen_score": 9,
+      "capability_retained": true,
+      "detail": [
+        {
+          "map": "2-hop",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "3-hop",
+          "steps": 3,
+          "expected": 3,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "4-hop",
+          "steps": 4,
+          "expected": 4,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "5-hop",
+          "steps": 5,
+          "expected": 5,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "6-hop",
+          "steps": 6,
+          "expected": 6,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "branched",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "dead-end",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "no path",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "closed door",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        }
+      ]
+    },
+    {
+      "probed_at": "2026-08-19T20:56:39.818530+00:00",
+      "elapsed_hours": 5.876,
+      "milestone": null,
+      "rule_id": "rule_edbe5a8b4ad8",
+      "rule_present": true,
+      "rule_body_unchanged": true,
+      "score": 9,
+      "of": 9,
+      "frozen_score": 9,
+      "capability_retained": true,
+      "detail": [
+        {
+          "map": "2-hop",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "3-hop",
+          "steps": 3,
+          "expected": 3,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "4-hop",
+          "steps": 4,
+          "expected": 4,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "5-hop",
+          "steps": 5,
+          "expected": 5,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "6-hop",
+          "steps": 6,
+          "expected": 6,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "branched",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "dead-end",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "no path",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "closed door",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        }
+      ]
+    },
+    {
+      "probed_at": "2026-08-19T20:58:07.416028+00:00",
+      "elapsed_hours": 5.9,
+      "milestone": null,
+      "rule_id": "rule_edbe5a8b4ad8",
+      "rule_present": true,
+      "rule_body_unchanged": true,
+      "score": 9,
+      "of": 9,
+      "frozen_score": 9,
+      "capability_retained": true,
+      "detail": [
+        {
+          "map": "2-hop",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "3-hop",
+          "steps": 3,
+          "expected": 3,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "4-hop",
+          "steps": 4,
+          "expected": 4,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "5-hop",
+          "steps": 5,
+          "expected": 5,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "6-hop",
+          "steps": 6,
+          "expected": 6,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "branched",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "dead-end",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "no path",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "closed door",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        }
+      ]
+    },
+    {
+      "probed_at": "2026-08-19T21:04:25.506984+00:00",
+      "elapsed_hours": 6.005,
+      "milestone": "T+6h",
+      "rule_id": "rule_edbe5a8b4ad8",
+      "rule_present": true,
+      "rule_body_unchanged": true,
+      "score": 9,
+      "of": 9,
+      "frozen_score": 9,
+      "capability_retained": true,
+      "detail": [
+        {
+          "map": "2-hop",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "3-hop",
+          "steps": 3,
+          "expected": 3,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "4-hop",
+          "steps": 4,
+          "expected": 4,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "5-hop",
+          "steps": 5,
+          "expected": 5,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "6-hop",
+          "steps": 6,
+          "expected": 6,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "branched",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "dead-end",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "no path",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "closed door",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        }
+      ]
+    }
+  ]
+}

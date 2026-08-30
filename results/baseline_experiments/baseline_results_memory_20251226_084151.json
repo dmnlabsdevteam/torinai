@@ -1,0 +1,112 @@
+{
+  "memory": {
+    "system": "memory",
+    "n_experiments": 150,
+    "verdict": "FAIL",
+    "baseline_results": {
+      "no_intervention": {
+        "baseline_type": "no_intervention",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.30963020490612414,
+        "std_outcome_quality": 0.05834732185445936,
+        "mean_intrinsic_reward": 0.1970502231207812,
+        "mean_constitutional_alignment": 0.7015977846588616,
+        "mean_system_health_impact": 0.4944519588438084,
+        "success_rate": 0.32666666666666666,
+        "overall_performance": 0.42568254288239377
+      },
+      "random_selection": {
+        "baseline_type": "random_selection",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.40366804252263144,
+        "std_outcome_quality": 0.0565138114035555,
+        "mean_intrinsic_reward": 0.2959612899972353,
+        "mean_constitutional_alignment": 0.607466107980103,
+        "mean_system_health_impact": 0.45281927565666136,
+        "success_rate": 0.4066666666666667,
+        "overall_performance": 0.43997867903915777
+      },
+      "wrong_context": {
+        "baseline_type": "wrong_context",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.20307472299157595,
+        "std_outcome_quality": 0.058125089966836734,
+        "mean_intrinsic_reward": 0.13189061882163158,
+        "mean_constitutional_alignment": 0.44298351017105253,
+        "mean_system_health_impact": 0.34359515722376444,
+        "success_rate": 0.17333333333333334,
+        "overall_performance": 0.28038600230200617
+      },
+      "historical": {
+        "baseline_type": "historical_average",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.49696901167679186,
+        "std_outcome_quality": 0.060726356208424793,
+        "mean_intrinsic_reward": 0.5031264747136023,
+        "mean_constitutional_alignment": 0.497642631758222,
+        "mean_system_health_impact": 0.49991141903136965,
+        "success_rate": 0.5066666666666667,
+        "overall_performance": 0.49941238429499646
+      }
+    },
+    "actual_results": {
+      "baseline_type": "no_intervention",
+      "system": "memory",
+      "n_experiments": 150,
+      "mean_outcome_quality": 0.026127813219918482,
+      "std_outcome_quality": 0.08375392454789614,
+      "mean_intrinsic_reward": 0.04695408050115085,
+      "mean_constitutional_alignment": 0.9500000000000002,
+      "mean_system_health_impact": 0.8499999999999998,
+      "success_rate": 0.006666666666666667,
+      "overall_performance": 0.4682704734302673
+    },
+    "comparisons": {
+      "no_intervention": {
+        "baseline_type": "no_intervention",
+        "mean_diff_overall": 0.04258793054787363,
+        "p_value_overall": 1.3373244775655323e-21,
+        "effect_size_overall": 1.1974167926275714,
+        "statistically_significant": true,
+        "practically_significant": true,
+        "beats_baseline": true,
+        "summary": "\u2705 System BEATS baseline (no_intervention): \u0394=0.043, p=0.0000, d=1.197"
+      },
+      "random_selection": {
+        "baseline_type": "random_selection",
+        "mean_diff_overall": 0.02829179439110957,
+        "p_value_overall": 2.0349752948676054e-10,
+        "effect_size_overall": 0.7630829874080449,
+        "statistically_significant": true,
+        "practically_significant": true,
+        "beats_baseline": true,
+        "summary": "\u2705 System BEATS baseline (random_selection): \u0394=0.028, p=0.0000, d=0.763"
+      },
+      "wrong_context": {
+        "baseline_type": "wrong_context",
+        "mean_diff_overall": 0.1878844711282613,
+        "p_value_overall": 2.337062465252354e-124,
+        "effect_size_overall": 4.742311094413797,
+        "statistically_significant": true,
+        "practically_significant": true,
+        "beats_baseline": true,
+        "summary": "\u2705 System BEATS baseline (wrong_context): \u0394=0.188, p=0.0000, d=4.742"
+      },
+      "historical": {
+        "baseline_type": "historical_average",
+        "mean_diff_overall": -0.03114191086472895,
+        "p_value_overall": 6.768343967370428e-13,
+        "effect_size_overall": -0.8704753642160182,
+        "statistically_significant": true,
+        "practically_significant": true,
+        "beats_baseline": false,
+        "summary": "\u274c System FAILS to beat baseline (historical_average): \u0394=-0.031, p=0.0000, d=-0.870"
+      }
+    },
+    "timestamp": "2025-12-26T08:41:51.159188"
+  }
+}

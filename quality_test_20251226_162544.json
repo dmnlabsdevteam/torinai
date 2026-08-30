@@ -1,0 +1,41 @@
+[
+  {
+    "query": "What is the capital of France?",
+    "torinai": {
+      "response": null,
+      "latency": 0.01250314712524414,
+      "error": "HTTP 500"
+    },
+    "cloudflare": {
+      "response": "",
+      "latency": 1.8068039417266846,
+      "error": null
+    }
+  },
+  {
+    "query": "If I have 5 apples and give away 2, then buy 3 more, how many do I have?",
+    "torinai": {
+      "response": null,
+      "latency": 0.006810903549194336,
+      "error": "HTTP 500"
+    },
+    "cloudflare": {
+      "response": "",
+      "latency": 1.5989069938659668,
+      "error": null
+    }
+  },
+  {
+    "query": "Explain photosynthesis and why it's important for life on Earth",
+    "torinai": {
+      "response": null,
+      "latency": 0.008400201797485352,
+      "error": "HTTP 500"
+    },
+    "cloudflare": {
+      "response": "",
+      "latency": 1.4446918964385986,
+      "error": null
+    }
+  }
+]

@@ -1,0 +1,221 @@
+{
+  "alert_rules": [
+    {
+      "rule_id": "high_cpu_usage",
+      "name": "High CPU Usage",
+      "category": "performance",
+      "severity": "high",
+      "condition": "{\"metric\": \"cpu_percent\", \"operator\": \">\", \"value\": 90}",
+      "threshold": 90.0,
+      "time_window": 300,
+      "cooldown_period": 600,
+      "enabled": true,
+      "auto_resolve": true,
+      "suppress_duplicates": true
+    },
+    {
+      "rule_id": "high_memory_usage",
+      "name": "High Memory Usage",
+      "category": "performance",
+      "severity": "high",
+      "condition": "{\"metric\": \"memory_percent\", \"operator\": \">\", \"value\": 85}",
+      "threshold": 85.0,
+      "time_window": 300,
+      "cooldown_period": 600,
+      "enabled": true,
+      "auto_resolve": true,
+      "suppress_duplicates": true
+    },
+    {
+      "rule_id": "service_crash",
+      "name": "Service Crash",
+      "category": "service",
+      "severity": "critical",
+      "condition": "{\"metric\": \"service_status\", \"operator\": \"==\", \"value\": \"crashed\"}",
+      "threshold": 1.0,
+      "time_window": 0,
+      "cooldown_period": 300,
+      "enabled": true,
+      "auto_resolve": false,
+      "suppress_duplicates": true
+    },
+    {
+      "rule_id": "disk_full",
+      "name": "Disk Full",
+      "category": "system",
+      "severity": "critical",
+      "condition": "{\"metric\": \"disk_percent\", \"operator\": \">\", \"value\": 95}",
+      "threshold": 95.0,
+      "time_window": 60,
+      "cooldown_period": 1800,
+      "enabled": true,
+      "auto_resolve": true,
+      "suppress_duplicates": true
+    },
+    {
+      "rule_id": "security_breach",
+      "name": "Security Breach Detected",
+      "category": "security",
+      "severity": "emergency",
+      "condition": "{\"metric\": \"security_event\", \"operator\": \"==\", \"value\": \"breach\"}",
+      "threshold": 1.0,
+      "time_window": 0,
+      "cooldown_period": 0,
+      "enabled": true,
+      "auto_resolve": false,
+      "suppress_duplicates": false
+    },
+    {
+      "rule_id": "automation_failure",
+      "name": "Automation System Failure",
+      "category": "automation",
+      "severity": "high",
+      "condition": "{\"metric\": \"automation_health\", \"operator\": \"<\", \"value\": 0.7}",
+      "threshold": 0.7,
+      "time_window": 180,
+      "cooldown_period": 900,
+      "enabled": true,
+      "auto_resolve": true,
+      "suppress_duplicates": true
+    },
+    {
+      "rule_id": "biometric_approval_required",
+      "name": "Biometric Approval Required",
+      "category": "biometric_approval",
+      "severity": "high",
+      "condition": "{\"metric\": \"approval_required\", \"operator\": \"==\", \"value\": true}",
+      "threshold": 1.0,
+      "time_window": 0,
+      "cooldown_period": 0,
+      "enabled": true,
+      "auto_resolve": false,
+      "suppress_duplicates": false
+    }
+  ],
+  "notification_configs": {
+    "desktop": {
+      "enabled": true,
+      "config": {
+        "timeout": 10,
+        "sound": true
+      },
+      "severity_filter": [
+        "high",
+        "critical",
+        "emergency"
+      ]
+    },
+    "log": {
+      "enabled": true,
+      "config": {
+        "log_file": "alerts.log",
+        "max_size_mb": 100
+      },
+      "severity_filter": [
+        "low",
+        "medium",
+        "high",
+        "critical",
+        "emergency"
+      ]
+    },
+    "console": {
+      "enabled": true,
+      "config": {
+        "color_coding": true,
+        "timestamps": true
+      },
+      "severity_filter": [
+        "medium",
+        "high",
+        "critical",
+        "emergency"
+      ]
+    },
+    "email": {
+      "enabled": false,
+      "config": {
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "username": "",
+        "password": "",
+        "recipients": []
+      },
+      "severity_filter": [
+        "high",
+        "critical",
+        "emergency"
+      ],
+      "quiet_hours": {
+        "start_hour": 22,
+        "end_hour": 7
+      }
+    }
+  },
+  "escalation_policies": [
+    {
+      "policy_id": "critical_service_policy",
+      "name": "Critical Service Escalation",
+      "category": "service",
+      "escalation_levels": [
+        {
+          "level": 1,
+          "delay": 300,
+          "channels": [
+            "desktop",
+            "log"
+          ],
+          "conditions": [
+            "not_acknowledged"
+          ]
+        },
+        {
+          "level": 2,
+          "delay": 900,
+          "channels": [
+            "email",
+            "console"
+          ],
+          "conditions": [
+            "still_active",
+            "not_resolved"
+          ]
+        },
+        {
+          "level": 3,
+          "delay": 1800,
+          "channels": [
+            "email"
+          ],
+          "conditions": [
+            "still_critical"
+          ]
+        }
+      ],
+      "max_escalations": 3,
+      "auto_resolve_timeout": 3600
+    },
+    {
+      "policy_id": "security_emergency_policy",
+      "name": "Security Emergency Escalation",
+      "category": "security",
+      "escalation_levels": [
+        {
+          "level": 1,
+          "delay": 0,
+          "channels": [
+            "desktop",
+            "log",
+            "console",
+            "email"
+          ],
+          "conditions": [
+            "always"
+          ]
+        }
+      ],
+      "max_escalations": 1,
+      "auto_resolve_timeout": 0
+    }
+  ]
+}

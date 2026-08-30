@@ -1,0 +1,14 @@
+# Email Server API - Minimal Requirements
+# Only what's needed for webmail backend
+
+# FastAPI & Server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+email-validator>=2.0.0  # For EmailStr validation
+
+# JWT Authentication
+pyjwt>=2.8.0
+
+# HTTP Client (for future integrations)
+requests>=2.31.0

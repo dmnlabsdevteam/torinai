@@ -1,0 +1,102 @@
+REPLACE THIS PATTERN:
+
+        try:
+            result = await executor.execute_task(task)
+            success = result.get('success', False)
+            tool_calls = result.get('tool_results', [])
+            tools_used = [tc['tool'] for tc in tool_calls]
+            used_correct = tool_name in tools_used
+
+            if used_correct and success:
+                results["passed"] += 1
+                status = "✓ PASS"
+            else:
+                results["failed"] += 1
+                status = "✗ FAIL"
+
+            results["details"].append({
+                "tool": tool_name,
+                "prompt": prompt,
+                "used_correct": used_correct,
+                "success": success,
+                "tools_used": tools_used
+            })
+
+            print(f"  [{idx:3d}] {status}: {tool_name}")
+
+        except Exception as e:
+            results["failed"] += 1
+            results["details"].append({
+                "tool": tool_name,
+                "error": str(e)
+            })
+            print(f"  [{idx:3d}] ✗ ERR: {tool_name} - {str(e)[:40]}")
+
+WITH THIS PATTERN:
+
+        try:
+            print(f"\n{'='*80}")
+            print(f"[{idx:3d}/{len(TOOLLIST_NAME)}] Testing: {tool_name}")
+            print(f"{'='*80}")
+            print(f"PROMPT: {prompt}")
+            print(f"{'-'*80}")
+
+            result = await executor.execute_task(task)
+
+            success = result.get('success', False)
+            summary = result.get('summary', 'No summary')
+            tool_calls = result.get('tool_results', [])
+            tools_used = [tc['tool'] for tc in tool_calls]
+            used_correct = tool_name in tools_used
+
+            print(f"LLM SUMMARY: {summary}")
+            print(f"\nTOOLS CALLED: {tools_used}")
+            print(f"EXPECTED TOOL: {tool_name}")
+            print(f"CORRECT TOOL USED: {used_correct}")
+
+            if tool_calls:
+                print(f"\nTOOL EXECUTION DETAILS:")
+                for tc in tool_calls:
+                    print(f"  - Tool: {tc.get('tool', 'unknown')}")
+                    print(f"    Params: {tc.get('parameters', {})}")
+                    print(f"    Success: {tc.get('success', False)}")
+                    if tc.get('output'):
+                        print(f"    Output: {str(tc.get('output'))[:200]}")
+                    if tc.get('error'):
+                        print(f"    Error: {tc.get('error')}")
+
+            if used_correct and success:
+                results["passed"] += 1
+                status = "✓ PASS"
+                print(f"\n{status}")
+            else:
+                results["failed"] += 1
+                status = "✗ FAIL"
+                print(f"\n{status}")
+                if not used_correct:
+                    print(f"REASON: LLM chose wrong tool(s): {tools_used}")
+                if not success:
+                    print(f"REASON: Task failed - {result.get('error', 'Unknown error')}")
+
+            results["details"].append({
+                "tool": tool_name,
+                "prompt": prompt,
+                "used_correct": used_correct,
+                "success": success,
+                "tools_used": tools_used,
+                "summary": summary
+            })
+
+        except Exception as e:
+            results["failed"] += 1
+            print(f"\n✗ EXCEPTION: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            results["details"].append({
+                "tool": tool_name,
+                "error": str(e)
+            })
+
+NOTES:
+- Replace TOOLLIST_NAME with the actual tool list variable (e.g., execution_tools, network_tools, etc.)
+- This pattern shows the prompt, LLM response, tools called, and detailed execution info

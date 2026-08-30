@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+"""Systems status and control for the desktop app. Real, DB-backed, LIGHTWEIGHT.
+
+    torin-systems --status            every system + live status, as JSON
+    torin-systems --control S ACTION  enqueue a real stop/start/restart
+
+DIRECT asyncpg, NOT `core.database`. Importing the substrate's DB package pulls
+in the whole cognitive stack -- torch, transformers, the model runtime -- and
+measured at ~9.8s per call. A status read the app makes every 2s cannot cost
+that. This connects straight to Postgres with the same env the substrate reads,
+so it is the same database and the same rows, at 0.1s.
+
+STATUS reads `unified.system_control_status`, refreshed by the running substrate
+from the live objects. If the substrate is down the rows are stale, reported
+with their age. CONTROL writes a pending row to `unified.system_control_commands`;
+the substrate drains it on its loop and calls the real method. This process
+never touches the live systems -- it cannot, they are in another process.
+"""
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+# The same connection the substrate uses, read from the same env files, without
+# importing anything heavy. The default user is the OS user, not "postgres":
+# this Postgres is trust-auth on localhost and the substrate connects as the
+# invoking account (stefan), so a "postgres" default fails password auth where
+# the substrate succeeds. The env still overrides when POSTGRES_USER is set.
+import getpass
+_DEFAULTS = {"host": "localhost", "port": 5433, "database": "torinai_db",
+             "user": getpass.getuser(), "password": ""}
+_ENV = {"host": "POSTGRES_HOST", "port": "POSTGRES_PORT",
+        "database": "POSTGRES_DATABASE", "user": "POSTGRES_USER",
+        "password": "POSTGRES_PASSWORD"}
+
+
+def _load_env() -> None:
+    """Read .env / .env.production the way the substrate does, lines only."""
+    for name in (".env.production", ".env"):
+        path = HERE / name
+        if not path.exists():
+            continue
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            # .env.production is read first and wins, matching override=True.
+            if key not in os.environ or name == ".env.production":
+                os.environ[key] = value
+
+
+def _conn_kwargs() -> dict:
+    _load_env()
+    out = {}
+    for field, default in _DEFAULTS.items():
+        raw = os.getenv(_ENV[field])
+        value = raw if raw not in (None, "") else default
+        out[field] = int(value) if field == "port" else value
+    return out
+
+
+async def _connect():
+    import asyncpg
+    kw = _conn_kwargs()
+    return await asyncpg.connect(
+        host=kw["host"], port=kw["port"], database=kw["database"],
+        user=kw["user"], password=kw["password"] or None)
+
+
+def _registry():
+    """The system registry, loaded in ISOLATION so the whole `core` package
+    (torch, transformers, ~9.8s) is not imported for a fallback list. Its
+    module-level imports are stdlib only, so loading the file directly is safe
+    and fast -- the same trick torin-dash uses for channels.py.
+    """
+    import importlib.machinery, importlib.util
+    path = HERE / "core" / "health" / "system_control.py"
+    spec = importlib.util.spec_from_loader(
+        "torin_system_control",
+        importlib.machinery.SourceFileLoader("torin_system_control", str(path)))
+    mod = importlib.util.module_from_spec(spec)
+    # Register before exec: the frozen dataclass in the module resolves its
+    # fields through sys.modules, and omitting this leaves it a NoneType.
+    sys.modules["torin_system_control"] = mod
+    spec.loader.exec_module(mod)
+    return mod.REGISTRY
+
+
+def _absent_rows() -> list:
+    """Every known system marked absent, for when nothing has published yet.
+
+    So the tabs always show the systems and their off state, rather than a blank
+    'no systems reported'. Live status overrides this the moment the guardian or
+    substrate publishes.
+    """
+    rows = []
+    for sysm in _registry().values():
+        rows.append({"name": sysm.name, "kind": sysm.kind,
+                     "description": sysm.description, "status": "absent",
+                     "controllable": sysm.controllable, "age_seconds": None})
+    rows.sort(key=lambda r: (r["kind"], r["name"]))
+    return rows
+
+
+async def _status() -> dict:
+    conn = await _connect()
+    try:
+        rows = await conn.fetch(
+            "SELECT name, kind, description, status, controllable, "
+            "EXTRACT(EPOCH FROM (NOW() - updated_at))::int AS age_seconds "
+            "FROM unified.system_control_status "
+            "WHERE name <> '__guardian_heartbeat__' ORDER BY kind, name")
+        if not rows:
+            return {"systems": _absent_rows()}
+        return {"systems": [dict(r) for r in rows]}
+    finally:
+        await conn.close()
+
+
+async def _control(system: str, action: str) -> dict:
+    if action not in ("start", "stop", "restart"):
+        return {"ok": False, "reason": f"unknown action {action!r}"}
+    conn = await _connect()
+    try:
+        # Validate against the systems the substrate has actually published, so
+        # a typo is rejected here rather than filed as a failed command. If the
+        # table is empty (substrate never ran) the insert still goes through and
+        # the substrate validates on drain.
+        known = {r["name"] for r in await conn.fetch(
+            "SELECT name FROM unified.system_control_status")}
+        if known and system not in known:
+            return {"ok": False, "reason": f"unknown system {system!r}"}
+        row = await conn.fetchrow(
+            "INSERT INTO unified.system_control_commands (system, action) "
+            "VALUES ($1, $2) RETURNING id", system, action)
+        return {"ok": True, "queued": int(row["id"]),
+                "note": "the substrate will apply this on its next loop"}
+    finally:
+        await conn.close()
+
+
+async def _components() -> dict:
+    """The substrate's subsystems and their health, for the Monitoring page.
+
+    Read-only: these are MONITORED, not controlled -- there is no start/stop for
+    'the memory subsystem', only a health indicator. Read straight from
+    `unified.components`, which the substrate's health_monitor keeps current
+    while it runs and which stands as the last-known state when it does not.
+    """
+    from core.health.ownership import component_owner
+    conn = await _connect()
+    try:
+        # LIVE health, not the structural registry. `unified.component_health`
+        # is what every subsystem's monitor actually writes -- real status and
+        # score -- while `unified.components` is only the declaration (every row
+        # 'declared', score 0). The category/type come from the declaration via
+        # a join. Excluded: the 'unknown'/'monitoring' rows, which are stale
+        # structural cruft and old metric-name pollution, and dotted
+        # sub-components, so the page lists whole subsystems. health_score is
+        # stored 0-100; the dashboard renders a 0-1 fraction, so normalise here.
+        # DISTINCT ON collapses the duplicate category rows that exist in
+        # unified.components for a few names (content_security, storage, ...),
+        # which would otherwise multiply a single live-health row into several.
+        rows = await conn.fetch(
+            "SELECT DISTINCT ON (ch.component_name) "
+            "       ch.component_name AS name, "
+            "       COALESCE(c.component_category, 'other') AS category, "
+            "       COALESCE(c.component_type, '') AS type, "
+            "       ch.status, "
+            "       (ch.health_score::float8 / 100.0) AS health_score, "
+            "       EXTRACT(EPOCH FROM (NOW() - ch.last_updated))::int AS checked_age "
+            "  FROM unified.component_health ch "
+            "  LEFT JOIN unified.components c ON c.component_name = ch.component_name "
+            " WHERE ch.status NOT IN ('unknown', 'monitoring') "
+            "   AND ch.component_name NOT LIKE '%.%' "
+            " ORDER BY ch.component_name")
+        # Is the substrate alive? Its internals are graded WITH it; when it is
+        # stopped they are shown offline from this heartbeat rather than from a
+        # stale score written when it last ran.
+        hb = await conn.fetch(
+            "SELECT EXTRACT(EPOCH FROM (NOW() - updated_at))::int AS age "
+            "FROM unified.system_control_status WHERE name = '__substrate_heartbeat__'")
+        substrate_present = bool(hb) and int(hb[0]["age"]) <= 8
+        out = []
+        for r in rows:
+            d = dict(r)
+            # 'system' = always-on guardian; 'substrate' = internal, off with it.
+            d["owner"] = component_owner(d["name"])
+            out.append(d)
+        return {"components": out, "substrate_present": substrate_present,
+                "monitoring_enabled": True}
+    finally:
+        await conn.close()
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    try:
+        if args and args[0] == "--status":
+            out = asyncio.run(_status())
+        elif args and args[0] == "--components":
+            out = asyncio.run(_components())
+        elif len(args) == 3 and args[0] == "--control":
+            out = asyncio.run(_control(args[1], args[2]))
+        else:
+            print("usage: torin-systems --status | --components | "
+                  "--control <system> <start|stop|restart>", file=sys.stderr)
+            return 2
+        print(json.dumps(out, default=str))
+        return 0
+    except Exception as error:
+        print(json.dumps({"error": f"{type(error).__name__}: {error}"}))
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

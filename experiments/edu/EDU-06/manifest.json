@@ -1,0 +1,89 @@
+{
+  "benchmark": "EDU-06",
+  "title": "Transfer Between Two Real Learned Domains",
+  "recorded_at": "2026-08-23T19:24:50.922992+00:00",
+  "passed": true,
+  "model_calls": 0,
+  "source_hub": "kite17:move",
+  "source_domain": "kite17",
+  "source_edges": [
+    [
+      "adds",
+      "kite17:at"
+    ],
+    [
+      "removes",
+      "kite17:at"
+    ],
+    [
+      "requires",
+      "kite17:at"
+    ],
+    [
+      "requires",
+      "kite17:open"
+    ],
+    [
+      "requires",
+      "kite17:path"
+    ]
+  ],
+  "observation_is_derived_from_the_store": true,
+  "excluded_domains": [
+    "kite17"
+  ],
+  "matched_domain": "archive",
+  "crossed_a_domain_boundary": true,
+  "transfer": {
+    "observation_id": "edu06_from_kite17_move",
+    "outcome": "GROUNDED",
+    "structures_searched": 423,
+    "best_support": 1.0,
+    "usable_for_transfer": true,
+    "note": "grounded on the learned structure around archive:relocate",
+    "correspondences": [
+      {
+        "element": "e0",
+        "concept_id": "archive:relocate",
+        "supporting_edges": [
+          [
+            "archive:relocate",
+            "adds",
+            "archive:in"
+          ]
+        ]
+      },
+      {
+        "element": "e1",
+        "concept_id": "archive:in",
+        "supporting_edges": [
+          [
+            "archive:relocate",
+            "adds",
+            "archive:in"
+          ]
+        ]
+      },
+      {
+        "element": "e2",
+        "concept_id": "archive:ready",
+        "supporting_edges": [
+          [
+            "archive:relocate",
+            "requires",
+            "archive:ready"
+          ]
+        ]
+      }
+    ]
+  },
+  "control_unused_relations": {
+    "observation_id": "edu06_distractor",
+    "outcome": "NO_MATCH",
+    "structures_searched": 425,
+    "best_support": 0.0,
+    "usable_for_transfer": false,
+    "note": "searched 425 learned structures; best support 0.00",
+    "correspondences": []
+  }
+}

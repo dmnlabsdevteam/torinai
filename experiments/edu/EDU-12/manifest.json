@@ -1,0 +1,476 @@
+{
+  "benchmark": "EDU-12",
+  "title": "Open-Domain Autonomous Competence Acquisition",
+  "stage": "1_baseline_and_invariants",
+  "recorded_at": "2026-08-20T16:24:42.834274+00:00",
+  "model_calls": 0,
+  "blocks": [
+    "mathematics",
+    "programming",
+    "causal_science",
+    "language"
+  ],
+  "invariants": {
+    "subject_purity_held": true,
+    "attempt_subject_agnostic": true,
+    "exams_sealed": {
+      "mathematics": {
+        "pretest": "3e1fab93f60f78a5510a41b31789579baa926556b3434d50b418af938ff54476",
+        "posttest": "1986a390e27337370a4105898438ce2d19833e006baac565f1bfae8662552246",
+        "transfer": "d42d04d0146c43390ef0e98be43d0a380d9fdc50d0254d6dc20223a5122d67b8",
+        "sealed_at": "2026-08-20T16:24:42.834274+00:00"
+      },
+      "programming": {
+        "pretest": "bfcc814848b5fa61bf0e654fc7bca002c47e55dfce93ee5f99fcc30d8fe46eb1",
+        "posttest": "0cdb25cda415d2806fdbee000a231cc5048451a884f4dde3923c02aca9d4739f",
+        "transfer": "eb146a958b16b80f9b42a5981e32adfadfa0747032d532138b4777ca17641744",
+        "sealed_at": "2026-08-20T16:24:42.834274+00:00"
+      },
+      "causal_science": {
+        "pretest": "9f952c6c632bd90cde851b9d24266064f16f94a3171f3008405c45bd890c5bd3",
+        "posttest": "44714159a701d0f16508e73321ca8640f62bc098fa5950176a44a9315a212f27",
+        "transfer": "e9293e1b45dfc3937945ef6c49656e7635a13ce6c7eb2b0818ba7cd271e848b2",
+        "sealed_at": "2026-08-20T16:24:42.834274+00:00"
+      },
+      "language": {
+        "pretest": "442d0885fd46efd9571e72d26e78d5a63aaf693f975b03a0b95a7219ad0ae71c",
+        "posttest": "46d0078ebe1192df222ff8907c407ce0a404444a37f3f47bf5a14f7589b73d3c",
+        "transfer": "fa7dc9ce8a2bef9995cfdb9c96da2170a1f0f83434356b2ec7d62f51eea8ce65",
+        "sealed_at": "2026-08-20T16:24:42.834274+00:00"
+      }
+    },
+    "posttest_lesson_contamination": {},
+    "exam_items_answerable": true,
+    "invalid_exam_items": {},
+    "generality": {
+      "baseline_fingerprint": "224ff6c6cdf3a641e2dc9a25c3eee6035c9b1461871bf0aa3d9a42661e521891",
+      "substrate_files": 282,
+      "checkpoints": {
+        "after_mathematics_pretest": "224ff6c6cdf3a641e2dc9a25c3eee6035c9b1461871bf0aa3d9a42661e521891",
+        "after_programming_pretest": "224ff6c6cdf3a641e2dc9a25c3eee6035c9b1461871bf0aa3d9a42661e521891",
+        "after_causal_science_pretest": "224ff6c6cdf3a641e2dc9a25c3eee6035c9b1461871bf0aa3d9a42661e521891",
+        "after_language_pretest": "224ff6c6cdf3a641e2dc9a25c3eee6035c9b1461871bf0aa3d9a42661e521891"
+      },
+      "architecture_unchanged": true
+    }
+  },
+  "admissible": true,
+  "supersedes": "S0_INVALID_01.json",
+  "ingress": {
+    "reasoning": "AutonomousCoordinator.reason_about -> NeuralSymbolicBridge",
+    "induction": "SubstrateLearning.induce_causal_structure",
+    "teacher_model_detached": true
+  },
+  "s0_baseline": {
+    "mathematics": {
+      "score": 3,
+      "of": 6,
+      "percent": 50.0,
+      "unknown_rate": 0.5,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    },
+    "programming": {
+      "score": 0,
+      "of": 6,
+      "percent": 0.0,
+      "unknown_rate": 1.0,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    },
+    "causal_science": {
+      "score": 4,
+      "of": 6,
+      "percent": 66.7,
+      "unknown_rate": 0.333,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    },
+    "language": {
+      "score": 2,
+      "of": 6,
+      "percent": 33.3,
+      "unknown_rate": 0.667,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    }
+  },
+  "s0_detail": {
+    "mathematics": [
+      {
+        "id": "m_pre1",
+        "verdict": "correct",
+        "answer": 21,
+        "expected": 21,
+        "basis": "substrate_verified",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "substrate_verified"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre2",
+        "verdict": "correct",
+        "answer": 243,
+        "expected": 243,
+        "basis": "substrate_verified",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "substrate_verified"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre3",
+        "verdict": "correct",
+        "answer": 6,
+        "expected": 6,
+        "basis": "substrate_verified",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "substrate_verified"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "left",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 30,
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 25,
+        "basis": "substrate did not settle it (substrate_undecided)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "substrate_undecided"
+        ],
+        "verified": false,
+        "model_calls": 0
+      }
+    ],
+    "programming": [
+      {
+        "id": "p_pre1",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "generate_function declined: a detached phase reached for the teacher; the model is severed\n\n[RECOV",
+        "route": [
+          "tool_registry",
+          "generate_function"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "generate_function declined: a detached phase reached for the teacher; the model is severed\n\n[RECOV",
+        "route": [
+          "tool_registry",
+          "generate_function"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre3",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "generate_function declined: a detached phase reached for the teacher; the model is severed\n\n[RECOV",
+        "route": [
+          "tool_registry",
+          "generate_function"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "generate_function declined: a detached phase reached for the teacher; the model is severed\n\n[RECOV",
+        "route": [
+          "tool_registry",
+          "generate_function"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "generate_function declined: a detached phase reached for the teacher; the model is severed\n\n[RECOV",
+        "route": [
+          "tool_registry",
+          "generate_function"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "generate_function declined: a detached phase reached for the teacher; the model is severed\n\n[RECOV",
+        "route": [
+          "tool_registry",
+          "generate_function"
+        ],
+        "verified": false,
+        "model_calls": 0
+      }
+    ],
+    "causal_science": [
+      {
+        "id": "s_pre1",
+        "verdict": "correct",
+        "answer": {
+          "requires": [
+            "fuel",
+            "heat",
+            "spark"
+          ],
+          "forbids": []
+        },
+        "expected": {
+          "requires": [
+            "fuel",
+            "heat",
+            "spark"
+          ],
+          "forbids": []
+        },
+        "basis": "version space MAP, posterior 0.110",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre2",
+        "verdict": "correct",
+        "answer": {
+          "requires": [
+            "power"
+          ],
+          "forbids": [
+            "lock"
+          ]
+        },
+        "expected": {
+          "requires": [
+            "power"
+          ],
+          "forbids": [
+            "lock"
+          ]
+        },
+        "basis": "version space MAP, posterior 0.207",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre3",
+        "verdict": "correct",
+        "answer": true,
+        "expected": true,
+        "basis": "predicted P(success)=0.571",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre4",
+        "verdict": "correct",
+        "answer": false,
+        "expected": false,
+        "basis": "predicted P(success)=0.377",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "undetermined",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "no",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      }
+    ],
+    "language": [
+      {
+        "id": "l_pre1",
+        "verdict": "correct",
+        "answer": "yes",
+        "expected": "yes",
+        "basis": "substrate_verified",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "substrate_verified"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "yes",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre3",
+        "verdict": "correct",
+        "answer": "undetermined",
+        "expected": "undetermined",
+        "basis": "substrate_refuted",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "substrate_refuted"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "descend",
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "no",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "land",
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      }
+    ]
+  }
+}

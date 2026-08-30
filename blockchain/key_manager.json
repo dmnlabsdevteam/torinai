@@ -1,0 +1,13 @@
+{
+    "keys": {
+        "user123": {
+            "rsa": "rsa_key_123"
+        }
+    },
+    "access_logs": [
+        {
+            "user_id": "user123",
+            "timestamp": "2023-10-01 12:00:00"
+        }
+    ]
+}

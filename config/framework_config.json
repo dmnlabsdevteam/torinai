@@ -1,0 +1,19 @@
+{
+  "automation_level": "aggressive",
+  "max_concurrent_operations": 10,
+  "health_check_interval": 30,
+  "component_timeout": 60,
+  "auto_recovery_enabled": true,
+  "aggressive_optimization": true,
+  "minimal_intervention_mode": true
+  , "perception_idea_monitor": {
+    "enabled": true,
+    "min_novelty": 0.65,
+    "min_pattern_strength": 0.5,
+    "aggregation_window_sec": 900,
+    "cooldown_sec": 300,
+    "max_signals": 50,
+    "max_seeds_per_cycle": 3,
+    "persist_seeds": false
+  }
+}

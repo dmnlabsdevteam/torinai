@@ -1,0 +1,24 @@
+# Preserve original line endings for all files
+* text=auto eol=lf
+
+# Ensure these file types keep LF line endings (macOS/Unix style)
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sh text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+
+# Binary files
+*.zip binary
+*.gz binary
+*.tar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.app binary

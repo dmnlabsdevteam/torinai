@@ -1,0 +1,76 @@
+{
+  "benchmark": "EDU-07",
+  "title": "Functional Cross-Domain Transfer",
+  "claim": "prior knowledge from a structurally analogous source domain reduces the target-domain evidence required to acquire validated competence, without reducing held-out performance",
+  "recorded_at": "2026-08-23T19:25:30.399125+00:00",
+  "passed": true,
+  "model_calls": 0,
+  "source": {
+    "rule_id": "rule_edbe5a8b4ad8",
+    "domain": "kite17",
+    "formula": "AT(?X0, ?X2) \u2227 MOVE(?X0, ?X2, ?X1) \u2227 OPEN(?X1) \u2227 PATH(?X2, ?X1) \u2192 AT(?X0, ?X1) \u2296 AT(?X0, ?X2)"
+  },
+  "target_domain": "warehouse",
+  "observations_in_stream": [
+    "wh_1",
+    "wh_2",
+    "wh_no_ACTION",
+    "wh_no_AVAILABLE",
+    "wh_no_ROUTE",
+    "wh_no_LOCATED"
+  ],
+  "held_out": [
+    "wh_h1",
+    "wh_h2",
+    "wh_h3_no_AVAILABLE",
+    "wh_h4_no_ROUTE",
+    "wh_h5_no_LOCATED"
+  ],
+  "condition_A_transfer": {
+    "first_hypothesis_after": 1,
+    "validated_after": 1,
+    "mapping": {
+      "AT": "LOCATED",
+      "MOVE": "TRANSFER",
+      "OPEN": "AVAILABLE",
+      "PATH": "ROUTE"
+    },
+    "mapping_reason": "derived from 1 observed transition(s)",
+    "rule": "AVAILABLE(?X1) \u2227 LOCATED(?X0, ?X2) \u2227 ROUTE(?X2, ?X1) \u2227 TRANSFER(?X0, ?X2, ?X1) \u2192 LOCATED(?X0, ?X1) \u2296 LOCATED(?X0, ?X2)",
+    "held_out": [
+      5,
+      5
+    ]
+  },
+  "condition_B_scratch": {
+    "first_hypothesis_after": 3,
+    "validated_after": 6,
+    "rule": "AVAILABLE(?X1) \u2227 LOCATED(?X0, ?X2) \u2227 ROUTE(?X2, ?X1) \u2227 TRANSFER(?X0, ?X2, ?X1) \u2192 LOCATED(?X0, ?X1) \u2296 LOCATED(?X0, ?X2)",
+    "held_out": [
+      5,
+      5
+    ]
+  },
+  "ablation_mapping_severed": {
+    "first_hypothesis_after": null,
+    "validated_after": null,
+    "mapping": {},
+    "mapping_reason": "mapping severed",
+    "rule": null,
+    "held_out": null
+  },
+  "candidate": {
+    "rule_id": "rule_c93e945ab060",
+    "status": "validated",
+    "positive_root_count": 0,
+    "negative_root_count": 0,
+    "authorized_by_target_evidence": true
+  },
+  "criteria": {
+    "fewer_observations": true,
+    "held_out_not_worse": true,
+    "ablation_removes_proposal": true,
+    "candidate_evidence_free": true,
+    "authorized_by_target_evidence": true
+  }
+}

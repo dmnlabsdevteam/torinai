@@ -1,0 +1,38 @@
+{
+  "domains": {
+    "example.com": {
+      "auth_type": "api_key",
+      "api_key": "your_api_key_here",
+      "endpoints": {
+        "logs": "/api/v1/logs",
+        "cleanup": "/api/v1/cleanup"
+      }
+    },
+    "cloudflare.com": {
+      "auth_type": "bearer_token",
+      "token": "your_cloudflare_token",
+      "zone_id": "your_zone_id",
+      "endpoints": {
+        "logs": "/client/v4/zones/{zone_id}/logs/received",
+        "purge": "/client/v4/zones/{zone_id}/purge_cache"
+      }
+    },
+    "amazonaws.com": {
+      "auth_type": "aws_credentials",
+      "access_key": "your_access_key",
+      "secret_key": "your_secret_key",
+      "region": "us-east-1",
+      "services": {
+        "cloudfront": {
+          "distribution_id": "your_distribution_id"
+        },
+        "s3": {
+          "bucket": "your_log_bucket"
+        },
+        "cloudwatch": {
+          "log_group": "/aws/cloudfront/logs"
+        }
+      }
+    }
+  }
+}

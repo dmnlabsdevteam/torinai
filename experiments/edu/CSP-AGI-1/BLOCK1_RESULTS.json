@@ -1,0 +1,1073 @@
+{
+  "protocol": "CSP-AGI-1 Block 1 \u2014 opaque novel domain",
+  "status_of_this_run": "DEVELOPMENTAL DATA, not evidence of AGI. The protocol requires the architecture to be frozen before the evaluator exists; this substrate was modified extensively on the day of the run.",
+  "recorded_at": "2026-08-20T20:30:54.389414+00:00",
+  "architecture": {
+    "before": "625d955a2912e993eff53728ce0a5e122cf89244c2d3fa4eaac8776c20ee16dd",
+    "after": "625d955a2912e993eff53728ce0a5e122cf89244c2d3fa4eaac8776c20ee16dd",
+    "frozen_as": "EDU-12_S0_ADMISSIBLE_10",
+    "unchanged": true
+  },
+  "worlds_per_family": 8,
+  "criterion": {
+    "competence_floor": 0.8,
+    "false_confidence_ceiling": 0.05,
+    "transfer_floor": 0.8,
+    "transfer_amended": "criterion 4 was mis-specified as 100% and is measured here as: no WRONG projection, and at least the floor holding"
+  },
+  "measured": {
+    "competence": 0.9583333333333334,
+    "false_confidence": 0.0,
+    "transfer": 1.0,
+    "vague_refusals": 0
+  },
+  "by_family": {
+    "conjunctive": [
+      {
+        "world": 0,
+        "family": "conjunctive",
+        "seed": 7000,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "GOP0(?X0) \u2227 LAL9(?X0) \u2227 VUF9(?X0) \u2192 KOB1(?X0)"
+      },
+      {
+        "world": 1,
+        "family": "conjunctive",
+        "seed": 7031,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "LAD0(?X0) \u2227 MAR6(?X0) \u2227 POP9(?X0) \u2192 MOZ0(?X0)"
+      },
+      {
+        "world": 2,
+        "family": "conjunctive",
+        "seed": 7062,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "DIZ5(?X0) \u2227 MES6(?X0) \u2227 VAB1(?X0) \u2192 KUV4(?X0)"
+      },
+      {
+        "world": 3,
+        "family": "conjunctive",
+        "seed": 7093,
+        "outcome": "refused",
+        "status": "multiple_hypotheses",
+        "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+        "rule": null
+      },
+      {
+        "world": 4,
+        "family": "conjunctive",
+        "seed": 7124,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "FEB7(?X0) \u2227 GOB2(?X0) \u2227 VUK9(?X0) \u2192 XIF6(?X0)"
+      },
+      {
+        "world": 5,
+        "family": "conjunctive",
+        "seed": 7155,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "BUV5(?X0) \u2227 LAG0(?X0) \u2227 ZIX2(?X0) \u2192 MEN2(?X0)"
+      },
+      {
+        "world": 6,
+        "family": "conjunctive",
+        "seed": 7186,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "DUV8(?X0) \u2227 GOV4(?X0) \u2227 LUG7(?X0) \u2192 PIG6(?X0)"
+      },
+      {
+        "world": 7,
+        "family": "conjunctive",
+        "seed": 7217,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "LOX4(?X0) \u2227 NUT2(?X0) \u2227 VUG8(?X0) \u2192 VIK9(?X0)"
+      }
+    ],
+    "relational": [
+      {
+        "world": 0,
+        "family": "relational",
+        "seed": 7977,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "FIN8(?X1) \u2227 FIS9(?X0, ?X1) \u2192 MOG7(?X0, ?X1)"
+      },
+      {
+        "world": 1,
+        "family": "relational",
+        "seed": 8008,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "PEP2(?X0, ?X1) \u2227 RUL5(?X1) \u2192 DAF8(?X0, ?X1)"
+      },
+      {
+        "world": 2,
+        "family": "relational",
+        "seed": 8039,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "BEV3(?X0, ?X1) \u2227 REV1(?X1) \u2192 ROS2(?X0, ?X1)"
+      },
+      {
+        "world": 3,
+        "family": "relational",
+        "seed": 8070,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "KIB6(?X1) \u2227 TOR1(?X0, ?X1) \u2192 DUX1(?X0, ?X1)"
+      },
+      {
+        "world": 4,
+        "family": "relational",
+        "seed": 8101,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "SEK3(?X1) \u2227 VIX2(?X0, ?X1) \u2192 VOP6(?X0, ?X1)"
+      },
+      {
+        "world": 5,
+        "family": "relational",
+        "seed": 8132,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "MEV2(?X0, ?X1) \u2227 NIX9(?X1) \u2192 FUZ8(?X0, ?X1)"
+      },
+      {
+        "world": 6,
+        "family": "relational",
+        "seed": 8163,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "FUB9(?X1) \u2227 SUR6(?X0, ?X1) \u2192 DOD8(?X0, ?X1)"
+      },
+      {
+        "world": 7,
+        "family": "relational",
+        "seed": 8194,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "DEB3(?X0, ?X1) \u2227 DUD2(?X1) \u2192 XAD1(?X0, ?X1)"
+      }
+    ],
+    "computed": [
+      {
+        "world": 0,
+        "family": "computed",
+        "seed": 8954,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "DOR7(?X0, ?X2) \u2227 LAK7(?X0, ?X3) \u2227 ZUX0(?X0) \u2192 VIV0(?X0, ?X1) \u27e8?X1 := add(?X2, ?X3)\u27e9"
+      },
+      {
+        "world": 1,
+        "family": "computed",
+        "seed": 8985,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "DIF8(?X0, ?X2) \u2227 VAL8(?X0) \u2227 VAM0(?X0, ?X3) \u2192 VOF6(?X0, ?X1) \u27e8?X1 := subtract(?X3, ?X2)\u27e9"
+      },
+      {
+        "world": 2,
+        "family": "computed",
+        "seed": 9016,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "TAD0(?X0, ?X2) \u2227 VUF9(?X0, ?X3) \u2227 ZEP4(?X0) \u2192 ZES6(?X0, ?X1) \u27e8?X1 := multiply(?X2, ?X3)\u27e9"
+      },
+      {
+        "world": 3,
+        "family": "computed",
+        "seed": 9047,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "LAP7(?X0) \u2227 LEK0(?X0, ?X2) \u2227 VIZ6(?X0, ?X3) \u2192 FUT0(?X0, ?X1) \u27e8?X1 := multiply(?X2, ?X3)\u27e9"
+      },
+      {
+        "world": 4,
+        "family": "computed",
+        "seed": 9078,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "BOK7(?X0, ?X2) \u2227 GIV2(?X0) \u2227 VUF8(?X0, ?X3) \u2192 TED4(?X0, ?X1) \u27e8?X1 := multiply(?X2, ?X3)\u27e9"
+      },
+      {
+        "world": 5,
+        "family": "computed",
+        "seed": 9109,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "GIN0(?X0, ?X2) \u2227 LEM6(?X0) \u2227 RAB0(?X0, ?X3) \u2192 PAT8(?X0, ?X1) \u27e8?X1 := add(?X2, ?X3)\u27e9"
+      },
+      {
+        "world": 6,
+        "family": "computed",
+        "seed": 9140,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "KES8(?X0, ?X2) \u2227 KUZ9(?X0, ?X3) \u2227 LIN0(?X0) \u2192 DEP9(?X0, ?X1) \u27e8?X1 := add(?X2, ?X3)\u27e9"
+      },
+      {
+        "world": 7,
+        "family": "computed",
+        "seed": 9171,
+        "outcome": "learned_and_holds",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "KET4(?X0, ?X2) \u2227 RID7(?X0, ?X3) \u2227 ZEZ2(?X0) \u2192 VAP7(?X0, ?X1) \u27e8?X1 := subtract(?X3, ?X2)\u27e9"
+      }
+    ],
+    "negated": [
+      {
+        "world": 0,
+        "family": "negated",
+        "seed": 9931,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 1,
+        "family": "negated",
+        "seed": 9962,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 2,
+        "family": "negated",
+        "seed": 9993,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 3,
+        "family": "negated",
+        "seed": 10024,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 4,
+        "family": "negated",
+        "seed": 10055,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 5,
+        "family": "negated",
+        "seed": 10086,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 6,
+        "family": "negated",
+        "seed": 10117,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 7,
+        "family": "negated",
+        "seed": 10148,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      }
+    ],
+    "disjunctive": [
+      {
+        "world": 0,
+        "family": "disjunctive",
+        "seed": 10908,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 1,
+        "family": "disjunctive",
+        "seed": 10939,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 2,
+        "family": "disjunctive",
+        "seed": 10970,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 3,
+        "family": "disjunctive",
+        "seed": 11001,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 4,
+        "family": "disjunctive",
+        "seed": 11032,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 5,
+        "family": "disjunctive",
+        "seed": 11063,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 6,
+        "family": "disjunctive",
+        "seed": 11094,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      },
+      {
+        "world": 7,
+        "family": "disjunctive",
+        "seed": 11125,
+        "outcome": "refused",
+        "status": "no_rule",
+        "detail": "every generalization of these demonstrations also covers a counter-demonstration",
+        "rule": null
+      }
+    ],
+    "uncatalogued": [
+      {
+        "world": 0,
+        "family": "uncatalogued",
+        "seed": 11885,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "FED8(?X0) \u2227 MUT0(?X0, ?X2) \u2192 NOM3(?X0, ?X1) \u27e8?X1 := FED8()\u27e9"
+      },
+      {
+        "world": 1,
+        "family": "uncatalogued",
+        "seed": 11916,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "LAF7(?X0, ?X2) \u2227 MED2(?X0) \u2192 XAG3(?X0, ?X1) \u27e8?X1 := MED2()\u27e9"
+      },
+      {
+        "world": 2,
+        "family": "uncatalogued",
+        "seed": 11947,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "SAV5(?X0, ?X2) \u2227 VIV9(?X0) \u2192 SUV0(?X0, ?X1) \u27e8?X1 := VIV9()\u27e9"
+      },
+      {
+        "world": 3,
+        "family": "uncatalogued",
+        "seed": 11978,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "GUS6(?X0, ?X2) \u2227 NUK8(?X0) \u2192 XEG5(?X0, ?X1) \u27e8?X1 := NUK8()\u27e9"
+      },
+      {
+        "world": 4,
+        "family": "uncatalogued",
+        "seed": 12009,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "LIV7(?X0, ?X2) \u2227 VID8(?X0) \u2192 LAT1(?X0, ?X1) \u27e8?X1 := VID8()\u27e9"
+      },
+      {
+        "world": 5,
+        "family": "uncatalogued",
+        "seed": 12040,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "MIV2(?X0) \u2227 POP3(?X0, ?X2) \u2192 NUV9(?X0, ?X1) \u27e8?X1 := MIV2()\u27e9"
+      },
+      {
+        "world": 6,
+        "family": "uncatalogued",
+        "seed": 12071,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "BAR1(?X0) \u2227 LEP2(?X0, ?X2) \u2192 ZUR4(?X0, ?X1) \u27e8?X1 := BAR1()\u27e9"
+      },
+      {
+        "world": 7,
+        "family": "uncatalogued",
+        "seed": 12102,
+        "outcome": "learned_without_the_value",
+        "status": "rule_learned",
+        "detail": "",
+        "rule": "GIM4(?X0, ?X2) \u2227 SUT5(?X0) \u2192 TEK8(?X0, ?X1) \u27e8?X1 := SUT5()\u27e9"
+      }
+    ]
+  },
+  "transfer": [
+    {
+      "family": "conjunctive",
+      "pair": 0,
+      "outcome": "holds",
+      "correspondence": {
+        "VIT7": "FOS3",
+        "VIZ4": "NOL3",
+        "RIM6": "FOK3",
+        "SUM4": "LES8"
+      },
+      "why": "derived from 2 observed transition(s); 2 predicate(s) map several ways to the same rule",
+      "projected": "FOK3(?X0) \u2227 LES8(?X0) \u2227 NOL3(?X0) \u2192 FOS3(?X0)"
+    },
+    {
+      "family": "conjunctive",
+      "pair": 1,
+      "outcome": "holds",
+      "correspondence": {
+        "VED5": "RUR7",
+        "GOT3": "SAB3",
+        "BEM1": "SUP5",
+        "GIB1": "XID4"
+      },
+      "why": "derived from 2 observed transition(s); 2 predicate(s) map several ways to the same rule",
+      "projected": "SAB3(?X0) \u2227 SUP5(?X0) \u2227 XID4(?X0) \u2192 RUR7(?X0)"
+    },
+    {
+      "family": "conjunctive",
+      "pair": 2,
+      "outcome": "holds",
+      "correspondence": {
+        "NIR5": "MIX3",
+        "GIL6": "MIB1",
+        "RIF1": "LEZ4",
+        "SEB2": "ZUZ4"
+      },
+      "why": "derived from 2 observed transition(s); 2 predicate(s) map several ways to the same rule",
+      "projected": "LEZ4(?X0) \u2227 MIB1(?X0) \u2227 ZUZ4(?X0) \u2192 MIX3(?X0)"
+    },
+    {
+      "family": "conjunctive",
+      "pair": 3,
+      "outcome": "holds",
+      "correspondence": {
+        "LES1": "KON9",
+        "DAV8": "XAN5",
+        "DEN8": "BOZ7",
+        "TIG9": "NOL2"
+      },
+      "why": "derived from 2 observed transition(s); 2 predicate(s) map several ways to the same rule",
+      "projected": "BOZ7(?X0) \u2227 NOL2(?X0) \u2227 XAN5(?X0) \u2192 KON9(?X0)"
+    },
+    {
+      "family": "relational",
+      "pair": 0,
+      "outcome": "holds",
+      "correspondence": {
+        "BIR0": "VAM6",
+        "PAB9": "XAB4",
+        "PAD2": "SIZ5"
+      },
+      "why": "derived from 2 observed transition(s)",
+      "projected": "SIZ5(?X1) \u2227 XAB4(?X0, ?X1) \u2192 VAM6(?X0, ?X1)"
+    },
+    {
+      "family": "relational",
+      "pair": 1,
+      "outcome": "holds",
+      "correspondence": {
+        "KAN1": "LAB2",
+        "SUB2": "NEZ6",
+        "GEP5": "TAK7"
+      },
+      "why": "derived from 2 observed transition(s)",
+      "projected": "NEZ6(?X0, ?X1) \u2227 TAK7(?X1) \u2192 LAB2(?X0, ?X1)"
+    },
+    {
+      "family": "relational",
+      "pair": 2,
+      "outcome": "holds",
+      "correspondence": {
+        "DAD6": "XAS7",
+        "TES4": "VUM3",
+        "POZ6": "VAT3"
+      },
+      "why": "derived from 2 observed transition(s)",
+      "projected": "VAT3(?X1) \u2227 VUM3(?X0, ?X1) \u2192 XAS7(?X0, ?X1)"
+    },
+    {
+      "family": "relational",
+      "pair": 3,
+      "outcome": "holds",
+      "correspondence": {
+        "SIK5": "SAL5",
+        "FOD4": "RAX4",
+        "RES1": "LAB3"
+      },
+      "why": "derived from 2 observed transition(s)",
+      "projected": "LAB3(?X1) \u2227 RAX4(?X0, ?X1) \u2192 SAL5(?X0, ?X1)"
+    }
+  ],
+  "transfer_decomposition": {
+    "held": 8,
+    "wrong": 0,
+    "refused_to_guess": 0,
+    "note": "A refusal here is `derive_correspondence` declining to choose between two source preconditions of the same arity, which one observed transition cannot separate. It is a property of the evidence, not of the subject."
+  },
+  "ablation": {
+    "false_confidence": 0.3333333333333333,
+    "competence": 0.0,
+    "by_family": {
+      "conjunctive": [
+        {
+          "world": 0,
+          "family": "conjunctive",
+          "seed": 7000,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 1,
+          "family": "conjunctive",
+          "seed": 7031,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 2,
+          "family": "conjunctive",
+          "seed": 7062,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 3,
+          "family": "conjunctive",
+          "seed": 7093,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "4 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 4,
+          "family": "conjunctive",
+          "seed": 7124,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 5,
+          "family": "conjunctive",
+          "seed": 7155,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 6,
+          "family": "conjunctive",
+          "seed": 7186,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 7,
+          "family": "conjunctive",
+          "seed": 7217,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        }
+      ],
+      "relational": [
+        {
+          "world": 0,
+          "family": "relational",
+          "seed": 7977,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 1,
+          "family": "relational",
+          "seed": 8008,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 2,
+          "family": "relational",
+          "seed": 8039,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 3,
+          "family": "relational",
+          "seed": 8070,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 4,
+          "family": "relational",
+          "seed": 8101,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 5,
+          "family": "relational",
+          "seed": 8132,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 6,
+          "family": "relational",
+          "seed": 8163,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 7,
+          "family": "relational",
+          "seed": 8194,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        }
+      ],
+      "computed": [
+        {
+          "world": 0,
+          "family": "computed",
+          "seed": 8954,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "DOR7(?X0, ?X2) \u2227 LAK7(?X0, ?X3) \u2192 VIV0(?X0, ?X1) \u27e8?X1 := add(?X2, ?X3)\u27e9"
+        },
+        {
+          "world": 1,
+          "family": "computed",
+          "seed": 8985,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "DIF8(?X0, ?X2) \u2227 VAM0(?X0, ?X3) \u2192 VOF6(?X0, ?X1) \u27e8?X1 := subtract(?X3, ?X2)\u27e9"
+        },
+        {
+          "world": 2,
+          "family": "computed",
+          "seed": 9016,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "TAD0(?X0, ?X2) \u2227 VUF9(?X0, ?X3) \u2192 ZES6(?X0, ?X1) \u27e8?X1 := multiply(?X2, ?X3)\u27e9"
+        },
+        {
+          "world": 3,
+          "family": "computed",
+          "seed": 9047,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "LEK0(?X0, ?X2) \u2227 VIZ6(?X0, ?X3) \u2192 FUT0(?X0, ?X1) \u27e8?X1 := multiply(?X2, ?X3)\u27e9"
+        },
+        {
+          "world": 4,
+          "family": "computed",
+          "seed": 9078,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "BOK7(?X0, ?X2) \u2227 VUF8(?X0, ?X3) \u2192 TED4(?X0, ?X1) \u27e8?X1 := multiply(?X2, ?X3)\u27e9"
+        },
+        {
+          "world": 5,
+          "family": "computed",
+          "seed": 9109,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "GIN0(?X0, ?X2) \u2227 RAB0(?X0, ?X3) \u2192 PAT8(?X0, ?X1) \u27e8?X1 := add(?X2, ?X3)\u27e9"
+        },
+        {
+          "world": 6,
+          "family": "computed",
+          "seed": 9140,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "KES8(?X0, ?X2) \u2227 KUZ9(?X0, ?X3) \u2192 DEP9(?X0, ?X1) \u27e8?X1 := add(?X2, ?X3)\u27e9"
+        },
+        {
+          "world": 7,
+          "family": "computed",
+          "seed": 9171,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "KET4(?X0, ?X2) \u2227 RID7(?X0, ?X3) \u2192 VAP7(?X0, ?X1) \u27e8?X1 := subtract(?X3, ?X2)\u27e9"
+        }
+      ],
+      "negated": [
+        {
+          "world": 0,
+          "family": "negated",
+          "seed": 9931,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 1,
+          "family": "negated",
+          "seed": 9962,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 2,
+          "family": "negated",
+          "seed": 9993,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 3,
+          "family": "negated",
+          "seed": 10024,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 4,
+          "family": "negated",
+          "seed": 10055,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 5,
+          "family": "negated",
+          "seed": 10086,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 6,
+          "family": "negated",
+          "seed": 10117,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 7,
+          "family": "negated",
+          "seed": 10148,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "2 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        }
+      ],
+      "disjunctive": [
+        {
+          "world": 0,
+          "family": "disjunctive",
+          "seed": 10908,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "GAX4(?X0) \u2192 GIS5(?X0)"
+        },
+        {
+          "world": 1,
+          "family": "disjunctive",
+          "seed": 10939,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "XEP0(?X0) \u2192 GEP8(?X0)"
+        },
+        {
+          "world": 2,
+          "family": "disjunctive",
+          "seed": 10970,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "VOR6(?X0) \u2192 FUL7(?X0)"
+        },
+        {
+          "world": 3,
+          "family": "disjunctive",
+          "seed": 11001,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "GEN8(?X0) \u2192 KOB1(?X0)"
+        },
+        {
+          "world": 4,
+          "family": "disjunctive",
+          "seed": 11032,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "VOG1(?X0) \u2192 BIM4(?X0)"
+        },
+        {
+          "world": 5,
+          "family": "disjunctive",
+          "seed": 11063,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "ZED9(?X0) \u2192 BID9(?X0)"
+        },
+        {
+          "world": 6,
+          "family": "disjunctive",
+          "seed": 11094,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "ZOT3(?X0) \u2192 RIZ7(?X0)"
+        },
+        {
+          "world": 7,
+          "family": "disjunctive",
+          "seed": 11125,
+          "outcome": "learned_but_fails",
+          "status": "rule_learned",
+          "detail": "",
+          "rule": "BON2(?X0) \u2192 SIB6(?X0)"
+        }
+      ],
+      "uncatalogued": [
+        {
+          "world": 0,
+          "family": "uncatalogued",
+          "seed": 11885,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 1,
+          "family": "uncatalogued",
+          "seed": 11916,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 2,
+          "family": "uncatalogued",
+          "seed": 11947,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 3,
+          "family": "uncatalogued",
+          "seed": 11978,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 4,
+          "family": "uncatalogued",
+          "seed": 12009,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 5,
+          "family": "uncatalogued",
+          "seed": 12040,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 6,
+          "family": "uncatalogued",
+          "seed": 12071,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        },
+        {
+          "world": 7,
+          "family": "uncatalogued",
+          "seed": 12102,
+          "outcome": "refused",
+          "status": "multiple_hypotheses",
+          "detail": "3 rules explain these demonstrations equally well; a demonstration separating them would decide",
+          "rule": null
+        }
+      ]
+    }
+  },
+  "model": {
+    "policy": "strict_model_free",
+    "attempts": 0,
+    "blocked": 0,
+    "executed": 0,
+    "by_class": {
+      "llm": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "vlm": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "embedding": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "reranker": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "classifier": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "encoder": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      }
+    }
+  },
+  "passed": true
+}

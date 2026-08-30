@@ -1,0 +1,186 @@
+{
+  "suite": "substrate_capability_v1",
+  "description": "Benchmarks in the SUBSTRATE'S OWN TERMS. Every item here is answered by a deterministic engine the substrate owns -- Z3 for the equations, rule induction for the sequences -- with the model policy set to strict and zero model calls executed. The prose suite alongside this one measures the teacher: it asks questions the substrate cannot represent, so _substrate_first declines every one and the router escalates, and the model's answer is then recorded as the substrate's capability. Every shape in this file was verified answerable before it was written down; nothing aspirational is included, because a benchmark the substrate can never answer is a permanent zero that teaching cannot move and regression cannot fall below.",
+  "tests": [
+    {
+      "test_id": "substrate_eq_001",
+      "domain": "reasoning",
+      "difficulty": "easy",
+      "prompt": "Solve for x: 4x + 8 = 32",
+      "expected_output": "x = 6",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_eq_002",
+      "domain": "reasoning",
+      "difficulty": "easy",
+      "prompt": "Solve for x: 7x = 49",
+      "expected_output": "x = 7",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_eq_003",
+      "domain": "reasoning",
+      "difficulty": "medium",
+      "prompt": "Solve for x: x + 15 = 3",
+      "expected_output": "x = -12",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_eq_004",
+      "domain": "reasoning",
+      "difficulty": "medium",
+      "prompt": "Solve for x: -2x + 6 = 0",
+      "expected_output": "x = 3",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_eq_005",
+      "domain": "reasoning",
+      "difficulty": "medium",
+      "prompt": "Solve for x: 5x - 20 = 10",
+      "expected_output": "x = 6",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_eq_006",
+      "domain": "reasoning",
+      "difficulty": "hard",
+      "prompt": "Solve for x: 12x + 4 = 100",
+      "expected_output": "x = 8",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_eq_007",
+      "domain": "reasoning",
+      "difficulty": "easy",
+      "prompt": "Solve for x: 3y - 9 = 0",
+      "expected_output": "y = 3",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_eq_008",
+      "domain": "reasoning",
+      "difficulty": "medium",
+      "prompt": "Solve for x: 2x + 10 = 4",
+      "expected_output": "x = -3",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "linear_equation",
+        "answered_by": "constraint_solver (Z3)",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_seq_001",
+      "domain": "analysis",
+      "difficulty": "easy",
+      "prompt": "What is the next term in the sequence 5, 9, 13?",
+      "expected_output": "17",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "arithmetic_progression",
+        "answered_by": "learning_authority induction",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_seq_002",
+      "domain": "analysis",
+      "difficulty": "easy",
+      "prompt": "What is the next term in the sequence 2, 4, 6, 8?",
+      "expected_output": "10",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "arithmetic_progression",
+        "answered_by": "learning_authority induction",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_seq_003",
+      "domain": "analysis",
+      "difficulty": "medium",
+      "prompt": "What is the next term in the sequence 10, 7, 4?",
+      "expected_output": "1",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "arithmetic_progression",
+        "answered_by": "learning_authority induction",
+        "model_free": true
+      }
+    },
+    {
+      "test_id": "substrate_seq_004",
+      "domain": "analysis",
+      "difficulty": "medium",
+      "prompt": "What is the next term in the sequence 100, 90, 80, 70?",
+      "expected_output": "60",
+      "evaluation_criteria": {
+        "type": "exact_match"
+      },
+      "metadata": {
+        "shape": "arithmetic_progression",
+        "answered_by": "learning_authority induction",
+        "model_free": true
+      }
+    }
+  ]
+}

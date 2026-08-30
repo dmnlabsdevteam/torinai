@@ -1,0 +1,21 @@
+{
+  "freeze_id": "EDU-12_S0_ADMISSIBLE",
+  "frozen_at": "2026-08-20T02:20:49.261807+00:00",
+  "architecture_fingerprint": "6929f911d404b691c2b7257bc89f36d21aa161b590aacc6bb2fd1bda68d24874",
+  "substrate_files": 282,
+  "baseline": "manifest.json (first admissible S0)",
+  "rule": "During the frozen educational phase, failures may repair the EXPERIMENT but may not expand Torin's cognitive implementation.",
+  "may_be_repaired": [
+    "an exam that leaks an answer",
+    "a harness that bypasses the production ingress",
+    "a metric that cannot report failure",
+    "a database or process state that does not reset"
+  ],
+  "may_not_be_repaired": [
+    "Torin cannot learn percentages",
+    "Torin cannot synthesise programs",
+    "Torin cannot parse a legitimate held-out construction",
+    "Torin cannot transfer a concept"
+  ],
+  "why": "Repairing a cognitive capability mid-experiment destroys the distinction between 'Torin learned' and 'we upgraded Torin while teaching it'. A capability Torin cannot acquire through education IS the result."
+}

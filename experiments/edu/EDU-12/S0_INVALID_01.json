@@ -1,0 +1,306 @@
+{
+  "benchmark": "EDU-12_S0_INVALID_01",
+  "title": "Open-Domain Autonomous Competence Acquisition",
+  "stage": "1_baseline_and_invariants",
+  "recorded_at": "2026-08-19T21:22:36.408810+00:00",
+  "model_calls": 0,
+  "blocks": [
+    "mathematics",
+    "programming",
+    "causal_science",
+    "language"
+  ],
+  "invariants": {
+    "subject_purity_held": true,
+    "attempt_subject_agnostic": true,
+    "exams_sealed": {
+      "mathematics": {
+        "pretest": "3e1fab93f60f78a5510a41b31789579baa926556b3434d50b418af938ff54476",
+        "posttest": "1986a390e27337370a4105898438ce2d19833e006baac565f1bfae8662552246",
+        "transfer": "d42d04d0146c43390ef0e98be43d0a380d9fdc50d0254d6dc20223a5122d67b8",
+        "sealed_at": "2026-08-19T21:22:36.408810+00:00"
+      },
+      "programming": {
+        "pretest": "bfcc814848b5fa61bf0e654fc7bca002c47e55dfce93ee5f99fcc30d8fe46eb1",
+        "posttest": "0cdb25cda415d2806fdbee000a231cc5048451a884f4dde3923c02aca9d4739f",
+        "transfer": "eb146a958b16b80f9b42a5981e32adfadfa0747032d532138b4777ca17641744",
+        "sealed_at": "2026-08-19T21:22:36.408810+00:00"
+      },
+      "causal_science": {
+        "pretest": "9f952c6c632bd90cde851b9d24266064f16f94a3171f3008405c45bd890c5bd3",
+        "posttest": "44714159a701d0f16508e73321ca8640f62bc098fa5950176a44a9315a212f27",
+        "transfer": "e9293e1b45dfc3937945ef6c49656e7635a13ce6c7eb2b0818ba7cd271e848b2",
+        "sealed_at": "2026-08-19T21:22:36.408810+00:00"
+      },
+      "language": {
+        "pretest": "a1818d8a1d79fb1b9994b46842a50e4a6c0957377f54a5c61ca617b62ca61a03",
+        "posttest": "a49ed17e63d4bd7690d0b46b322ff631c8234229eddff063cae50175095d5f2f",
+        "transfer": "fa7dc9ce8a2bef9995cfdb9c96da2170a1f0f83434356b2ec7d62f51eea8ce65",
+        "sealed_at": "2026-08-19T21:22:36.408810+00:00"
+      }
+    },
+    "posttest_lesson_contamination": {},
+    "exam_items_answerable": true,
+    "invalid_exam_items": {},
+    "generality": {
+      "baseline_fingerprint": "3bf94749126f982c6fc9d6e6d17eaeb88d4b81ad22dd16a4fb5efabcaf63ceba",
+      "substrate_files": 279,
+      "checkpoints": {
+        "after_mathematics_pretest": "3bf94749126f982c6fc9d6e6d17eaeb88d4b81ad22dd16a4fb5efabcaf63ceba",
+        "after_programming_pretest": "3bf94749126f982c6fc9d6e6d17eaeb88d4b81ad22dd16a4fb5efabcaf63ceba",
+        "after_causal_science_pretest": "3bf94749126f982c6fc9d6e6d17eaeb88d4b81ad22dd16a4fb5efabcaf63ceba",
+        "after_language_pretest": "3bf94749126f982c6fc9d6e6d17eaeb88d4b81ad22dd16a4fb5efabcaf63ceba"
+      },
+      "architecture_unchanged": true
+    }
+  },
+  "s0_baseline": {
+    "mathematics": {
+      "score": 0,
+      "of": 6,
+      "percent": 0.0,
+      "unknown_rate": 1.0,
+      "false_confidence_rate": 0.0
+    },
+    "programming": {
+      "score": 0,
+      "of": 6,
+      "percent": 0.0,
+      "unknown_rate": 1.0,
+      "false_confidence_rate": 0.0
+    },
+    "causal_science": {
+      "score": 4,
+      "of": 6,
+      "percent": 66.7,
+      "unknown_rate": 0.333,
+      "false_confidence_rate": 0.0
+    },
+    "language": {
+      "score": 0,
+      "of": 6,
+      "percent": 0.0,
+      "unknown_rate": 1.0,
+      "false_confidence_rate": 0.0
+    }
+  },
+  "s0_detail": {
+    "mathematics": [
+      {
+        "id": "m_pre1",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 21,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "m_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 243,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "m_pre3",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 6,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "m_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "left",
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "m_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 30,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "m_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 25,
+        "basis": "no acquired procedure for this item"
+      }
+    ],
+    "programming": [
+      {
+        "id": "p_pre1",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "p_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "p_pre3",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "p_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "p_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "p_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no acquired procedure for this item"
+      }
+    ],
+    "causal_science": [
+      {
+        "id": "s_pre1",
+        "verdict": "correct",
+        "answer": {
+          "requires": [
+            "fuel",
+            "heat",
+            "spark"
+          ],
+          "forbids": []
+        },
+        "expected": {
+          "requires": [
+            "fuel",
+            "heat",
+            "spark"
+          ],
+          "forbids": []
+        },
+        "basis": "version space MAP, posterior 0.110"
+      },
+      {
+        "id": "s_pre2",
+        "verdict": "correct",
+        "answer": {
+          "requires": [
+            "power"
+          ],
+          "forbids": [
+            "lock"
+          ]
+        },
+        "expected": {
+          "requires": [
+            "power"
+          ],
+          "forbids": [
+            "lock"
+          ]
+        },
+        "basis": "version space MAP, posterior 0.207"
+      },
+      {
+        "id": "s_pre3",
+        "verdict": "correct",
+        "answer": true,
+        "expected": true,
+        "basis": "predicted P(success)=0.571"
+      },
+      {
+        "id": "s_pre4",
+        "verdict": "correct",
+        "answer": false,
+        "expected": false,
+        "basis": "predicted P(success)=0.377"
+      },
+      {
+        "id": "s_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "undetermined",
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "s_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "no",
+        "basis": "no acquired procedure for this item"
+      }
+    ],
+    "language": [
+      {
+        "id": "l_pre1",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "yes",
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "l_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "yes",
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "l_pre3",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "undetermined",
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "l_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "descend",
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "l_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "no",
+        "basis": "no acquired procedure for this item"
+      },
+      {
+        "id": "l_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "land",
+        "basis": "no acquired procedure for this item"
+      }
+    ]
+  },
+  "admissible": false,
+  "invalidation": {
+    "declared_at": "2026-08-19",
+    "reason": "attempt harness bypassed the production cognitive substrate; reason_about was unwired and could never succeed; the baseline did not measure the claimed system",
+    "specifics": [
+      "attempt.py called ProbabilisticVersionSpace directly as a sidecar and returned UNKNOWN for every other item kind",
+      "AutonomousCoordinator.reason_about had zero callers and built a ReasoningContext no strategy could accept (question in `facts`, `rules` never populated) -- zero conclusions under every reasoning type",
+      "DeterministicExtractor could not represent a subject carrying an article, so language items never reached a solver",
+      "the Z3 constraint solver, proof engine, unification, Bayesian uncertainty and hypothesis testing were never on the measured path"
+    ],
+    "what_it_does_not_mean": "the scores are NOT evidence about Torin's reasoning capability; they measure harness connectivity only",
+    "superseded_by": "pending: EDU-12 S0 retaken through the production path"
+  }
+}

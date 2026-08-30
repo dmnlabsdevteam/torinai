@@ -1,0 +1,80 @@
+{
+  "configs": {
+    "TOOL_EXECUTION": {
+      "category": "TOOL_EXECUTION",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
+      "override_triggers": {},
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-08-27T13:48:56.327460",
+      "updated_by": "system"
+    },
+    "MEMORY_OPERATIONS": {
+      "category": "MEMORY_OPERATIONS",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
+      "override_triggers": {},
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-08-27T13:48:56.327462",
+      "updated_by": "system"
+    },
+    "RESOURCE_ALLOCATION": {
+      "category": "RESOURCE_ALLOCATION",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
+      "override_triggers": {},
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-08-27T13:48:56.327463",
+      "updated_by": "system"
+    },
+    "LEARNING_PARAMETERS": {
+      "category": "LEARNING_PARAMETERS",
+      "enforcement_mode": "LOG_ONLY",
+      "override_triggers": {},
+      "enabled": false,
+      "rollout_stage": 3,
+      "last_updated": "2026-08-27T13:48:56.327589",
+      "updated_by": "test_system"
+    },
+    "CONFIGURATION_CHANGES": {
+      "category": "CONFIGURATION_CHANGES",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
+      "override_triggers": {
+        "config_001": "MUST_BLOCK"
+      },
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-08-27T13:48:56.327466",
+      "updated_by": "system"
+    },
+    "EXTERNAL_INTEGRATIONS": {
+      "category": "EXTERNAL_INTEGRATIONS",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
+      "override_triggers": {},
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-08-27T13:48:56.327467",
+      "updated_by": "system"
+    },
+    "TASK_CREATION": {
+      "category": "TASK_CREATION",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
+      "override_triggers": {},
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-08-27T13:48:56.327469",
+      "updated_by": "system"
+    },
+    "CURIOSITY_EXPLORATION": {
+      "category": "CURIOSITY_EXPLORATION",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
+      "override_triggers": {},
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-08-27T13:48:56.327470",
+      "updated_by": "system"
+    }
+  },
+  "rollback_events": [],
+  "last_saved": "2026-08-27T13:48:56.327591"
+}

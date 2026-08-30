@@ -1,0 +1,87 @@
+{
+  "services": {
+    "torinai_server": {
+      "command": [
+        "/usr/bin/python3",
+        "server.py"
+      ],
+      "health_url": "http://localhost:${MAIN_SERVER_PORT}/health",
+      "auto_restart": true,
+      "max_failures": 3
+    },
+    "auth_server": {
+      "command": [
+        "/usr/bin/python3",
+        "server_with_auth.py"
+      ],
+      "health_url": "http://localhost:${MAIN_SERVER_PORT}/auth/health",
+      "auto_restart": true,
+      "max_failures": 3
+    }
+  },
+  "alerts": {
+    "cpu_high": {
+      "severity": "warning",
+      "threshold": 80.0,
+      "duration": 300,
+      "escalation_delay": 900,
+      "notification_methods": [
+        "log"
+      ],
+      "auto_resolution": true
+    },
+    "memory_high": {
+      "severity": "warning",
+      "threshold": 85.0,
+      "duration": 300,
+      "escalation_delay": 900,
+      "notification_methods": [
+        "log"
+      ],
+      "auto_resolution": true
+    },
+    "disk_high": {
+      "severity": "critical",
+      "threshold": 90.0,
+      "duration": 180,
+      "escalation_delay": 600,
+      "notification_methods": [
+        "log",
+        "email"
+      ],
+      "auto_resolution": true
+    },
+    "response_slow": {
+      "severity": "warning",
+      "threshold": 5.0,
+      "duration": 600,
+      "escalation_delay": 1800,
+      "notification_methods": [
+        "log"
+      ],
+      "auto_resolution": true
+    },
+    "error_rate_high": {
+      "severity": "critical",
+      "threshold": 5.0,
+      "duration": 300,
+      "escalation_delay": 600,
+      "notification_methods": [
+        "log",
+        "email"
+      ],
+      "auto_resolution": false
+    },
+    "service_down": {
+      "severity": "critical",
+      "threshold": 1.0,
+      "duration": 60,
+      "escalation_delay": 300,
+      "notification_methods": [
+        "log",
+        "email"
+      ],
+      "auto_resolution": true
+    }
+  }
+}

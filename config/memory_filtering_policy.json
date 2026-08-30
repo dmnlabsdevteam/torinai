@@ -1,0 +1,138 @@
+{
+  "policy_version": "1.0",
+  "description": "Memory filtering policy with deterministic rules",
+
+  "hard_store_conditions": {
+    "description": "Memories meeting ANY of these conditions are always stored",
+    "rules": [
+      {
+        "name": "strategic_decisions",
+        "condition": "criticality.decision_type == STRATEGIC",
+        "rationale": "Strategic decisions have long-term impact"
+      },
+      {
+        "name": "high_consequence",
+        "condition": "criticality.consequence_level in [HIGH, CRITICAL]",
+        "rationale": "High-stakes knowledge must be preserved"
+      },
+      {
+        "name": "novel_knowledge_creation",
+        "condition": "novelty.is_novel AND outcome.created_new_knowledge",
+        "rationale": "Novel insights are valuable learning opportunities"
+      },
+      {
+        "name": "cross_domain_synthesis",
+        "condition": "len(novelty.synthesis_of_domains) > 1",
+        "rationale": "Cross-domain reasoning is cognitively expensive"
+      },
+      {
+        "name": "belief_revision",
+        "condition": "novelty.contradicts_existing OR cognition.required_backtracking",
+        "rationale": "A revised or contradicted belief is what learning is made of"
+      },
+      {
+        "name": "epistemic_change",
+        "condition": "cognition.uncertainty_resolved",
+        "rationale": "Resolving uncertainty changes what the substrate believes"
+      },
+      {
+        "name": "strategy_adaptation",
+        "condition": "cognition.used_multiple_strategies",
+        "rationale": "Which approaches were tried is needed to choose again"
+      },
+      {
+        "name": "behavioral_consequence",
+        "condition": "outcome.actionable OR outcome.created_new_knowledge",
+        "rationale": "Episodes that affect future action must be recoverable"
+      },
+      {
+        "name": "novel_connection",
+        "condition": "novelty.connects_disparate_knowledge OR novelty.first_occurrence",
+        "rationale": "First occurrences and new connections are not reproducible later"
+      },
+      {
+        "name": "emergent_patterns",
+        "condition": "novelty.pattern_type == EMERGENT",
+        "rationale": "New patterns are valuable discoveries"
+      },
+      {
+        "name": "substantive_analysis",
+        "condition": "query.query_type IN [ANALYSIS, SYNTHESIS, COMPLEX_REASONING] AND cognition.complexity_score >= 0.3",
+        "rationale": "Analysis and synthesis with meaningful complexity should be retained"
+      }
+    ]
+  },
+
+  "hard_reject_conditions": {
+    "description": "Memories meeting ANY of these conditions are never stored",
+    "rules": [
+      {
+        "name": "trivial_factual_lookup",
+        "condition": "query.query_type == FACTUAL_LOOKUP AND cognition.reasoning_steps < 2 AND NOT novelty.is_novel",
+        "rationale": "Simple fact lookups don't need to be remembered"
+      },
+      {
+        "name": "no_reusability",
+        "condition": "criticality.reusability == NONE AND criticality.consequence_level in [NONE, LOW]",
+        "rationale": "One-time calculations with low impact can be discarded"
+      },
+      {
+        "name": "simple_calculation",
+        "condition": "query.query_type == SIMPLE_CALCULATION AND cognition.complexity_score < 0.3",
+        "rationale": "Trivial math doesn't need memory"
+      }
+    ]
+  },
+
+  "soft_threshold_conditions": {
+    "description": "Memories not matching hard rules are evaluated on these thresholds",
+    "thresholds": {
+      "min_complexity_score": 0.6,
+      "min_likely_reference_count": 1,
+      "min_execution_time_ms": 100,
+      "min_reusability": "MEDIUM"
+    },
+    "rules": [
+      {
+        "name": "complexity_threshold",
+        "condition": "cognition.complexity_score >= min_complexity_score",
+        "rationale": "Moderate complexity is worth keeping"
+      },
+      {
+        "name": "recurrence_value",
+        "condition": "criticality.reusability IN [HIGH, MEDIUM] AND criticality.likely_reference_count >= min_likely_reference_count",
+        "rationale": "Episodes expected to be read again are worth keeping"
+      },
+      {
+        "name": "execution_time_threshold",
+        "condition": "cognition.execution_time_ms >= min_execution_time_ms",
+        "rationale": "Expensive episodes are worth keeping"
+      }
+    ],
+    "logic": "OR",
+    "rationale": "Allow moderate-complexity reasoning to be stored"
+  },
+
+  "calibration_settings": {
+    "enabled": true,
+    "sample_rate": 0.05,
+    "description": "Verify self-reported metadata on 5% of stored memories",
+    "checks": [
+      {
+        "name": "complexity_corroboration",
+        "verify": "a claimed cognition.complexity_score >= 0.6 is backed by at least one semantic signal (novelty, contradiction, first occurrence, cross-domain synthesis, uncertainty resolved, backtracking, multiple strategies, actionable, new knowledge)",
+        "action_on_mismatch": "log_warning"
+      }
+    ]
+  },
+
+  "metrics": {
+    "track_rejection_reasons": true,
+    "track_storage_by_rule": true,
+    "alert_on_excessive_rejections": {
+      "enabled": true,
+      "threshold_percent": 90,
+      "description": "Alert if >90% of memories are being rejected"
+    }
+  }
+}

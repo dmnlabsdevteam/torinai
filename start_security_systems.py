@@ -1,0 +1,548 @@
+#!/usr/bin/env python3
+"""
+Security Systems Service Launcher
+==================================
+Starts TorinAI security systems as separate background services
+
+Uses PortManager to avoid conflicts with existing Dominion Labs services.
+Each system runs independently with its own API endpoint.
+TorinAI can connect to and operate these systems via HTTP interfaces.
+
+Existing Dominion Labs Ports (avoided):
+- 8080: Website
+- 8090: Admin/Cora 3D API
+- 8101: DMN Auth
+- 8206: Flux Image Gen
+- 8300: Model Server
+- 8500: Payment Service
+- 9080: TorinAI Chat
+- 9001: TorinAI External API
+- 6379: Redis
+- 3306: MySQL
+"""
+
+import asyncio
+import inspect
+import logging
+import sys
+import signal
+from pathlib import Path
+from typing import List
+from aiohttp import web
+
+# Add TorinAI to path
+sys.path.insert(0, str(Path(__file__).parent))
+
+from core.utils.port_manager import get_port_manager
+from core.security.threat_intelligence import ThreatIntelligenceEngine
+from core.security.threat_blocking import ThreatBlockingEngine, RealTimeFirewallManager
+from core.security.active_defense_types import DefensePolicy
+from core.security.content_security import ContentSecurityScanner
+from core.security.malware_sandbox import MalwareSandbox
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+class SecuritySystemService:
+    """Base class for security system services"""
+
+    def __init__(self, name: str, service_key: str):
+        self.name = name
+        self.service_key = service_key
+        self.port = None
+        self.app = web.Application()
+        self.system = None
+        self.runner = None
+        self.port_manager = get_port_manager()
+
+    async def start(self):
+        """Start the service"""
+        raise NotImplementedError
+
+    async def stop(self):
+        """Stop the service"""
+        if self.runner:
+            await self.runner.cleanup()
+
+        # Release port
+        if self.port:
+            self.port_manager.release_port(self.service_key)
+
+
+class ThreatIntelService(SecuritySystemService):
+    """Threat Intelligence Engine Service"""
+
+    def __init__(self):
+        super().__init__("ThreatIntelligence", "security_threat_intel")
+
+    async def start(self):
+        # Allocate port using PortManager
+        self.port = self.port_manager.allocate_port(
+            self.service_key,
+            port_range=(8450, 8500)  # Safe range
+        )
+
+        if not self.port:
+            raise RuntimeError(f"Failed to allocate port for {self.name}")
+
+        logger.info(f"🔍 Starting {self.name} on port {self.port}...")
+
+        # Initialize system
+        self.system = ThreatIntelligenceEngine()
+
+        # Setup routes
+        self.app.router.add_get('/health', self.health)
+        self.app.router.add_post('/check_ip', self.check_ip)
+        self.app.router.add_post('/check_domain', self.check_domain)
+        self.app.router.add_post('/report_threat', self.report_threat)
+        self.app.router.add_get('/statistics', self.statistics)
+
+        # Start web server
+        self.runner = web.AppRunner(self.app)
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, 'localhost', self.port)
+        await site.start()
+
+        logger.info(f"✅ {self.name} running on http://localhost:{self.port}")
+
+    async def health(self, request):
+        return web.json_response({"status": "healthy", "service": self.name})
+
+    async def check_ip(self, request):
+        data = await request.json()
+        ip = data.get("ip")
+        result = await self.system.check_ip_reputation(ip)
+        return web.json_response(result)
+
+    async def check_domain(self, request):
+        data = await request.json()
+        domain = data.get("domain")
+        result = await self.system.check_domain_reputation(domain)
+        return web.json_response(result)
+
+    async def report_threat(self, request):
+        data = await request.json()
+        result = await self.system.report_threat(data)
+        return web.json_response(result)
+
+    async def statistics(self, request):
+        stats = await self.system.get_statistics()
+        return web.json_response(stats)
+
+
+class FirewallService(SecuritySystemService):
+    """Real-Time Firewall Manager Service"""
+
+    def __init__(self):
+        super().__init__("FirewallManager", "security_firewall")
+
+    async def start(self):
+        # Allocate port
+        self.port = self.port_manager.allocate_port(
+            self.service_key,
+            port_range=(8450, 8500)
+        )
+
+        if not self.port:
+            raise RuntimeError(f"Failed to allocate port for {self.name}")
+
+        logger.info(f"🛡️  Starting {self.name} on port {self.port}...")
+
+        # Initialize system
+        self.system = RealTimeFirewallManager()
+
+        # Setup routes
+        self.app.router.add_get('/health', self.health)
+        self.app.router.add_post('/block_ip', self.block_ip)
+        self.app.router.add_post('/unblock_ip', self.unblock_ip)
+        self.app.router.add_get('/list_blocks', self.list_blocks)
+        self.app.router.add_get('/statistics', self.statistics)
+
+        # Start web server
+        self.runner = web.AppRunner(self.app)
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, 'localhost', self.port)
+        await site.start()
+
+        logger.info(f"✅ {self.name} running on http://localhost:{self.port}")
+
+    async def health(self, request):
+        return web.json_response({"status": "healthy", "service": self.name})
+
+    async def block_ip(self, request):
+        data = await request.json()
+        result = await self.system.block_ip(
+            data.get("ip"),
+            data.get("duration", 3600),
+            data.get("reason", "API request")
+        )
+        return web.json_response(result)
+
+    async def unblock_ip(self, request):
+        data = await request.json()
+        result = await self.system.unblock_ip(data.get("ip"))
+        return web.json_response(result)
+
+    async def list_blocks(self, request):
+        blocks = await self.system.get_blocked_ips()
+        return web.json_response({"blocks": blocks})
+
+    async def statistics(self, request):
+        stats = await self.system.get_statistics()
+        return web.json_response(stats)
+
+
+class ThreatBlockingService(SecuritySystemService):
+    """Threat Blocking Engine Service"""
+
+    def __init__(self, firewall_manager):
+        super().__init__("ThreatBlocking", "security_threat_blocking")
+        self.firewall_manager = firewall_manager
+
+    async def start(self):
+        # Allocate port
+        self.port = self.port_manager.allocate_port(
+            self.service_key,
+            port_range=(8450, 8500)
+        )
+
+        if not self.port:
+            raise RuntimeError(f"Failed to allocate port for {self.name}")
+
+        logger.info(f"🚫 Starting {self.name} on port {self.port}...")
+
+        # Initialize system
+        policy = DefensePolicy(policy_id="default_policy", name="Default Security Policy")
+        self.system = ThreatBlockingEngine(
+            firewall_manager=self.firewall_manager,
+            waf_manager=None,
+            policy=policy
+        )
+
+        # Setup routes
+        self.app.router.add_get('/health', self.health)
+        self.app.router.add_post('/analyze_and_block', self.analyze_and_block)
+        self.app.router.add_get('/statistics', self.statistics)
+
+        # Start web server
+        self.runner = web.AppRunner(self.app)
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, 'localhost', self.port)
+        await site.start()
+
+        logger.info(f"✅ {self.name} running on http://localhost:{self.port}")
+
+    async def health(self, request):
+        return web.json_response({"status": "healthy", "service": self.name})
+
+    async def analyze_and_block(self, request):
+        data = await request.json()
+        result = await self.system.analyze_and_block(
+            ip_address=data.get("ip"),
+            threat_indicators=data.get("threat_indicators", {}),
+            context=data.get("context", "")
+        )
+        return web.json_response(result)
+
+    async def statistics(self, request):
+        stats = await self.system.get_statistics()
+        return web.json_response(stats)
+
+
+class ContentSecurityService(SecuritySystemService):
+    """Content Security Scanner Service"""
+
+    def __init__(self):
+        super().__init__("ContentSecurity", "security_content")
+
+    async def start(self):
+        # Allocate port
+        self.port = self.port_manager.allocate_port(
+            self.service_key,
+            port_range=(8450, 8500)
+        )
+
+        if not self.port:
+            raise RuntimeError(f"Failed to allocate port for {self.name}")
+
+        logger.info(f"🔒 Starting {self.name} on port {self.port}...")
+
+        # Initialize system
+        self.system = ContentSecurityScanner()
+
+        # Setup routes
+        self.app.router.add_get('/health', self.health)
+        self.app.router.add_post('/scan_content', self.scan_content)
+        self.app.router.add_post('/validate_url', self.validate_url)
+        self.app.router.add_post('/validate_email', self.validate_email)
+        # Every other service here exposes /statistics and the scanner has
+        # implemented get_statistics() all along; only the route was missing,
+        # so its scan and threat counts were unreachable and health monitoring
+        # could not read the one subsystem it was asked about.
+        self.app.router.add_get('/statistics', self.statistics)
+
+        # Start web server
+        self.runner = web.AppRunner(self.app)
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, 'localhost', self.port)
+        await site.start()
+
+        logger.info(f"✅ {self.name} running on http://localhost:{self.port}")
+
+    async def health(self, request):
+        return web.json_response({"status": "healthy", "service": self.name})
+
+    async def scan_content(self, request):
+        data = await request.json()
+        result = self.system.scan_content(data.get("content", ""))
+        return web.json_response(result)
+
+    async def statistics(self, request):
+        # ContentSecurityScanner.get_statistics is synchronous, unlike the
+        # other services' — awaited conditionally rather than assumed.
+        stats = self.system.get_statistics()
+        if inspect.isawaitable(stats):
+            stats = await stats
+        return web.json_response(stats)
+
+    async def validate_url(self, request):
+        data = await request.json()
+        from core.security.content_security import validate_url
+        valid = validate_url(data.get("url", ""))
+        return web.json_response({"valid": valid})
+
+    async def validate_email(self, request):
+        data = await request.json()
+        from core.security.content_security import validate_email
+        valid = validate_email(data.get("email", ""))
+        return web.json_response({"valid": valid})
+
+
+class MalwareSandboxService(SecuritySystemService):
+    """Malware Sandbox Service"""
+
+    def __init__(self):
+        super().__init__("MalwareSandbox", "security_malware_sandbox")
+
+    async def start(self):
+        # Allocate port
+        self.port = self.port_manager.allocate_port(
+            self.service_key,
+            port_range=(8450, 8500)
+        )
+
+        if not self.port:
+            raise RuntimeError(f"Failed to allocate port for {self.name}")
+
+        logger.info(f"🧪 Starting {self.name} on port {self.port}...")
+
+        # Initialize system
+        self.system = MalwareSandbox()
+
+        # Setup routes
+        self.app.router.add_get('/health', self.health)
+        self.app.router.add_post('/analyze_file', self.analyze_file)
+        self.app.router.add_post('/analyze_url', self.analyze_url)
+        self.app.router.add_get('/statistics', self.statistics)
+
+        # Start web server
+        self.runner = web.AppRunner(self.app)
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, 'localhost', self.port)
+        await site.start()
+
+        logger.info(f"✅ {self.name} running on http://localhost:{self.port}")
+
+    async def health(self, request):
+        return web.json_response({"status": "healthy", "service": self.name})
+
+    async def analyze_file(self, request):
+        data = await request.json()
+        result = await self.system.analyze_file(data.get("file_path"))
+        return web.json_response(result)
+
+    async def analyze_url(self, request):
+        data = await request.json()
+        result = await self.system.analyze_url(data.get("url"))
+        return web.json_response(result)
+
+    async def statistics(self, request):
+        stats = await self.system.get_statistics()
+        return web.json_response(stats)
+
+
+class SecurityControllerService(SecuritySystemService):
+    """Security Controller Service"""
+
+    def __init__(self):
+        super().__init__("SecurityController", "security_controller")
+
+    async def start(self):
+        # Allocate port
+        self.port = self.port_manager.allocate_port(
+            self.service_key,
+            port_range=(8450, 8500)
+        )
+
+        if not self.port:
+            raise RuntimeError(f"Failed to allocate port for {self.name}")
+
+        logger.info(f"🎛️  Starting {self.name} on port {self.port}...")
+
+        # Initialize system
+        from core.security.controller import SecurityController
+        self.system = SecurityController()
+
+        # Setup routes
+        self.app.router.add_get('/health', self.health)
+        self.app.router.add_post('/validate_request', self.validate_request)
+        self.app.router.add_get('/get_policies', self.get_policies)
+        self.app.router.add_get('/security_events', self.security_events)
+        self.app.router.add_get('/statistics', self.statistics)
+
+        # Start web server
+        self.runner = web.AppRunner(self.app)
+        await self.runner.setup()
+        site = web.TCPSite(self.runner, 'localhost', self.port)
+        await site.start()
+
+        logger.info(f"✅ {self.name} running on http://localhost:{self.port}")
+
+    async def health(self, request):
+        return web.json_response({"status": "healthy", "service": self.name})
+
+    async def validate_request(self, request):
+        data = await request.json()
+        # Placeholder - controller has validate_request method
+        return web.json_response({"valid": True})
+
+    async def get_policies(self, request):
+        policies = self.system.policies
+        return web.json_response({"policies": policies})
+
+    async def security_events(self, request):
+        limit = int(request.query.get('limit', 100))
+        events = self.system.security_events[-limit:]
+        return web.json_response({"events": events})
+
+    async def statistics(self, request):
+        return web.json_response(self.system.stats)
+
+
+class SecuritySystemsLauncher:
+    """Manages all security system services"""
+
+    def __init__(self):
+        self.services: List[SecuritySystemService] = []
+        self.port_manager = get_port_manager()
+
+    async def start_all(self):
+        """Start all security systems"""
+        logger.info("\n" + "=" * 80)
+        logger.info("STARTING TORINAI SECURITY SYSTEMS")
+        logger.info("=" * 80)
+        logger.info("Using PortManager to avoid conflicts with Dominion Labs services")
+        logger.info("=" * 80 + "\n")
+
+        try:
+            # Start services in order (some depend on others)
+
+            # 1. Threat Intelligence
+            threat_intel = ThreatIntelService()
+            await threat_intel.start()
+            self.services.append(threat_intel)
+
+            # 2. Firewall Manager
+            firewall = FirewallService()
+            await firewall.start()
+            self.services.append(firewall)
+
+            # 3. Threat Blocking (uses firewall)
+            threat_blocking = ThreatBlockingService(firewall.system)
+            await threat_blocking.start()
+            self.services.append(threat_blocking)
+
+            # 4. Content Security
+            content_security = ContentSecurityService()
+            await content_security.start()
+            self.services.append(content_security)
+
+            # 5. Malware Sandbox
+            malware_sandbox = MalwareSandboxService()
+            await malware_sandbox.start()
+            self.services.append(malware_sandbox)
+
+            # 6. Security Controller (central coordination)
+            security_controller = SecurityControllerService()
+            await security_controller.start()
+            self.services.append(security_controller)
+
+            logger.info("\n" + "=" * 80)
+            logger.info("✅ ALL SECURITY SYSTEMS RUNNING")
+            logger.info("=" * 80)
+            logger.info("\nAPI Endpoints:")
+            for service in self.services:
+                logger.info(f"  • {service.name:20s} http://localhost:{service.port}")
+
+            logger.info("\nPort Allocations saved to: data/ports.json")
+            logger.info("\nTorinAI can now connect to and operate these systems!")
+            logger.info("Press Ctrl+C to stop all services")
+            logger.info("=" * 80 + "\n")
+
+        except Exception as e:
+            logger.error(f"Failed to start services: {e}", exc_info=True)
+            await self.stop_all()
+            raise
+
+    async def stop_all(self):
+        """Stop all security systems"""
+        logger.info("\n🛑 Stopping all security systems...")
+
+        for service in reversed(self.services):
+            try:
+                await service.stop()
+                logger.info(f"   ✅ {service.name} stopped")
+            except Exception as e:
+                logger.error(f"   ❌ {service.name} stop error: {e}")
+
+        logger.info("✅ All security systems stopped\n")
+
+
+async def main():
+    """Main entry point"""
+    launcher = SecuritySystemsLauncher()
+
+    # Setup signal handlers for graceful shutdown
+    loop = asyncio.get_event_loop()
+
+    def signal_handler():
+        logger.info("\n\n⚠️  Shutdown signal received...")
+        asyncio.create_task(launcher.stop_all())
+        loop.stop()
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, signal_handler)
+
+    try:
+        await launcher.start_all()
+
+        # Keep running until interrupted
+        while True:
+            await asyncio.sleep(1)
+
+    except KeyboardInterrupt:
+        logger.info("\n⚠️  Interrupted by user")
+
+    except Exception as e:
+        logger.error(f"\n❌ Error: {e}", exc_info=True)
+
+    finally:
+        await launcher.stop_all()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

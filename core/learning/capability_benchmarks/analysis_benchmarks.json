@@ -1,0 +1,102 @@
+{
+  "domain": "analysis",
+  "description": "Frozen analysis capability benchmarks - data interpretation, pattern recognition, trend analysis",
+  "frozen_date": "2026-02-09",
+  "tests": [
+    {
+      "test_id": "analysis_data_001",
+      "domain": "analysis",
+      "difficulty": "easy",
+      "prompt": "Sales data: Jan=100, Feb=120, Mar=140, Apr=160, May=180. What is the trend? What would you predict for June?",
+      "expected_output": "The trend is linear growth of 20 units per month. Predicted June sales: 200. The data shows consistent month-over-month growth with no seasonality or variance.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["200", "linear", "20"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "analysis_type": "trend_identification",
+        "skill": "linear_extrapolation"
+      }
+    },
+    {
+      "test_id": "analysis_pattern_001",
+      "domain": "analysis",
+      "difficulty": "medium",
+      "prompt": "Server logs show error rates: Mon=2%, Tue=2%, Wed=15%, Thu=2%, Fri=2%, Sat=1%, Sun=1%. What pattern do you see and what might explain it?",
+      "expected_output": "There's an anomalous spike on Wednesday (15% vs baseline ~2%). This suggests a specific Wednesday event: deployment, batch job, traffic spike, or system issue. The pattern is otherwise stable with slightly lower weekend rates (possibly less traffic).",
+      "evaluation_criteria": {
+        "type": "semantic_similarity",
+        "threshold": 0.7
+      },
+      "metadata": {
+        "analysis_type": "anomaly_detection",
+        "skill": "pattern_recognition"
+      }
+    },
+    {
+      "test_id": "analysis_correlation_001",
+      "domain": "analysis",
+      "difficulty": "medium",
+      "prompt": "A study finds that ice cream sales and drowning deaths both increase in summer. Does this mean ice cream causes drowning?",
+      "expected_output": "No. This is correlation without causation. Both variables are influenced by a confounding variable (temperature/summer season). Warm weather causes both increased ice cream consumption and more swimming, which leads to more drowning incidents. Ice cream does not cause drowning.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["correlation", "causation", "confounding", "temperature"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "analysis_type": "correlation_vs_causation",
+        "skill": "statistical_reasoning"
+      }
+    },
+    {
+      "test_id": "analysis_data_002",
+      "domain": "analysis",
+      "difficulty": "hard",
+      "prompt": "User retention data: Week 1=1000 users, Week 2=600, Week 3=420, Week 4=336, Week 5=285. Calculate the weekly retention rate and predict Week 6. What's the pattern?",
+      "expected_output": "Retention follows exponential decay. Week 2: 60% retained (600/1000), Week 3: 70% (420/600), Week 4: 80% (336/420), Week 5: 85% (285/336). The retention rate is improving each week. Week 6 prediction: ~250 users (assuming ~88% retention as the rate stabilizes).",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["exponential", "improving", "250"],
+        "threshold": 0.6
+      },
+      "metadata": {
+        "analysis_type": "retention_analysis",
+        "skill": "exponential_modeling"
+      }
+    },
+    {
+      "test_id": "analysis_distribution_001",
+      "domain": "analysis",
+      "difficulty": "hard",
+      "prompt": "Response times (ms): 10, 12, 11, 13, 15, 14, 12, 250, 11, 13. Calculate the mean and median. Which is a better measure of central tendency here and why?",
+      "expected_output": "Mean: ~36ms (influenced by 250ms outlier). Median: 12.5ms. Median is better because the distribution has an outlier (250ms). Median is robust to outliers and better represents typical response time. The outlier suggests an anomaly that should be investigated separately.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["median", "outlier", "robust"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "analysis_type": "distribution_analysis",
+        "skill": "robust_statistics"
+      }
+    },
+    {
+      "test_id": "analysis_multivariate_001",
+      "domain": "analysis",
+      "difficulty": "hard",
+      "prompt": "A model's accuracy dropped from 95% to 88%. During the same period: training data volume doubled, a new feature was added, inference latency decreased by 30%, and the production environment changed. Which factor likely caused the accuracy drop?",
+      "expected_output": "Most likely the production environment change, as this is a classic train-test distribution mismatch. The model was trained on data from one environment and deployed to another. Doubled training data and new features would typically improve accuracy. Lower latency suggests optimization, not accuracy degradation. Investigate data distribution shift between environments.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["environment", "distribution", "mismatch"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "analysis_type": "root_cause_analysis",
+        "skill": "multivariate_debugging"
+      }
+    }
+  ]
+}

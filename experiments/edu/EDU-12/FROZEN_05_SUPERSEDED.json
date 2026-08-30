@@ -1,0 +1,32 @@
+{
+  "freeze_id": "EDU-12_S0_ADMISSIBLE_05",
+  "frozen_at": "2026-08-20T16:47:00.991909+00:00",
+  "architecture_fingerprint": "c99eaaab0f336fdb82fff850e0978f3079aaa1dcb7c01bf8caa14ae517b819d4",
+  "substrate_files": 282,
+  "baseline": "manifest.json (first admissible S0)",
+  "rule": "During the frozen educational phase, failures may repair the EXPERIMENT but may not expand Torin's cognitive implementation.",
+  "may_be_repaired": [
+    "an exam that leaks an answer",
+    "a harness that bypasses the production ingress",
+    "a metric that cannot report failure",
+    "a database or process state that does not reset"
+  ],
+  "may_not_be_repaired": [
+    "Torin cannot learn percentages",
+    "Torin cannot synthesise programs",
+    "Torin cannot parse a legitimate held-out construction",
+    "Torin cannot transfer a concept"
+  ],
+  "why": "Repairing a cognitive capability mid-experiment destroys the distinction between 'Torin learned' and 'we upgraded Torin while teaching it'. A capability Torin cannot acquire through education IS the result.",
+  "supersedes": {
+    "freeze_id": "EDU-12_S0_ADMISSIBLE_04",
+    "fingerprint": "224ff6c6cdf3a641e2dc9a25c3eee6035c9b1461871bf0aa3d9a42661e521891",
+    "record": "FROZEN_04_SUPERSEDED.json"
+  },
+  "why_refrozen": "Version-space minimality was set inclusion, not theta-subsumption, so alpha-variant supersets survived as separate hypotheses: one correct rule came back as 22 candidates and induction could never settle. Rule IDENTITY was already renaming-invariant; subsumption had not been. Still before any Stage 2 instruction.",
+  "change": {
+    "what": "_minimal_hypotheses uses theta-subsumption via the canonical unifier",
+    "effect": "22 candidates -> 1; genuinely distinct hypotheses still report MULTIPLE_HYPOTHESES",
+    "unlocked": "program construction end to end, model-free: two operators learned from demonstration, composed by the planner into MEAN_OF -> COUNT_EXCEEDING, and that same plan run unchanged on 3 held-out inputs -> 3/3 correct, 0 model calls"
+  }
+}

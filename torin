@@ -1,0 +1,247 @@
+#!/bin/bash
+#
+# TorinAI Ecosystem Startup Script
+# Starts the entire TorinAI autonomous system
+#
+# Usage: ./torin
+#
+
+set -e  # Exit on error
+
+# Professional color scheme - no white text
+RED='\033[38;5;196m'        # Bright red
+GREEN='\033[38;5;46m'       # Bright green
+YELLOW='\033[38;5;226m'     # Bright yellow
+BLUE='\033[38;5;33m'        # Bright blue
+CYAN='\033[38;5;51m'        # Bright cyan
+MAGENTA='\033[38;5;201m'    # Bright magenta
+ORANGE='\033[38;5;208m'     # Bright orange
+GRAY='\033[38;5;240m'       # Dark gray
+NC='\033[0m'                # No color
+
+# Directories
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+RUNTIME_DIR="$SCRIPT_DIR/runtime"
+LOGS_DIR="$SCRIPT_DIR/logs"
+PID_DIR="$RUNTIME_DIR"
+
+# Create necessary directories
+mkdir -p "$RUNTIME_DIR"
+mkdir -p "$LOGS_DIR"
+
+# PID files
+MAIN_PID_FILE="$PID_DIR/torin_main.pid"
+
+# Log files
+MAIN_LOG_FILE="$LOGS_DIR/torin_main.log"
+
+# Banner
+echo ""
+echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${NC}                                                                ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}      ${ORANGE}████████╗ ██████╗ ██████╗ ██╗███╗   ██╗ █████╗ ██╗${NC}        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}      ${ORANGE}╚══██╔══╝██╔═══██╗██╔══██╗██║████╗  ██║██╔══██╗██║${NC}        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}         ${ORANGE}██║   ██║   ██║██████╔╝██║██╔██╗ ██║███████║██║${NC}        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}         ${ORANGE}██║   ██║   ██║██╔══██╗██║██║╚██╗██║██╔══██║██║${NC}        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}         ${ORANGE}██║   ╚██████╔╝██║  ██║██║██║ ╚████║██║  ██║██║${NC}        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}         ${ORANGE}╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝${NC}        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                                ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}              ${BLUE}Autonomous AI System - Full Ecosystem${NC}             ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                                ${CYAN}║${NC}"
+echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# THE DEDICATED TERMINAL IS THE ONLY PLACE THIS STARTS.
+#
+# Everything the substrate executes -- every run_shell_command, every subprocess
+# -- is a child of this process, so whichever window starts TorinAI owns every
+# command it will ever run. Starting it from an arbitrary shell means those
+# commands inherit that shell's PATH, virtualenv and working directory, which is
+# how a run ends up on the system interpreter instead of venv_torin.
+#
+# TORIN_SHELL is set only by TorinAI/.torinshell/.zshrc, which TorinAI.app loads.
+# The escape hatch is explicit rather than absent: scheduled and detached runs
+# are legitimate, they just have to say so.
+check_dedicated_shell() {
+    # TORIN_LAUNCHER=app is the desktop dashboard. It qualifies for the same
+    # reason the dedicated shell does, and only for that reason: it sets the
+    # working directory and uses venv_torin explicitly, so the environment every
+    # child command inherits is controlled rather than whatever a stray shell
+    # happened to have. The rule was never "only a terminal" -- it is "only a
+    # launcher that guarantees the environment".
+    if [ "$TORIN_SHELL" = "1" ] || [ "$TORIN_LAUNCHER" = "app" ] \
+       || [ "$TORIN_ALLOW_ANY_SHELL" = "1" ]; then
+        return 0
+    fi
+    echo -e "${RED}❌ Not the dedicated TorinAI terminal.${NC}"
+    echo ""
+    echo -e "${GRAY}   TorinAI runs every one of its shell commands as a child of${NC}"
+    echo -e "${GRAY}   this process, so it starts from one window only.${NC}"
+    echo ""
+    echo -e "${BLUE}   Open${NC} ${CYAN}TorinAI.app${NC} ${BLUE}(Desktop)${NC}${BLUE} and run${NC} ${ORANGE}torin${NC} ${BLUE}there.${NC}"
+    echo -e "${GRAY}   Deliberate exception: TORIN_ALLOW_ANY_SHELL=1 ./torin${NC}"
+    echo ""
+    exit 1
+}
+
+# Check if already running
+check_running() {
+    if [ -f "$MAIN_PID_FILE" ]; then
+        PID=$(cat "$MAIN_PID_FILE")
+        if ps -p "$PID" > /dev/null 2>&1; then
+            echo -e "${ORANGE}⚠️  TorinAI is already running (PID: $PID)${NC}"
+            echo -e "${RED}Use './torin-status' to check status${NC}"
+            echo -e "${RED}Use './torin-stop' to stop the system${NC}"
+            exit 1
+        else
+            echo -e "${YELLOW}Removing stale PID file${NC}"
+            rm -f "$MAIN_PID_FILE"
+        fi
+    fi
+}
+
+# Check Python environment
+check_python() {
+    if ! command -v python3 &> /dev/null; then
+        echo -e "${RED}❌ Python 3 not found. Please install Python 3.${NC}"
+        exit 1
+    fi
+    # Don't print version here - we'll print it after activating venv
+}
+
+# Activate virtual environment if exists
+activate_venv() {
+    if [ -d "$SCRIPT_DIR/venv_torin" ]; then
+        echo -e "${BLUE}→${NC} Activating virtual environment..."
+        source "$SCRIPT_DIR/venv_torin/bin/activate"
+        # Show the VENV Python version, not system Python
+        PYTHON_VERSION=$("$SCRIPT_DIR/venv_torin/bin/python3" --version 2>&1 | cut -d' ' -f2)
+        echo -e "${GREEN}✓${NC} Virtual environment activated (Python ${CYAN}$PYTHON_VERSION${NC})"
+    else
+        echo -e "${YELLOW}⚠${NC}  Virtual environment not found at ${CYAN}venv_torin/${NC}"
+        PYTHON_VERSION=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f1-2)
+        echo -e "${GRAY}  Running with system Python ${PYTHON_VERSION}${NC}"
+    fi
+}
+
+# Check for required environment files
+check_env_files() {
+    local missing=0
+
+    if [ ! -f "$SCRIPT_DIR/.env.postgres" ]; then
+        echo -e "${YELLOW}⚠${NC}  ${CYAN}.env.postgres${NC} not found (PostgreSQL configuration)"
+        missing=1
+    fi
+
+    if [ ! -f "$SCRIPT_DIR/.env" ]; then
+        echo -e "${YELLOW}⚠${NC}  ${CYAN}.env${NC} not found (general configuration)"
+        missing=1
+    fi
+
+    if [ $missing -eq 1 ]; then
+        echo -e "${GRAY}  System will use default configurations${NC}"
+    fi
+}
+
+# Check PostgreSQL connectivity
+check_postgres() {
+    echo -e "${BLUE}→${NC} Checking PostgreSQL database connectivity..."
+
+    # Add PostgreSQL to PATH
+    # `opt` is the symlink brew repoints on upgrade; the pinned Cellar path
+    # was 16.11_1 while the installed build is 16.14, so psql was never
+    # found and the connection probe below silently skipped -- reporting
+    # "running on port 5432" without ever having connected.
+    export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+
+    # THE PORT COMES FROM CONFIG, NOT FROM A CONSTANT. TorinAI moved to its own
+    # instance on 5433; checking 5432 would have passed preflight against the
+    # shared instance and then failed to connect to the one it actually uses.
+    TORIN_PGPORT=$(grep -E "^POSTGRES_PORT=" "$SCRIPT_DIR/.env.postgres" 2>/dev/null | cut -d= -f2 | tr -d ' ')
+    TORIN_PGPORT=${TORIN_PGPORT:-5432}
+
+    if ! netstat -an 2>/dev/null | grep -q "[\.\:]${TORIN_PGPORT}.*LISTEN"; then
+        echo -e "${RED}❌ PostgreSQL is not running on port ${TORIN_PGPORT}${NC}"
+        echo -e "${GRAY}   Start it: pg_ctl -D /opt/homebrew/var/torinai-pg16 -l logs/torinai_pg.log start${NC}"
+        exit 1
+    fi
+
+    # Test PostgreSQL connection if psql is available
+    if command -v psql &> /dev/null; then
+        # Try to get credentials from .env.postgres or .env
+        POSTGRES_USER="stefan"
+        POSTGRES_DB="torinai_db"
+
+        if [ -f "$SCRIPT_DIR/.env.postgres" ]; then
+            POSTGRES_USER=$(grep "^POSTGRES_USER=" "$SCRIPT_DIR/.env.postgres" | cut -d'=' -f2)
+            POSTGRES_DB=$(grep "^POSTGRES_DATABASE=" "$SCRIPT_DIR/.env.postgres" | cut -d'=' -f2)
+        fi
+
+        if psql -h 127.0.0.1 -p "$TORIN_PGPORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" &>/dev/null; then
+            # Get memory count
+            MEMORY_COUNT=$(psql -h 127.0.0.1 -p "$TORIN_PGPORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM memory_hot.memory_hot WHERE embedding IS NOT NULL" 2>/dev/null | xargs)
+            echo -e "${GREEN}✓${NC} PostgreSQL connected ${GRAY}(database: $POSTGRES_DB, memories: $MEMORY_COUNT)${NC}"
+        else
+            echo -e "${YELLOW}⚠${NC}  PostgreSQL running but connection failed"
+            echo -e "${GRAY}   TorinAI will attempt to connect anyway${NC}"
+        fi
+    else
+        echo -e "${GREEN}✓${NC} PostgreSQL running on port ${TORIN_PGPORT}${NC}"
+    fi
+}
+
+# Suppress white text from Python logging
+export PYTHONUNBUFFERED=1
+export NO_COLOR=0
+
+# Start TorinAI system
+start_torin() {
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${MAGENTA}▶${NC} Starting ${MAGENTA}TorinAI${NC} Autonomous System"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${GRAY}Log output: ${CYAN}$MAIN_LOG_FILE${NC}"
+    echo ""
+
+    # Run in foreground - use venv python if available
+    if [ -f "$SCRIPT_DIR/venv_torin/bin/python3" ]; then
+        exec "$SCRIPT_DIR/venv_torin/bin/python3" -u "$SCRIPT_DIR/core/main.py" 2>&1 | while IFS= read -r line; do
+            # Filter and colorize output - remove white text, add colors
+            echo "$line" | sed \
+                -e 's/ERROR/\x1b[38;5;196mERROR\x1b[0m/g' \
+                -e 's/WARNING/\x1b[38;5;226mWARNING\x1b[0m/g' \
+                -e 's/INFO/\x1b[38;5;46mINFO\x1b[0m/g' \
+                -e 's/DEBUG/\x1b[38;5;240mDEBUG\x1b[0m/g' \
+                -e 's/SUCCESS/\x1b[38;5;46mSUCCESS\x1b[0m/g' \
+                -e 's/CRITICAL/\x1b[38;5;196mCRITICAL\x1b[0m/g'
+        done
+    else
+        exec python3 -u "$SCRIPT_DIR/core/main.py" 2>&1 | while IFS= read -r line; do
+            echo "$line" | sed \
+                -e 's/ERROR/\x1b[38;5;196mERROR\x1b[0m/g' \
+                -e 's/WARNING/\x1b[38;5;226mWARNING\x1b[0m/g' \
+                -e 's/INFO/\x1b[38;5;46mINFO\x1b[0m/g' \
+                -e 's/DEBUG/\x1b[38;5;240mDEBUG\x1b[0m/g' \
+                -e 's/SUCCESS/\x1b[38;5;46mSUCCESS\x1b[0m/g' \
+                -e 's/CRITICAL/\x1b[38;5;196mCRITICAL\x1b[0m/g'
+        done
+    fi
+}
+
+
+# Main execution
+main() {
+    # Pre-flight checks
+    check_dedicated_shell
+    check_running
+    check_python
+    check_env_files
+    check_postgres
+    activate_venv
+
+    # Start TorinAI
+    start_torin
+}
+
+# Run main
+main

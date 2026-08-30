@@ -1,0 +1,42 @@
+{
+  "model": "/Users/stefan/TorinAI/core/models/obsidian3-14b-instruct-mlx-8bit",
+  "completed": "2025-10-30T16:34:58.412829",
+  "adapters": [
+    {
+      "dataset": "system_performance",
+      "epoch": 1,
+      "adapter": "adapters/autonomous_systems/system_performance_epoch1",
+      "timestamp": "2025-10-30T14:22:43.769975"
+    },
+    {
+      "dataset": "security_intelligence",
+      "epoch": 1,
+      "adapter": "adapters/autonomous_systems/security_intelligence_epoch1",
+      "timestamp": "2025-10-30T15:02:58.962569"
+    },
+    {
+      "dataset": "code_optimization",
+      "epoch": 1,
+      "adapter": "adapters/autonomous_systems/code_optimization_epoch1",
+      "timestamp": "2025-10-30T15:33:52.749580"
+    },
+    {
+      "dataset": "autonomous_decisions",
+      "epoch": 1,
+      "adapter": "adapters/autonomous_systems/autonomous_decisions_epoch1",
+      "timestamp": "2025-10-30T15:51:25.025481"
+    },
+    {
+      "dataset": "memory_management",
+      "epoch": 1,
+      "adapter": "adapters/autonomous_systems/memory_management_epoch1",
+      "timestamp": "2025-10-30T16:13:18.961457"
+    },
+    {
+      "dataset": "failure_recovery",
+      "epoch": 1,
+      "adapter": "adapters/autonomous_systems/failure_recovery_epoch1",
+      "timestamp": "2025-10-30T16:34:58.411898"
+    }
+  ]
+}

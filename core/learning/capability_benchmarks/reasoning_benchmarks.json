@@ -1,0 +1,100 @@
+{
+  "domain": "reasoning",
+  "description": "Frozen reasoning capability benchmarks - logic, causal inference, abstract reasoning",
+  "frozen_date": "2026-02-09",
+  "tests": [
+    {
+      "test_id": "reasoning_logic_001",
+      "domain": "reasoning",
+      "difficulty": "easy",
+      "prompt": "All cats are mammals. All mammals have hearts. Therefore, do all cats have hearts? Answer yes or no and explain your reasoning in one sentence.",
+      "expected_output": "Yes, because cats are mammals and all mammals have hearts, cats must have hearts through transitive logic.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["yes", "transitive"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "reasoning_type": "deductive_logic",
+        "skill": "syllogistic_reasoning"
+      }
+    },
+    {
+      "test_id": "reasoning_causal_001",
+      "domain": "reasoning",
+      "difficulty": "medium",
+      "prompt": "A plant is wilting. The soil is dry and it hasn't rained in weeks. The plant is in direct sunlight. What is the most likely cause of the wilting? Explain your causal reasoning.",
+      "expected_output": "The most likely cause is lack of water due to dry soil and no rain. While sunlight can contribute to water loss through evaporation, the primary causal factor is insufficient water availability.",
+      "evaluation_criteria": {
+        "type": "semantic_similarity",
+        "threshold": 0.7
+      },
+      "metadata": {
+        "reasoning_type": "causal_inference",
+        "skill": "root_cause_analysis"
+      }
+    },
+    {
+      "test_id": "reasoning_abstract_001",
+      "domain": "reasoning",
+      "difficulty": "hard",
+      "prompt": "If you have a sequence: 2, 6, 12, 20, 30, what is the next number? Explain the pattern you identified.",
+      "expected_output": "The next number is 42. The pattern is n(n+1) where n starts at 2: 2×3=6, 3×4=12, 4×5=20, 5×6=30, 6×7=42. Each term is the product of two consecutive integers.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["42", "consecutive", "product"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "reasoning_type": "pattern_recognition",
+        "skill": "mathematical_abstraction"
+      }
+    },
+    {
+      "test_id": "reasoning_logic_002",
+      "domain": "reasoning",
+      "difficulty": "medium",
+      "prompt": "Either the server is down or there's a network issue. The server is not down. What can you conclude?",
+      "expected_output": "There must be a network issue. This is an application of disjunctive syllogism: if A or B is true, and A is false, then B must be true.",
+      "evaluation_criteria": {
+        "type": "semantic_similarity",
+        "threshold": 0.7
+      },
+      "metadata": {
+        "reasoning_type": "propositional_logic",
+        "skill": "disjunctive_syllogism"
+      }
+    },
+    {
+      "test_id": "reasoning_causal_002",
+      "domain": "reasoning",
+      "difficulty": "hard",
+      "prompt": "A company's revenue increased by 30% after launching a new marketing campaign. However, during the same period, a competitor went out of business and the economy grew by 5%. What can you conclude about the marketing campaign's effectiveness?",
+      "expected_output": "We cannot definitively conclude the marketing campaign caused the 30% increase due to confounding variables: the competitor's exit likely redirected customers to this company, and economic growth also contributed. The campaign's isolated impact is unclear without controlling for these factors.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["confounding", "cannot", "unclear"],
+        "threshold": 0.6
+      },
+      "metadata": {
+        "reasoning_type": "causal_inference_with_confounds",
+        "skill": "confounding_variable_analysis"
+      }
+    },
+    {
+      "test_id": "reasoning_counterfactual_001",
+      "domain": "reasoning",
+      "difficulty": "hard",
+      "prompt": "A self-driving car swerved to avoid a pedestrian and hit a parked car. If the car had not swerved, it would have hit the pedestrian. Was the decision to swerve the cause of hitting the parked car?",
+      "expected_output": "Yes, the decision to swerve was the proximate cause of hitting the parked car. However, in counterfactual reasoning, we recognize that not swerving would have caused a worse outcome (hitting the pedestrian). The swerve was both the cause of the collision and the prevention of a greater harm.",
+      "evaluation_criteria": {
+        "type": "semantic_similarity",
+        "threshold": 0.7
+      },
+      "metadata": {
+        "reasoning_type": "counterfactual_reasoning",
+        "skill": "moral_causality"
+      }
+    }
+  ]
+}

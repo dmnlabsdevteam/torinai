@@ -1,0 +1,153 @@
+# Prometheus Alert Rules for Drift Monitoring System
+# Alerts for critical conditions in drift detection and containment
+
+groups:
+  - name: drift_monitoring_alerts
+    interval: 30s
+    rules:
+      # Agent Health Alerts
+      - alert: ValidatorAgentDown
+        expr: validator_connected == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: validator
+        annotations:
+          summary: "Validator agent {{ $labels.validator_id }} is down"
+          description: "Validator agent {{ $labels.validator_id }} has been disconnected for more than 2 minutes."
+
+      - alert: CoordinatorAgentDown
+        expr: coordinator_connected == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: coordinator
+        annotations:
+          summary: "Coordinator agent is down"
+          description: "Coordinator agent has been disconnected for more than 1 minute. Drift containment is compromised."
+
+      - alert: SanitizerAgentDown
+        expr: sanitizer_running == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: sanitizer
+        annotations:
+          summary: "Sanitizer agent is not running"
+          description: "Sanitizer agent has been stopped for more than 5 minutes. Cleanup operations may be delayed."
+
+      # Drift Detection Alerts
+      - alert: HighDriftDetectionRate
+        expr: rate(validator_events_processed_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: validator
+        annotations:
+          summary: "High drift detection rate"
+          description: "Validator {{ $labels.validator_id }} is detecting drift at an unusually high rate ({{ $value }} events/min)."
+
+      - alert: CriticalDriftDetected
+        expr: validator_critical_drift_total > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: validator
+        annotations:
+          summary: "Critical drift detected"
+          description: "Critical drift detected by {{ $labels.validator_id }} for model {{ $labels.model_id }}."
+
+      # Containment Alerts
+      - alert: ContainmentFailureRate
+        expr: rate(coordinator_containments_failed_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: coordinator
+        annotations:
+          summary: "High containment failure rate"
+          description: "Coordinator is experiencing containment failures at {{ $value }} failures/min."
+
+      - alert: QuorumNotReached
+        expr: coordinator_insufficient_votes_total > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: coordinator
+        annotations:
+          summary: "Quorum not reached for multiple events"
+          description: "Coordinator has {{ $value }} events without sufficient votes for quorum."
+
+      # Performance Alerts
+      - alert: ValidatorHighMemoryUsage
+        expr: validator_memory_usage_bytes / validator_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: validator
+        annotations:
+          summary: "Validator agent high memory usage"
+          description: "Validator {{ $labels.validator_id }} is using {{ $value | humanizePercentage }} of memory limit."
+
+      - alert: CoordinatorHighCPU
+        expr: rate(coordinator_cpu_usage_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: coordinator
+        annotations:
+          summary: "Coordinator high CPU usage"
+          description: "Coordinator is using {{ $value | humanizePercentage }} CPU for extended period."
+
+      # Cleanup Alerts
+      - alert: SanitizerTaskBacklog
+        expr: sanitizer_pending_tasks > 20
+        for: 15m
+        labels:
+          severity: warning
+          component: sanitizer
+        annotations:
+          summary: "Sanitizer task backlog"
+          description: "Sanitizer has {{ $value }} pending cleanup tasks."
+
+      - alert: SanitizerTaskFailureRate
+        expr: rate(sanitizer_tasks_failed_total[10m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: sanitizer
+        annotations:
+          summary: "High sanitizer task failure rate"
+          description: "Sanitizer is experiencing {{ $value }} task failures per minute."
+
+      # System Health Alerts
+      - alert: NATSConnectionLoss
+        expr: up{job="nats"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: nats
+        annotations:
+          summary: "NATS server is down"
+          description: "NATS message bus is unreachable. All drift monitoring is compromised."
+
+      - alert: ValidatorVoteDisagreement
+        expr: stddev(validator_isolate_votes_total) > 5
+        for: 10m
+        labels:
+          severity: info
+          component: validator
+        annotations:
+          summary: "Validators showing high disagreement"
+          description: "Validators are showing high variance in vote decisions (stddev: {{ $value }})."
+
+      # Audit Alerts
+      - alert: AuditEventFailure
+        expr: increase(sanitizer_audit_events_failed_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: sanitizer
+        annotations:
+          summary: "Audit event emission failures"
+          description: "Sanitizer has failed to emit {{ $value }} audit events in the last hour."

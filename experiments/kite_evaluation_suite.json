@@ -1,0 +1,101 @@
+{
+  "suite_version": 1,
+  "note": "Frozen held-out evaluation for the KITE-17 ablation. Contains no demonstration from the teaching or validation corpora: every constant here is unseen. Cases are answered only by applying persisted rules, never by inducing one.",
+  "cases": [
+    {
+      "id": "pos_unseen_1",
+      "kind": "derive",
+      "state": ["NAL(w)", "VEX(w,x)", "TOR(x)", "KEM(w,x)"],
+      "expect_add": ["ZOR(w, x)"]
+    },
+    {
+      "id": "pos_unseen_2",
+      "kind": "derive",
+      "state": ["NAL(alpha)", "VEX(alpha,beta)", "TOR(beta)", "KEM(alpha,beta)"],
+      "expect_add": ["ZOR(alpha, beta)"]
+    },
+    {
+      "id": "pos_unseen_3",
+      "kind": "derive",
+      "state": ["NAL(n1)", "VEX(n1,n2)", "TOR(n2)", "KEM(n1,n2)"],
+      "expect_add": ["ZOR(n1, n2)"]
+    },
+    {
+      "id": "pos_two_independent_bindings",
+      "kind": "derive",
+      "state": ["NAL(u1)", "VEX(u1,u2)", "TOR(u2)", "KEM(u1,u2)",
+                "NAL(v1)", "VEX(v1,v2)", "TOR(v2)", "KEM(v1,v2)"],
+      "expect_add": ["ZOR(u1, u2)", "ZOR(v1, v2)"]
+    },
+    {
+      "id": "missing_NAL",
+      "kind": "derive",
+      "state": ["VEX(w,x)", "TOR(x)", "KEM(w,x)"],
+      "expect_add": []
+    },
+    {
+      "id": "missing_VEX",
+      "kind": "derive",
+      "state": ["NAL(w)", "TOR(x)", "KEM(w,x)"],
+      "expect_add": []
+    },
+    {
+      "id": "missing_TOR",
+      "kind": "derive",
+      "state": ["NAL(w)", "VEX(w,x)", "KEM(w,x)"],
+      "expect_add": []
+    },
+    {
+      "id": "missing_KEM",
+      "kind": "derive",
+      "state": ["NAL(w)", "VEX(w,x)", "TOR(x)"],
+      "expect_add": []
+    },
+    {
+      "id": "irrelevant_extra_facts",
+      "kind": "derive",
+      "state": ["NAL(w)", "VEX(w,x)", "TOR(x)", "KEM(w,x)",
+                "GLIM(w)", "ZARK(x,w)", "PLOD(q1,q2)", "TOR(q1)"],
+      "expect_add": ["ZOR(w, x)"]
+    },
+    {
+      "id": "role_reversal_trap",
+      "kind": "derive",
+      "note": "VEX points the wrong way; a learner keying on co-occurrence rather than argument position would fire here.",
+      "state": ["NAL(w)", "VEX(x,w)", "TOR(x)", "KEM(w,x)"],
+      "expect_add": []
+    },
+    {
+      "id": "role_reversal_trap_kem",
+      "kind": "derive",
+      "note": "KEM reversed relative to NAL/TOR roles.",
+      "state": ["NAL(w)", "VEX(w,x)", "TOR(x)", "KEM(x,w)"],
+      "expect_add": []
+    },
+    {
+      "id": "transition_single_step_with_retraction",
+      "kind": "sequence",
+      "state": ["AT(z,HALL)", "PATH(HALL,LAB)", "OPEN(LAB)"],
+      "steps": ["MOVE(z,HALL,LAB)"],
+      "expect_present": ["AT(z, LAB)"],
+      "expect_absent": ["AT(z, HALL)"]
+    },
+    {
+      "id": "transition_two_step_chain",
+      "kind": "sequence",
+      "state": ["AT(z,HALL)", "PATH(HALL,LAB)", "OPEN(LAB)",
+                "PATH(LAB,VAULT)", "OPEN(VAULT)"],
+      "steps": ["MOVE(z,HALL,LAB)", "MOVE(z,LAB,VAULT)"],
+      "expect_present": ["AT(z, VAULT)"],
+      "expect_absent": ["AT(z, HALL)", "AT(z, LAB)"]
+    },
+    {
+      "id": "transition_blocked_destination",
+      "kind": "sequence",
+      "state": ["AT(z,HALL)", "PATH(HALL,CELL)"],
+      "steps": ["MOVE(z,HALL,CELL)"],
+      "expect_present": ["AT(z, HALL)"],
+      "expect_absent": ["AT(z, CELL)"]
+    }
+  ]
+}

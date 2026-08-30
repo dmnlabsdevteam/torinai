@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Install the guardian as an always-on launchd agent (keeps it alive across
+# crashes and reboots). Run once. Uninstall: launchctl unload the plist.
+set -e
+PLIST="$HOME/Library/LaunchAgents/org.dominionlabs.torin.guardian.plist"
+cp "$(dirname "$0")/config/org.dominionlabs.torin.guardian.plist" "$PLIST"
+launchctl unload "$PLIST" 2>/dev/null || true
+launchctl load "$PLIST"
+echo "Guardian installed and started. It will now run continuously."
+echo "Status:  launchctl list | grep torin.guardian"
+echo "Stop:    launchctl unload $PLIST"

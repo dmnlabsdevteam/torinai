@@ -1,0 +1,120 @@
+{
+  "test_name": "Memory Consistency Test",
+  "date": "2025-12-24T17:28:33.259497",
+  "version": "v1.0",
+  "tests": [
+    {
+      "test": "factual_consistency",
+      "questions_tested": 3,
+      "results": [
+        {
+          "question": "What is the capital of France?",
+          "answers": [
+            "The capital of France is Paris.",
+            "The capital of France is Paris.",
+            "The capital of France is Paris."
+          ],
+          "thinking_traces": [
+            null,
+            null,
+            null
+          ],
+          "consistency_score": 1.0,
+          "passed": true
+        },
+        {
+          "question": "How many planets are in our solar system?",
+          "answers": [
+            "There are 8 planets in our solar system. They are Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune. Pluto was once considered the ninth planet but was reclassified as a dwarf planet in 2006 by the International Astronomical Union.",
+            "There are 8 planets in our solar system. They are Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune. Pluto was once considered the ninth planet but was reclassified as a dwarf planet in 2006 by the International Astronomical Union.",
+            "There are 8 planets in our solar system. They are Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune. Pluto was once considered the ninth planet but was reclassified as a dwarf planet in 2006 by the International Astronomical Union."
+          ],
+          "thinking_traces": [
+            null,
+            null,
+            null
+          ],
+          "consistency_score": 1.0,
+          "passed": true
+        },
+        {
+          "question": "What is the chemical formula for water?",
+          "answers": [
+            "The chemical formula for water is H\u2082O. This formula indicates that each molecule of water is composed of two hydrogen atoms (H) and one oxygen atom (O).",
+            "The chemical formula for water is H\u2082O. This formula indicates that each molecule of water is composed of two hydrogen atoms (H) and one oxygen atom (O).",
+            "The chemical formula for water is H\u2082O. This formula indicates that each molecule of water is composed of two hydrogen atoms (H) and one oxygen atom (O)."
+          ],
+          "thinking_traces": [
+            null,
+            null,
+            null
+          ],
+          "consistency_score": 1.0,
+          "passed": true
+        }
+      ],
+      "avg_consistency": 1.0,
+      "passed": true
+    },
+    {
+      "test": "reasoning_consistency",
+      "question": "\n        If a train leaves Station A at 60 mph and another train leaves Station B\n        (300 miles away) at 90 mph, heading toward each other, when will they meet?\n        ",
+      "answers": [
+        "To solve this problem, we need to determine the time it takes for the two trains to meet. Let's break it down step-by-step.\n\n\n\nNow, let's calculate the time.\n\n\n\nSo, the trains will meet in 2 hours.",
+        "To solve this problem, we need to determine the time it takes for the two trains to meet. Here's the step-by-step reasoning:\n\n\n\nTherefore, the two trains will meet in 2 hours.",
+        "To solve this problem, we need to determine the time at which the two trains will meet. Let's break it down step by step.\n\n\n\nThe trains will meet 2 hours after they start."
+      ],
+      "reasoning_patterns": [
+        {
+          "steps": [
+            "To solve this problem, we need to determine the time it takes for the two trains to meet",
+            " Let's break it down step-by-step",
+            "\n\n\n\nNow, let's calculate the time",
+            "\n\n\n\nSo, the trains will meet in 2 hours",
+            ""
+          ],
+          "step_count": 5,
+          "has_structure": true
+        },
+        {
+          "steps": [
+            "To solve this problem, we need to determine the time it takes for the two trains to meet",
+            " Here's the step-by-step reasoning:\n\n\n\nTherefore, the two trains will meet in 2 hours",
+            ""
+          ],
+          "step_count": 3,
+          "has_structure": true
+        },
+        {
+          "steps": [
+            "To solve this problem, we need to determine the time at which the two trains will meet",
+            " Let's break it down step by step",
+            "\n\n\n\nThe trains will meet 2 hours after they start",
+            ""
+          ],
+          "step_count": 4,
+          "has_structure": true
+        }
+      ],
+      "consistency_score": 1.5833333333333335,
+      "passed": true
+    },
+    {
+      "test": "chain_of_thought_memory",
+      "question": "Explain the concept of recursion in programming with an example.",
+      "response": "Recursion in programming is a method where a function calls itself as a subroutine. This process allows the function to be repeated several times, as it can call itself during its execution. Recursion is often used to solve problems that can be broken down into smaller, similar problems. The key to making recursion work is to ensure that there is a base case, which is a condition under which the function does not call itself again, thus preventing an infinite loop.\n\nLet's use the example of calculating the factorial of a number to illustrate recursion. The factorial of a number n (denoted as n!) is the product of all positive integers less than or equal to n. For example, the factorial of 5 (5!) is 5 * 4 * 3 * 2 * 1 = 120.\n\n\n\nHere is how this would look in code:\n\n```python\ndef factorial(n):\n    if n == 0 or n == 1:  # Base case\n        return 1\n    else:  # Recursive case\n        return n * factorial(n-1)\n```\n\n<think>\nLet's walk through how this function works for calculating the factorial of 5:\n1. Call factorial(5)\n2. Since 5 > 1, it returns 5 * factorial(4)\n3. Call factorial(4)\n4. Since 4 > 1, it returns 4 * factorial(3)\n5. Call factorial(3)\n6. Since 3 > 1, it returns 3 * factorial(2)\n7",
+      "has_thinking_content": "\nTo solve this using recursion, we can define the factorial function as:\n- Base case: If n is 0 or 1, the factorial is 1.\n- Recursive case: If n > 1, the factorial is n * factorial(n-1).\nThis definition breaks the problem into smaller subproblems (factorial of n-1) until it reaches the base case.\n",
+      "thinking_length": 298,
+      "stored_successfully": true,
+      "passed": true
+    }
+  ],
+  "summary": {
+    "total_tests": 3,
+    "passed": 3,
+    "failed": 0,
+    "pass_rate": 100.0,
+    "agi_threshold": 85.0,
+    "meets_agi_criteria": true
+  }
+}

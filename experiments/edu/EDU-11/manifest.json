@@ -1,0 +1,1962 @@
+{
+  "benchmark": "EDU-11",
+  "title": "Causal Discovery With an Unobservable Cause",
+  "recorded_at": "2026-08-19T20:56:48.424663+00:00",
+  "passed": true,
+  "model_calls": 0,
+  "seeds": 30,
+  "residual_trials": 80,
+  "truth": {
+    "observable_requires": [
+      "AUTHORISED",
+      "AVAILABLE",
+      "LOCATED",
+      "POWERED",
+      "ROUTE"
+    ],
+    "observable_forbids": [
+      "LOCKED"
+    ],
+    "hidden": "CALIBRATED"
+  },
+  "results": {
+    "A_no_latent": {
+      "trials": 30,
+      "structure_correct_rate": 1.0,
+      "posits_latent_rate": 0.033,
+      "mean_alignment": 0.9,
+      "mean_residual_success_rate": 0.9446,
+      "median_observations": 26,
+      "reached_structure_rate": 1.0,
+      "verdicts": {
+        "undetermined": 17,
+        "no_residual_structure": 12,
+        "structured_residual": 1
+      }
+    },
+    "B_iid_latent": {
+      "trials": 30,
+      "structure_correct_rate": 1.0,
+      "posits_latent_rate": 0.0,
+      "mean_alignment": null,
+      "mean_residual_success_rate": 0.4779,
+      "median_observations": 74,
+      "reached_structure_rate": 1.0,
+      "verdicts": {
+        "undetermined": 0,
+        "no_residual_structure": 30,
+        "structured_residual": 0
+      }
+    },
+    "C_persistent": {
+      "trials": 30,
+      "structure_correct_rate": 0.967,
+      "posits_latent_rate": 1.0,
+      "mean_alignment": 0.9762,
+      "mean_residual_success_rate": 0.3817,
+      "median_observations": 110,
+      "reached_structure_rate": 0.967,
+      "verdicts": {
+        "undetermined": 0,
+        "no_residual_structure": 0,
+        "structured_residual": 30
+      }
+    }
+  },
+  "per_trial": {
+    "A_no_latent": [
+      {
+        "seed": 0,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.95,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.502,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 1,
+        "observations_to_structure": 26,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.627,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 2,
+        "observations_to_structure": 29,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -1.379,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 3,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9125,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.888,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 4,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.925,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.084,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 5,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9125,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.888,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 6,
+        "observations_to_structure": 26,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.627,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 7,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 8,
+        "observations_to_structure": 32,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 9,
+        "observations_to_structure": 26,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -1.379,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 10,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": -3.004,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 11,
+        "observations_to_structure": 38,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9125,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.888,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 12,
+        "observations_to_structure": 28,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -2.736,
+        "latent_alignment": 0.9,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 13,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 14,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 15,
+        "observations_to_structure": 28,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.975,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.264,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 16,
+        "observations_to_structure": 26,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.975,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.264,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 17,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.925,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.755,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 18,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 19,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 20,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 21,
+        "observations_to_structure": 32,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9125,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -1.286,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 22,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.925,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.755,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 23,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.925,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.755,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 24,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.95,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.502,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 25,
+        "observations_to_structure": 33,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 26,
+        "observations_to_structure": 31,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.95,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.502,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 27,
+        "observations_to_structure": 26,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.9625,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.381,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 28,
+        "observations_to_structure": 33,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.95,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.502,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 29,
+        "observations_to_structure": 29,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.95,
+        "verdict": "undetermined",
+        "posits_latent": false,
+        "runs_z": 0.502,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      }
+    ],
+    "B_iid_latent": [
+      {
+        "seed": 0,
+        "observations_to_structure": 91,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.504,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 1,
+        "observations_to_structure": 55,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.854,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 2,
+        "observations_to_structure": 45,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.525,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 1.827,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 3,
+        "observations_to_structure": 86,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.0,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 4,
+        "observations_to_structure": 77,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.425,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.023,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 5,
+        "observations_to_structure": 66,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.45,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.364,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 6,
+        "observations_to_structure": 90,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.675,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 7,
+        "observations_to_structure": 89,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.425,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.898,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 8,
+        "observations_to_structure": 29,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.475,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.88,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 9,
+        "observations_to_structure": 58,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.525,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -1.105,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 10,
+        "observations_to_structure": 62,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 1.313,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 11,
+        "observations_to_structure": 74,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.45,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 12,
+        "observations_to_structure": 44,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4125,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.877,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 13,
+        "observations_to_structure": 60,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.175,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 14,
+        "observations_to_structure": 36,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5125,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.895,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 15,
+        "observations_to_structure": 36,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.45,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 1.455,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 16,
+        "observations_to_structure": 85,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.425,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.207,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 17,
+        "observations_to_structure": 72,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4875,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.906,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 18,
+        "observations_to_structure": 90,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 1.286,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 19,
+        "observations_to_structure": 105,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.475,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.88,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 20,
+        "observations_to_structure": 87,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4625,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.854,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 21,
+        "observations_to_structure": 80,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4875,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -1.12,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 22,
+        "observations_to_structure": 83,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4625,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.175,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 23,
+        "observations_to_structure": 55,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5375,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.854,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 24,
+        "observations_to_structure": 109,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.3875,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.955,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 25,
+        "observations_to_structure": 50,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.525,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 2.053,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 26,
+        "observations_to_structure": 65,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5125,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.67,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 27,
+        "observations_to_structure": 81,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4875,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.445,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 28,
+        "observations_to_structure": 57,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4875,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": 0.006,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      },
+      {
+        "seed": 29,
+        "observations_to_structure": 77,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.45,
+        "verdict": "no_residual_structure",
+        "posits_latent": false,
+        "runs_z": -0.364,
+        "latent_alignment": 0.0,
+        "recovered_on_rate": null
+      }
+    ],
+    "C_persistent": [
+      {
+        "seed": 0,
+        "observations_to_structure": 57,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.1375,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -4.801,
+        "latent_alignment": 1.0,
+        "recovered_on_rate": 0.8734
+      },
+      {
+        "seed": 1,
+        "observations_to_structure": 29,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.75,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.027,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 2,
+        "observations_to_structure": 55,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -7.147,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.954
+      },
+      {
+        "seed": 3,
+        "observations_to_structure": 38,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.2125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -7.029,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 0.9341
+      },
+      {
+        "seed": 4,
+        "observations_to_structure": 236,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4625,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -4.702,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 0.9339
+      },
+      {
+        "seed": 5,
+        "observations_to_structure": null,
+        "structure_correct": false,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [],
+        "residual_success_rate": 0.25,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.931,
+        "latent_alignment": 0.9625,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 6,
+        "observations_to_structure": 248,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -7.834,
+        "latent_alignment": 1.0,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 7,
+        "observations_to_structure": 29,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.1625,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -7.01,
+        "latent_alignment": 1.0,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 8,
+        "observations_to_structure": 188,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.015,
+        "latent_alignment": 0.95,
+        "recovered_on_rate": 0.6717
+      },
+      {
+        "seed": 9,
+        "observations_to_structure": 264,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.6,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.661,
+        "latent_alignment": 0.9375,
+        "recovered_on_rate": 0.9922
+      },
+      {
+        "seed": 10,
+        "observations_to_structure": 121,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4375,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.259,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 0.9424
+      },
+      {
+        "seed": 11,
+        "observations_to_structure": 122,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.325,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.192,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.9155
+      },
+      {
+        "seed": 12,
+        "observations_to_structure": 126,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.175,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -7.12,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 13,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -7.425,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.9995
+      },
+      {
+        "seed": 14,
+        "observations_to_structure": 393,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5625,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.259,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.9137
+      },
+      {
+        "seed": 15,
+        "observations_to_structure": 115,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.475,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.52,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 0.9503
+      },
+      {
+        "seed": 16,
+        "observations_to_structure": 132,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.25,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -4.821,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.8809
+      },
+      {
+        "seed": 17,
+        "observations_to_structure": 108,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.3125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.659,
+        "latent_alignment": 1.0,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 18,
+        "observations_to_structure": 55,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -5.754,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.9817
+      },
+      {
+        "seed": 19,
+        "observations_to_structure": 110,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.55,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -4.228,
+        "latent_alignment": 0.9375,
+        "recovered_on_rate": 0.9432
+      },
+      {
+        "seed": 20,
+        "observations_to_structure": 189,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.3625,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -5.843,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.8975
+      },
+      {
+        "seed": 21,
+        "observations_to_structure": 191,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.275,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.483,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 22,
+        "observations_to_structure": 116,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.525,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.746,
+        "latent_alignment": 1.0,
+        "recovered_on_rate": 0.9296
+      },
+      {
+        "seed": 23,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.3125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.134,
+        "latent_alignment": 0.95,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 24,
+        "observations_to_structure": 118,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.125,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -4.969,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 25,
+        "observations_to_structure": 80,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.475,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -5.843,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 0.8947
+      },
+      {
+        "seed": 26,
+        "observations_to_structure": 66,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.6,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -5.957,
+        "latent_alignment": 0.975,
+        "recovered_on_rate": 1.0
+      },
+      {
+        "seed": 27,
+        "observations_to_structure": 29,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.4375,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.488,
+        "latent_alignment": 0.9625,
+        "recovered_on_rate": 0.899
+      },
+      {
+        "seed": 28,
+        "observations_to_structure": 103,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.5875,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -6.45,
+        "latent_alignment": 0.9875,
+        "recovered_on_rate": 0.95
+      },
+      {
+        "seed": 29,
+        "observations_to_structure": 23,
+        "structure_correct": true,
+        "learned_requires": [
+          "AUTHORISED",
+          "AVAILABLE",
+          "LOCATED",
+          "POWERED",
+          "ROUTE"
+        ],
+        "learned_forbids": [
+          "LOCKED"
+        ],
+        "residual_success_rate": 0.225,
+        "verdict": "structured_residual",
+        "posits_latent": true,
+        "runs_z": -4.51,
+        "latent_alignment": 0.9375,
+        "recovered_on_rate": 0.6744
+      }
+    ]
+  }
+}

@@ -1,0 +1,558 @@
+{
+  "experiment": "EDU-12 re-derivation of the primitives",
+  "question": "can the substrate build LENGTH, SUM, MEAN, MAXIMUM and a count over a threshold out of a cursor, two registers, a comparator and an adder",
+  "recorded_at": "2026-08-20T20:59:56.418438+00:00",
+  "model": {
+    "policy": "strict_model_free",
+    "attempts": 0,
+    "blocked": 0,
+    "executed": 0,
+    "by_class": {
+      "llm": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "vlm": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "embedding": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "reranker": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "classifier": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "encoder": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      }
+    }
+  },
+  "instruction_set": [
+    {
+      "instruction": "TAKE",
+      "explains": "A",
+      "status": "rule_learned",
+      "rule": "A(?X1) \u2227 HEAD(?X0) \u2227 TAKE \u2192 A(?X0) \u2296 A(?X1)",
+      "candidates": 1
+    },
+    {
+      "instruction": "TAKE",
+      "explains": "AT",
+      "status": "rule_learned",
+      "rule": "SUCC(?X1, ?X0) \u2227 TAKE \u2192 AT(?X0) \u2296 AT(?X1)",
+      "candidates": 1
+    },
+    {
+      "instruction": "PASS",
+      "explains": "AT",
+      "status": "rule_learned",
+      "rule": "PASS \u2227 SUCC(?X1, ?X0) \u2192 AT(?X0) \u2296 AT(?X1)",
+      "candidates": 1
+    },
+    {
+      "instruction": "ACCUM",
+      "explains": "A",
+      "status": "rule_learned",
+      "rule": "A(?X1) \u2227 ACCUM \u2227 A_PLUS_HEAD(?X0) \u2192 A(?X0) \u2296 A(?X1)",
+      "candidates": 1
+    },
+    {
+      "instruction": "ACCUM",
+      "explains": "AT",
+      "status": "rule_learned",
+      "rule": "ACCUM \u2227 SUCC(?X1, ?X0) \u2192 AT(?X0) \u2296 AT(?X1)",
+      "candidates": 1
+    },
+    {
+      "instruction": "TALLY",
+      "explains": "A",
+      "status": "rule_learned",
+      "rule": "A(?X1) \u2227 A_PLUS_ONE(?X0) \u2227 TALLY \u2192 A(?X0) \u2296 A(?X1)",
+      "candidates": 1
+    },
+    {
+      "instruction": "TALLY",
+      "explains": "AT",
+      "status": "rule_learned",
+      "rule": "SUCC(?X1, ?X0) \u2227 TALLY \u2192 AT(?X0) \u2296 AT(?X1)",
+      "candidates": 1
+    },
+    {
+      "instruction": "CLEAR",
+      "explains": "A_UNSET",
+      "status": "rule_learned",
+      "rule": "CLEAR \u2296 A_UNSET",
+      "candidates": 1
+    },
+    {
+      "instruction": "EMIT",
+      "explains": "RESULT",
+      "status": "rule_learned",
+      "rule": "A(?X0) \u2227 EMIT \u2192 RESULT(?X0)",
+      "candidates": 1
+    }
+  ],
+  "derivation": [
+    {
+      "fold": "MAXIMUM",
+      "status": "procedure_derived",
+      "size": 4,
+      "candidates_run": 863,
+      "evidence": [
+        "[3, 9, 7] -> 9",
+        "[9, 3, 7] -> 9",
+        "[5, 2, 8] -> 8",
+        "[-5, -2, -9] -> -2"
+      ],
+      "procedures": [
+        [
+          "A_UNSET \u2192 TAKE",
+          "GT_A \u2192 TAKE",
+          "DONE \u2192 EMIT",
+          "otherwise \u2192 PASS"
+        ]
+      ],
+      "detail": ""
+    },
+    {
+      "fold": "SUM",
+      "status": "procedure_derived",
+      "size": 3,
+      "candidates_run": 340,
+      "evidence": [
+        "[3, 9, 7] -> 19",
+        "[5, 2] -> 7",
+        "[] -> 0",
+        "[-4, 6] -> 2"
+      ],
+      "procedures": [
+        [
+          "A_UNSET \u2192 CLEAR",
+          "DONE \u2192 EMIT",
+          "otherwise \u2192 ACCUM"
+        ]
+      ],
+      "detail": ""
+    },
+    {
+      "fold": "LENGTH",
+      "status": "procedure_derived",
+      "size": 3,
+      "candidates_run": 371,
+      "evidence": [
+        "[3, 9, 7] -> 3",
+        "[5] -> 1",
+        "[] -> 0",
+        "[4, 8, 6, 2] -> 4"
+      ],
+      "procedures": [
+        [
+          "A_UNSET \u2192 CLEAR",
+          "DONE \u2192 EMIT",
+          "otherwise \u2192 TALLY"
+        ]
+      ],
+      "detail": ""
+    },
+    {
+      "fold": "EXCEEDING",
+      "status": "multiple_procedures",
+      "size": 4,
+      "candidates_run": 1561,
+      "evidence": [
+        "[3, 9, 7] -> 2",
+        "[1, 2, 3] -> 0",
+        "[] -> 0",
+        "[9, 9] -> 2"
+      ],
+      "procedures": [
+        [
+          "LE_B \u2192 PASS",
+          "A_UNSET \u2192 CLEAR",
+          "DONE \u2192 EMIT",
+          "otherwise \u2192 TALLY"
+        ],
+        [
+          "A_UNSET \u2192 CLEAR",
+          "LE_B \u2192 PASS",
+          "DONE \u2192 EMIT",
+          "otherwise \u2192 TALLY"
+        ]
+      ],
+      "detail": "2 procedures of 4 step(s) take different routes to the required answers on every example; an input separating them would decide"
+    }
+  ],
+  "held_out_lengths": [
+    5,
+    7,
+    11,
+    20,
+    50
+  ],
+  "held_out_validation": [
+    {
+      "fold": "MAXIMUM",
+      "correct": 5,
+      "of": 5,
+      "model_contradictions": 0,
+      "runs": [
+        {
+          "length": 5,
+          "expected": 45.0,
+          "produced": 45.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 6,
+          "model_contradictions": 0
+        },
+        {
+          "length": 7,
+          "expected": 45.0,
+          "produced": 45.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 8,
+          "model_contradictions": 0
+        },
+        {
+          "length": 11,
+          "expected": 50.0,
+          "produced": 50.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 12,
+          "model_contradictions": 0
+        },
+        {
+          "length": 20,
+          "expected": 55.0,
+          "produced": 55.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 21,
+          "model_contradictions": 0
+        },
+        {
+          "length": 50,
+          "expected": 56.0,
+          "produced": 56.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 51,
+          "model_contradictions": 0
+        }
+      ],
+      "procedure_index": 0
+    },
+    {
+      "fold": "SUM",
+      "correct": 5,
+      "of": 5,
+      "model_contradictions": 0,
+      "runs": [
+        {
+          "length": 5,
+          "expected": 31.0,
+          "produced": 31.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 7,
+          "model_contradictions": 0
+        },
+        {
+          "length": 7,
+          "expected": -8.0,
+          "produced": -8.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 9,
+          "model_contradictions": 0
+        },
+        {
+          "length": 11,
+          "expected": 67.0,
+          "produced": 67.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 13,
+          "model_contradictions": 0
+        },
+        {
+          "length": 20,
+          "expected": 145.0,
+          "produced": 145.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 22,
+          "model_contradictions": 0
+        },
+        {
+          "length": 50,
+          "expected": 419.0,
+          "produced": 419.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 52,
+          "model_contradictions": 0
+        }
+      ],
+      "procedure_index": 0
+    },
+    {
+      "fold": "LENGTH",
+      "correct": 5,
+      "of": 5,
+      "model_contradictions": 0,
+      "runs": [
+        {
+          "length": 5,
+          "expected": 5.0,
+          "produced": 5.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 7,
+          "model_contradictions": 0
+        },
+        {
+          "length": 7,
+          "expected": 7.0,
+          "produced": 7.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 9,
+          "model_contradictions": 0
+        },
+        {
+          "length": 11,
+          "expected": 11.0,
+          "produced": 11.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 13,
+          "model_contradictions": 0
+        },
+        {
+          "length": 20,
+          "expected": 20.0,
+          "produced": 20.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 22,
+          "model_contradictions": 0
+        },
+        {
+          "length": 50,
+          "expected": 50.0,
+          "produced": 50.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 52,
+          "model_contradictions": 0
+        }
+      ],
+      "procedure_index": 0
+    },
+    {
+      "fold": "EXCEEDING",
+      "correct": 5,
+      "of": 5,
+      "model_contradictions": 0,
+      "runs": [
+        {
+          "length": 5,
+          "expected": 3.0,
+          "produced": 3.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 7,
+          "model_contradictions": 0
+        },
+        {
+          "length": 7,
+          "expected": 3.0,
+          "produced": 3.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 9,
+          "model_contradictions": 0
+        },
+        {
+          "length": 11,
+          "expected": 6.0,
+          "produced": 6.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 13,
+          "model_contradictions": 0
+        },
+        {
+          "length": 20,
+          "expected": 10.0,
+          "produced": 10.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 22,
+          "model_contradictions": 0
+        },
+        {
+          "length": 50,
+          "expected": 26.0,
+          "produced": 26.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 52,
+          "model_contradictions": 0
+        }
+      ],
+      "procedure_index": 0
+    },
+    {
+      "fold": "EXCEEDING",
+      "correct": 5,
+      "of": 5,
+      "model_contradictions": 0,
+      "runs": [
+        {
+          "length": 5,
+          "expected": 3.0,
+          "produced": 3.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 7,
+          "model_contradictions": 0
+        },
+        {
+          "length": 7,
+          "expected": 3.0,
+          "produced": 3.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 9,
+          "model_contradictions": 0
+        },
+        {
+          "length": 11,
+          "expected": 6.0,
+          "produced": 6.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 13,
+          "model_contradictions": 0
+        },
+        {
+          "length": 20,
+          "expected": 10.0,
+          "produced": 10.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 22,
+          "model_contradictions": 0
+        },
+        {
+          "length": 50,
+          "expected": 26.0,
+          "produced": 26.0,
+          "correct": true,
+          "status": "completed",
+          "machine_steps": 52,
+          "model_contradictions": 0
+        }
+      ],
+      "procedure_index": 1
+    }
+  ],
+  "underdetermined_folds_agree": {
+    "EXCEEDING": true
+  },
+  "composition": {
+    "operators": [
+      {
+        "operation": "TAKE_TOTAL",
+        "explains": "NUMERATOR",
+        "status": "rule_learned",
+        "rule": "TAKE_TOTAL(?X1) \u2227 TOTAL_OF(?X1, ?X0) \u2192 NUMERATOR(?X0)",
+        "produces": []
+      },
+      {
+        "operation": "TAKE_COUNT",
+        "explains": "DENOMINATOR",
+        "status": "rule_learned",
+        "rule": "COUNT_OF(?X1, ?X0) \u2227 TAKE_COUNT(?X1) \u2192 DENOMINATOR(?X0)",
+        "produces": []
+      },
+      {
+        "operation": "DIVIDE",
+        "explains": "RESULT",
+        "status": "rule_learned",
+        "rule": "DENOMINATOR(?X1) \u2227 DIVIDE \u2227 NUMERATOR(?X2) \u2192 RESULT(?X0) \u27e8?X0 := divide(?X2, ?X1)\u27e9",
+        "produces": [
+          "?X0 := divide(?X2, ?X1)"
+        ]
+      }
+    ],
+    "plan_status": {
+      "status": "PlanningStatus.PLAN_FOUND",
+      "guarantee": "guaranteed",
+      "grounding_complete": true,
+      "operators": 3
+    },
+    "plan": [
+      "TAKE_TOTAL(c1)",
+      "TAKE_COUNT(c1)",
+      "DIVIDE"
+    ],
+    "held_out": [
+      {
+        "length": 5,
+        "expected": 6.2,
+        "produced": 6.2,
+        "correct": true
+      },
+      {
+        "length": 7,
+        "expected": -1.1428571428571428,
+        "produced": -1.1428571428571428,
+        "correct": true
+      },
+      {
+        "length": 11,
+        "expected": 6.090909090909091,
+        "produced": 6.090909090909091,
+        "correct": true
+      },
+      {
+        "length": 20,
+        "expected": 7.25,
+        "produced": 7.25,
+        "correct": true
+      },
+      {
+        "length": 50,
+        "expected": 8.38,
+        "produced": 8.38,
+        "correct": true
+      }
+    ],
+    "correct": "5/5"
+  },
+  "passed": true
+}

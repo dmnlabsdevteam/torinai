@@ -1,0 +1,29 @@
+{
+  "rule_id": "rule_589ba8306c88",
+  "reason": "pre_fix_article_normalization_artifact",
+  "canonical_content": "{\"body\": [{\"args\": [\"?X0\"], \"predicate\": \"A_MAN\"}], \"action\": null, \"add_effects\": [{\"args\": [\"?X0\"], \"predicate\": \"MORTAL\"}], \"delete_effects\": [], \"schema_version\": 2}",
+  "rendered_formula": "A_MAN(?X0) \u2192 MORTAL(?X0)",
+  "domain_id": "syllogism",
+  "semantic_fingerprint": "cacae452db6efb8475686a7bf495aa0f1a22f3fc54c5b114a6b0c0b1c9ad8f8d",
+  "status_before": "candidate",
+  "status_after": "invalid_artifact",
+  "references_found": {
+    "unified.learned_rule_evidence.rule_id": 2
+  },
+  "evidence_links_preserved": [
+    {
+      "root_evidence_id": "pat_d1",
+      "evidence_role": "induction_positive",
+      "supports": true
+    },
+    {
+      "root_evidence_id": "pat_d2",
+      "evidence_role": "induction_positive",
+      "supports": true
+    }
+  ],
+  "action": "quarantined_in_place",
+  "removed_from_executable_rules": true,
+  "snapshot": "experiments/cleanup/RULE_TABLES_SNAPSHOT_2026-08-19.json",
+  "recorded_at": "2026-08-19T16:22:45.063880+00:00"
+}

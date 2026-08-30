@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Shadow Run #14 (upgrade)",
+			"type": "shell",
+			"command": "/Users/stefan/Dominion Labs/TorinAI/venv_torin/bin/python -u /Users/stefan/Dominion Labs/TorinAI/shadow_mode_test.py --suite upgrade",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

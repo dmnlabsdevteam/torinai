@@ -1,0 +1,471 @@
+{
+  "benchmark": "EDU-12_S0_ENCODING_LIMITED",
+  "title": "Open-Domain Autonomous Competence Acquisition",
+  "stage": "1_baseline_and_invariants",
+  "recorded_at": "2026-08-20T02:04:56.239749+00:00",
+  "model_calls": 0,
+  "blocks": [
+    "mathematics",
+    "programming",
+    "causal_science",
+    "language"
+  ],
+  "invariants": {
+    "subject_purity_held": true,
+    "attempt_subject_agnostic": true,
+    "exams_sealed": {
+      "mathematics": {
+        "pretest": "3e1fab93f60f78a5510a41b31789579baa926556b3434d50b418af938ff54476",
+        "posttest": "1986a390e27337370a4105898438ce2d19833e006baac565f1bfae8662552246",
+        "transfer": "d42d04d0146c43390ef0e98be43d0a380d9fdc50d0254d6dc20223a5122d67b8",
+        "sealed_at": "2026-08-20T02:04:56.239749+00:00"
+      },
+      "programming": {
+        "pretest": "bfcc814848b5fa61bf0e654fc7bca002c47e55dfce93ee5f99fcc30d8fe46eb1",
+        "posttest": "0cdb25cda415d2806fdbee000a231cc5048451a884f4dde3923c02aca9d4739f",
+        "transfer": "eb146a958b16b80f9b42a5981e32adfadfa0747032d532138b4777ca17641744",
+        "sealed_at": "2026-08-20T02:04:56.239749+00:00"
+      },
+      "causal_science": {
+        "pretest": "9f952c6c632bd90cde851b9d24266064f16f94a3171f3008405c45bd890c5bd3",
+        "posttest": "44714159a701d0f16508e73321ca8640f62bc098fa5950176a44a9315a212f27",
+        "transfer": "e9293e1b45dfc3937945ef6c49656e7635a13ce6c7eb2b0818ba7cd271e848b2",
+        "sealed_at": "2026-08-20T02:04:56.239749+00:00"
+      },
+      "language": {
+        "pretest": "a1818d8a1d79fb1b9994b46842a50e4a6c0957377f54a5c61ca617b62ca61a03",
+        "posttest": "a49ed17e63d4bd7690d0b46b322ff631c8234229eddff063cae50175095d5f2f",
+        "transfer": "fa7dc9ce8a2bef9995cfdb9c96da2170a1f0f83434356b2ec7d62f51eea8ce65",
+        "sealed_at": "2026-08-20T02:04:56.239749+00:00"
+      }
+    },
+    "posttest_lesson_contamination": {},
+    "exam_items_answerable": true,
+    "invalid_exam_items": {},
+    "generality": {
+      "baseline_fingerprint": "fe2cc3d8c6f2c0261bed4cfd532bfea43437b892d01144cdeb502be38a6d2e1a",
+      "substrate_files": 282,
+      "checkpoints": {
+        "after_mathematics_pretest": "fe2cc3d8c6f2c0261bed4cfd532bfea43437b892d01144cdeb502be38a6d2e1a",
+        "after_programming_pretest": "fe2cc3d8c6f2c0261bed4cfd532bfea43437b892d01144cdeb502be38a6d2e1a",
+        "after_causal_science_pretest": "fe2cc3d8c6f2c0261bed4cfd532bfea43437b892d01144cdeb502be38a6d2e1a",
+        "after_language_pretest": "fe2cc3d8c6f2c0261bed4cfd532bfea43437b892d01144cdeb502be38a6d2e1a"
+      },
+      "architecture_unchanged": true
+    }
+  },
+  "admissible": false,
+  "supersedes": "S0_INVALID_01.json",
+  "ingress": {
+    "reasoning": "AutonomousCoordinator.reason_about -> NeuralSymbolicBridge",
+    "induction": "SubstrateLearning.induce_causal_structure",
+    "teacher_model_detached": true
+  },
+  "s0_baseline": {
+    "mathematics": {
+      "score": 1,
+      "of": 6,
+      "percent": 16.7,
+      "unknown_rate": 0.833,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    },
+    "programming": {
+      "score": 0,
+      "of": 6,
+      "percent": 0.0,
+      "unknown_rate": 1.0,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    },
+    "causal_science": {
+      "score": 4,
+      "of": 6,
+      "percent": 66.7,
+      "unknown_rate": 0.333,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    },
+    "language": {
+      "score": 0,
+      "of": 6,
+      "percent": 0.0,
+      "unknown_rate": 1.0,
+      "false_confidence_rate": 0.0,
+      "model_calls": 0
+    }
+  },
+  "s0_detail": {
+    "mathematics": [
+      {
+        "id": "m_pre1",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 21,
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 243,
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre3",
+        "verdict": "correct",
+        "answer": 6,
+        "expected": 6,
+        "basis": "substrate_verified",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "substrate_verified"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "left",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 30,
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "m_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": 25,
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      }
+    ],
+    "programming": [
+      {
+        "id": "p_pre1",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no substrate-native program synthesis",
+        "route": [],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no substrate-native program synthesis",
+        "route": [],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre3",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no substrate-native program synthesis",
+        "route": [],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no substrate-native program synthesis",
+        "route": [],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no substrate-native program synthesis",
+        "route": [],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "p_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": null,
+        "basis": "no substrate-native program synthesis",
+        "route": [],
+        "verified": false,
+        "model_calls": 0
+      }
+    ],
+    "causal_science": [
+      {
+        "id": "s_pre1",
+        "verdict": "correct",
+        "answer": {
+          "requires": [
+            "fuel",
+            "heat",
+            "spark"
+          ],
+          "forbids": []
+        },
+        "expected": {
+          "requires": [
+            "fuel",
+            "heat",
+            "spark"
+          ],
+          "forbids": []
+        },
+        "basis": "version space MAP, posterior 0.110",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre2",
+        "verdict": "correct",
+        "answer": {
+          "requires": [
+            "power"
+          ],
+          "forbids": [
+            "lock"
+          ]
+        },
+        "expected": {
+          "requires": [
+            "power"
+          ],
+          "forbids": [
+            "lock"
+          ]
+        },
+        "basis": "version space MAP, posterior 0.207",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre3",
+        "verdict": "correct",
+        "answer": true,
+        "expected": true,
+        "basis": "predicted P(success)=0.571",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre4",
+        "verdict": "correct",
+        "answer": false,
+        "expected": false,
+        "basis": "predicted P(success)=0.377",
+        "route": [
+          "learning_authority",
+          "probabilistic_version_space"
+        ],
+        "verified": true,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "undetermined",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "s_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "no",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      }
+    ],
+    "language": [
+      {
+        "id": "l_pre1",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "yes",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre2",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "yes",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre3",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "undetermined",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre4",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "descend",
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre5",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "no",
+        "basis": "no option expressible from verdict (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      },
+      {
+        "id": "l_pre6",
+        "verdict": "unknown",
+        "answer": null,
+        "expected": "land",
+        "basis": "substrate did not settle it (unsupported_input)",
+        "route": [
+          "reason_about",
+          "neural_bridge",
+          "ReasoningMode.SYMBOLIC",
+          "unsupported_input"
+        ],
+        "verified": false,
+        "model_calls": 0
+      }
+    ]
+  },
+  "invalidation": {
+    "reason": "exam items stated their own content in forms the substrate cannot read; the run measured the exam's notation, not the learner",
+    "specifics": [
+      "language `facts` used an invented triple notation (\"robin is_a bird\") which is neither English nor the substrate's formal syntax, so no premise reached a solver",
+      "language `prompt` fused a preamble with the question (\"A robin is a bird and a bird is an animal. Is a robin an animal\"), so the goal parser could not read a goal from it"
+    ],
+    "not_a_substrate_limit": "the same reasoning succeeds when stated plainly: 'A robin is a bird' / 'A bird is an animal' / 'Tweety is a robin' proves tweety_animal, verified, with the model detached",
+    "genuine_limits_confirmed_by_this_run": [
+      "no sequence-rule reading exists, so arithmetic/geometric sequence items are unsupported_input",
+      "no ratio or percentage reading exists",
+      "no substrate-native program synthesis"
+    ]
+  }
+}

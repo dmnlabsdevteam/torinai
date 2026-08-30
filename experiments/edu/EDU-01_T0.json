@@ -1,0 +1,244 @@
+{
+  "benchmark": "EDU-01",
+  "title": "Discriminating Evidence -> Compositional Capability Gain",
+  "recorded_at": "2026-08-23T18:59:39.440218+00:00",
+  "teaching": {
+    "positives": "single-hop MOVE demonstrations (mv_d1, mv_d2)",
+    "counterexample": "mv_no_AT_SOURCE \u2014 item not at the source",
+    "held_out": [
+      "mv_h1",
+      "mv_h2"
+    ]
+  },
+  "memory_retrieval": "none",
+  "model_calls": 0,
+  "pre_lesson_rule": {
+    "rule_id": "rule_dccaff4cba0f",
+    "body": [
+      "MOVE(?X0, ?X2, ?X1)",
+      "OPEN(?X1)",
+      "PATH(?X2, ?X1)"
+    ],
+    "action": "MOVE(?X0, ?X2, ?X1)"
+  },
+  "post_lesson_rule": {
+    "rule_id": "rule_edbe5a8b4ad8",
+    "body": [
+      "AT(?X0, ?X2)",
+      "MOVE(?X0, ?X2, ?X1)",
+      "OPEN(?X1)",
+      "PATH(?X2, ?X1)"
+    ],
+    "action": "MOVE(?X0, ?X2, ?X1)"
+  },
+  "results": {
+    "pre": {
+      "score": 2,
+      "of": 9,
+      "detail": [
+        {
+          "map": "2-hop",
+          "steps": 0,
+          "expected": 2,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "3-hop",
+          "steps": 0,
+          "expected": 3,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "4-hop",
+          "steps": 0,
+          "expected": 4,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "5-hop",
+          "steps": 0,
+          "expected": 5,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "6-hop",
+          "steps": 0,
+          "expected": 6,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "branched",
+          "steps": 0,
+          "expected": 2,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "dead-end",
+          "steps": 0,
+          "expected": 2,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "no path",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "closed door",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        }
+      ]
+    },
+    "post": {
+      "score": 9,
+      "of": 9,
+      "detail": [
+        {
+          "map": "2-hop",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "3-hop",
+          "steps": 3,
+          "expected": 3,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "4-hop",
+          "steps": 4,
+          "expected": 4,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "5-hop",
+          "steps": 5,
+          "expected": 5,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "6-hop",
+          "steps": 6,
+          "expected": 6,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "branched",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "dead-end",
+          "steps": 2,
+          "expected": 2,
+          "correct": true,
+          "note": "valid"
+        },
+        {
+          "map": "no path",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "closed door",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        }
+      ]
+    },
+    "ablated": {
+      "score": 2,
+      "of": 9,
+      "detail": [
+        {
+          "map": "2-hop",
+          "steps": 0,
+          "expected": 2,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "3-hop",
+          "steps": 0,
+          "expected": 3,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "4-hop",
+          "steps": 0,
+          "expected": 4,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "5-hop",
+          "steps": 0,
+          "expected": 5,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "6-hop",
+          "steps": 0,
+          "expected": 6,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "branched",
+          "steps": 0,
+          "expected": 2,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "dead-end",
+          "steps": 0,
+          "expected": 2,
+          "correct": false,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "no path",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        },
+        {
+          "map": "closed door",
+          "steps": 0,
+          "expected": null,
+          "correct": true,
+          "note": "UNREACHABLE"
+        }
+      ]
+    }
+  },
+  "delta_pp": 77.8
+}

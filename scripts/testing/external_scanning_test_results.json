@@ -1,0 +1,104 @@
+{
+  "timestamp": "2025-10-09T21:18:08.816272",
+  "tests_run": 6,
+  "tests_passed": 4,
+  "tests_failed": 2,
+  "results": {
+    "swarm_status": {
+      "status": "FAILED",
+      "error": "Test returned None"
+    },
+    "external_web_scanning": {
+      "status": "FAILED",
+      "error": "Test returned None"
+    },
+    "external_api_scanning": {
+      "status": "PASSED",
+      "result": [
+        {
+          "target": "api.stripe.com",
+          "traces_found": 0,
+          "traces": []
+        },
+        {
+          "target": "api.github.com",
+          "traces_found": 0,
+          "traces": []
+        },
+        {
+          "target": "graph.facebook.com",
+          "traces_found": 0,
+          "traces": []
+        },
+        {
+          "target": "api.twitter.com",
+          "traces_found": 0,
+          "traces": []
+        }
+      ]
+    },
+    "external_dns_scanning": {
+      "status": "PASSED",
+      "result": [
+        {
+          "target": "8.8.8.8",
+          "traces_found": 0,
+          "traces": []
+        },
+        {
+          "target": "1.1.1.1",
+          "traces_found": 0,
+          "traces": []
+        },
+        {
+          "target": "9.9.9.9",
+          "traces_found": 0,
+          "traces": []
+        }
+      ]
+    },
+    "external_authentication": {
+      "status": "PASSED",
+      "result": [
+        {
+          "domain": "api.example.com",
+          "auth_type": "api_key",
+          "headers_prepared": true,
+          "auth_header_present": true
+        },
+        {
+          "domain": "oauth.example.com",
+          "auth_type": "bearer_token",
+          "headers_prepared": true,
+          "auth_header_present": true
+        },
+        {
+          "domain": "basic.example.com",
+          "auth_type": "basic_auth",
+          "headers_prepared": true,
+          "auth_header_present": true
+        }
+      ]
+    },
+    "external_cleanup": {
+      "status": "PASSED",
+      "result": [
+        {
+          "target": "search.google.com",
+          "search_traces_removed": 6,
+          "referrer_traces_cleaned": 3
+        },
+        {
+          "target": "www.bing.com",
+          "search_traces_removed": 6,
+          "referrer_traces_cleaned": 3
+        },
+        {
+          "target": "duckduckgo.com",
+          "search_traces_removed": 6,
+          "referrer_traces_cleaned": 3
+        }
+      ]
+    }
+  }
+}

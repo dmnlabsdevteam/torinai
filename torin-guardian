@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# The always-on guardian: monitoring and security, independent of the substrate.
+# Meant to run continuously (a launch agent keeps it alive) so health and
+# security survive the substrate stopping, crashing, or restarting.
+cd "$(dirname "$0")"
+exec ./venv_torin/bin/python3 -c "import asyncio, sys; sys.path.insert(0,'.'); from core.guardian.supervisor import main; raise SystemExit(asyncio.run(main()))"

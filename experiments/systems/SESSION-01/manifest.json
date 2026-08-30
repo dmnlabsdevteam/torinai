@@ -1,0 +1,72 @@
+{
+  "experiment": "SESSION-01",
+  "question": "does proposal quality decay across repeated calls, and if so which layer retains the state",
+  "recorded_at": "2026-08-19T20:56:14.599836+00:00",
+  "calls_per_condition": 8,
+  "conditions": {
+    "A_persistent": {
+      "condition": "A_persistent",
+      "calls": 8,
+      "admitted_by_call": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "total_admitted": 24,
+      "zero_proposal_calls": 0,
+      "mean_first_half": 3,
+      "mean_second_half": 3,
+      "decay": 0
+    },
+    "C_fresh_state": {
+      "condition": "C_fresh_state",
+      "calls": 8,
+      "admitted_by_call": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "total_admitted": 24,
+      "zero_proposal_calls": 0,
+      "mean_first_half": 3,
+      "mean_second_half": 3,
+      "decay": 0
+    },
+    "B_fresh_process": {
+      "condition": "B_fresh_process",
+      "calls": 8,
+      "admitted_by_call": [
+        3,
+        2,
+        4,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "total_admitted": 24,
+      "zero_proposal_calls": 0,
+      "mean_first_half": 3,
+      "mean_second_half": 3,
+      "decay": 0
+    }
+  },
+  "decays": {
+    "A_persistent": 0,
+    "C_fresh_state": 0,
+    "B_fresh_process": 0
+  },
+  "confined_to_persistent": false,
+  "note": "localizes only. Candidate causes -- sampling, server state, conversation state, KV cache, request construction, wrapper -- are not distinguished by this design beyond which layer must persist for the effect to appear."
+}

@@ -1,0 +1,110 @@
+{
+  "domain": "coding",
+  "description": "Frozen coding capability benchmarks - code generation, debugging, refactoring",
+  "frozen_date": "2026-02-09",
+  "tests": [
+    {
+      "test_id": "coding_generation_001",
+      "domain": "coding",
+      "difficulty": "easy",
+      "prompt": "Write a Python function called 'is_palindrome' that takes a string and returns True if it's a palindrome (reads the same forwards and backwards), False otherwise. Ignore case and spaces.",
+      "expected_output": "def is_palindrome(s):\n    cleaned = s.replace(' ', '').lower()\n    return cleaned == cleaned[::-1]",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["def is_palindrome", "lower()", "[::-1]", "return"],
+        "threshold": 0.75
+      },
+      "metadata": {
+        "coding_type": "function_generation",
+        "language": "python",
+        "skill": "string_manipulation"
+      }
+    },
+    {
+      "test_id": "coding_debugging_001",
+      "domain": "coding",
+      "difficulty": "medium",
+      "prompt": "This code has a bug. Identify the error and explain how to fix it:\n\ndef calculate_average(numbers):\n    total = 0\n    for num in numbers:\n        total += num\n    return total / len(numbers)\n\navg = calculate_average([])\nprint(avg)",
+      "expected_output": "The bug is a division by zero error when the list is empty. Fix: Check if the list is empty before dividing: 'if not numbers: return 0' or 'if len(numbers) == 0: return 0' before the return statement.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["division by zero", "empty", "check"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "coding_type": "debugging",
+        "language": "python",
+        "error_type": "runtime_error"
+      }
+    },
+    {
+      "test_id": "coding_refactoring_001",
+      "domain": "coding",
+      "difficulty": "medium",
+      "prompt": "Refactor this code to be more pythonic and efficient:\n\ndef get_even_numbers(numbers):\n    result = []\n    for num in numbers:\n        if num % 2 == 0:\n            result.append(num)\n    return result",
+      "expected_output": "def get_even_numbers(numbers):\n    return [num for num in numbers if num % 2 == 0]",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["list comprehension", "return [", "if num % 2 == 0"],
+        "threshold": 0.6
+      },
+      "metadata": {
+        "coding_type": "refactoring",
+        "language": "python",
+        "skill": "pythonic_patterns"
+      }
+    },
+    {
+      "test_id": "coding_generation_002",
+      "domain": "coding",
+      "difficulty": "hard",
+      "prompt": "Write a Python function 'merge_sorted_arrays' that takes two sorted lists and returns a single sorted list containing all elements. Do NOT use built-in sort functions. Implement an efficient merge algorithm.",
+      "expected_output": "def merge_sorted_arrays(arr1, arr2):\n    result = []\n    i, j = 0, 0\n    while i < len(arr1) and j < len(arr2):\n        if arr1[i] <= arr2[j]:\n            result.append(arr1[i])\n            i += 1\n        else:\n            result.append(arr2[j])\n            j += 1\n    result.extend(arr1[i:])\n    result.extend(arr2[j:])\n    return result",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["while", "i", "j", "extend"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "coding_type": "algorithm_implementation",
+        "language": "python",
+        "algorithm": "merge_algorithm",
+        "time_complexity": "O(n+m)"
+      }
+    },
+    {
+      "test_id": "coding_debugging_002",
+      "domain": "coding",
+      "difficulty": "hard",
+      "prompt": "This recursive function has a subtle bug. Identify it and explain the fix:\n\ndef fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n\nresult = fibonacci(100)\nprint(result)",
+      "expected_output": "The bug is exponential time complexity causing extreme slowness for large n (like 100). The function recalculates the same values repeatedly. Fix: Use memoization with @functools.lru_cache decorator or convert to iterative approach with O(n) time.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["exponential", "memoization", "recalculates"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "coding_type": "performance_debugging",
+        "language": "python",
+        "issue": "algorithmic_inefficiency"
+      }
+    },
+    {
+      "test_id": "coding_security_001",
+      "domain": "coding",
+      "difficulty": "hard",
+      "prompt": "Identify the security vulnerability in this code and explain how to fix it:\n\nimport os\n\ndef run_command(user_input):\n    command = f\"ls {user_input}\"\n    os.system(command)\n    return \"Command executed\"",
+      "expected_output": "This code is vulnerable to command injection. A malicious user could input something like '; rm -rf /' to execute dangerous commands. Fix: Use subprocess.run() with a list of arguments instead of shell=True, or validate and sanitize user input by rejecting special characters like ;, |, &.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["command injection", "subprocess", "sanitize"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "coding_type": "security_analysis",
+        "language": "python",
+        "vulnerability": "command_injection"
+      }
+    }
+  ]
+}

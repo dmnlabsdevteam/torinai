@@ -1,0 +1,167 @@
+# TorinAI Clean Requirements - Python 3.11+
+# Compatible versions resolved for all dependencies
+# Generated: 2025-10-17
+
+# ============================================================================
+# Core ML/AI Stack
+# ============================================================================
+torch>=2.0.0,<3.0.0
+torchvision>=0.15.0,<1.0.0
+numpy>=1.24.0,<2.0.0
+scipy>=1.10.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+scikit-learn>=1.3.0,<2.0.0
+
+# ============================================================================
+# Hugging Face Ecosystem (Compatible versions)
+# ============================================================================
+# Core transformers stack
+transformers>=4.35.0,<4.50.0
+tokenizers>=0.14.0,<0.15.0  # Compatible with faster-whisper
+huggingface-hub>=0.17.0,<0.18.0  # Compatible with tokenizers
+
+# Sentence transformers for embeddings.
+# Required (not optional) by core/tools/tool_discovery.py — the tool-discovery
+# ranker's dense signal. Without it discovery degrades to lexical-only.
+# Upper bound was <3.0.0; the working venv runs 5.2.2, so the old cap resolved
+# to a version this codebase is not actually run against.
+sentence-transformers>=3.0.0,<6.0.0
+
+# Model acceleration
+accelerate>=0.24.0,<1.0.0
+safetensors>=0.4.0,<1.0.0
+
+# Datasets
+datasets>=2.20.0,<3.0.0  # Use newer version compatible with modern fsspec
+
+# ============================================================================
+# LLM Inference
+# ============================================================================
+llama-cpp-python>=0.2.0  # For 70B model
+qwen-vl-utils>=0.0.14
+
+# ============================================================================
+# Audio Processing
+# ============================================================================
+soundfile>=0.12.0
+librosa>=0.10.0
+pydub>=0.25.0
+pyaudio>=0.2.13
+SpeechRecognition>=3.10.0
+
+# Whisper (Python 3.12 compatible versions)
+# faster-whisper 1.0+ uses av 11.0+ which is Python 3.12 compatible
+faster-whisper>=1.0.0
+# whisper-timestamped with newer PyAV that supports Python 3.12
+whisper-timestamped>=1.15.0
+# PyAV 11.0+ is Python 3.12 compatible (10.x has Cython issues)
+av>=11.0.0
+
+# TTS/Voice
+wavmark>=0.0.3
+
+# ============================================================================
+# Text Processing
+# ============================================================================
+inflect>=7.0.0
+unidecode>=1.3.0
+eng-to-ipa>=0.0.2
+pypinyin>=0.50.0
+jieba>=0.42.0
+cn2an>=0.5.0
+langid>=1.1.6
+
+# ============================================================================
+# Web/API Stack
+# ============================================================================
+fastapi>=0.104.0,<1.0.0
+uvicorn>=0.24.0,<1.0.0
+pydantic>=2.5.0,<3.0.0
+aiohttp>=3.9.0
+requests>=2.31.0
+httpx>=0.27.0,<1.0.0
+
+# Web UI
+gradio>=4.0.0,<5.0.0
+
+# ============================================================================
+# Computer Vision
+# ============================================================================
+opencv-python>=4.8.0
+Pillow>=10.0.0
+face-recognition>=1.3.0
+
+# ============================================================================
+# Monitoring & Observability
+# ============================================================================
+evidently>=0.4.0
+kubernetes>=28.0.0
+prometheus-client>=0.19.0
+
+# ============================================================================
+# Security & Auth
+# ============================================================================
+cryptography>=41.0.0
+pyjwt>=2.8.0
+python-jose[cryptography]>=3.3.0
+
+# ============================================================================
+# Configuration & Utilities
+# ============================================================================
+pyyaml>=6.0
+python-dotenv>=1.0.0
+psutil>=5.9.0
+click>=8.1.0
+tqdm>=4.65.0
+
+# ============================================================================
+# Cloud Storage
+# ============================================================================
+boto3>=1.28.0
+botocore>=1.31.0
+
+# ============================================================================
+# Database
+# ============================================================================
+sqlalchemy>=2.0.0,<3.0.0
+aiosqlite>=0.19.0
+lancedb>=0.3.0
+
+# ============================================================================
+# Document Generation
+# ============================================================================
+reportlab>=4.0.0
+python-docx>=1.0.0
+openpyxl>=3.1.0
+python-pptx>=0.6.21
+
+# ============================================================================
+# Quantum Computing (Optional - for reasoning)
+# ============================================================================
+qiskit>=0.45.0
+cirq>=1.2.0
+
+# ============================================================================
+# Development & Testing
+# ============================================================================
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.6.0
+
+# ============================================================================
+# Logging
+# ============================================================================
+structlog>=23.2.0
+colorlog>=6.7.0
+
+# ============================================================================
+# Additional Utilities
+# ============================================================================
+filelock>=3.12.0
+fsspec>=2024.6.1  # Compatible with evidently 0.7+ and newer datasets
+regex>=2023.0.0
+networkx>=3.0
+jinja2>=3.1.0
+MarkupSafe>=2.1.0

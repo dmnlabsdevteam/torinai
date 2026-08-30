@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-12-25T11:22:41.786808",
+  "test_memory_id": "781c620f-09ae-4cc8-bfce-9fb4c70d02ef",
+  "results": [
+    {
+      "test": "storage",
+      "success": true,
+      "memory_id": "781c620f-09ae-4cc8-bfce-9fb4c70d02ef",
+      "passed": true
+    },
+    {
+      "test": "direct_retrieval",
+      "success": true,
+      "has_content": true,
+      "has_embeddings": false,
+      "embedding_dims": 0,
+      "passed": true
+    },
+    {
+      "test": "embedding_service",
+      "service_exists": false,
+      "passed": false
+    },
+    {
+      "test": "search_by_content",
+      "memories_found": 5,
+      "total_matches": 5,
+      "found_test_memory": true,
+      "passed": true
+    },
+    {
+      "test": "search_by_tags",
+      "memories_found": 5,
+      "found_test_memory": true,
+      "passed": true
+    },
+    {
+      "test": "r2_inspection",
+      "r2_system_exists": false,
+      "passed": false
+    }
+  ],
+  "summary": {
+    "total_tests": 6,
+    "passed": 4,
+    "failed": 2,
+    "pass_rate": 0.6666666666666666
+  }
+}

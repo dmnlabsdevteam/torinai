@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+"""TorinAI dashboard — Torin's activity, separated from the machinery's.
+
+Reads the per-channel logs that core.observability.channels writes. It is a
+SEPARATE PROCESS on purpose: attaching or closing a viewer must never affect the
+run it is watching, and a crash in rendering must not be able to take down the
+substrate. It holds no state the system depends on -- close it and nothing
+changes.
+
+Nothing here is synthesised. Every line shown was emitted by a real logger, and
+a channel with no records says so rather than filling space.
+"""
+import argparse
+import asyncio
+import json
+import os
+import re
+import sys
+import time
+from collections import deque
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from rich.console import Console, Group
+from rich.layout import Layout
+from rich.live import Live
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+
+def _load_isolated(name: str, relative: str):
+    """Import one module by path, WITHOUT executing `core/__init__.py`.
+
+    `import core.observability.channels` runs the whole package chain first, and
+    core/__init__.py pulls in the tool registry -- so simply opening the viewer
+    printed 371 tool registrations to the screen before the dashboard could
+    take it over. A viewer must not initialise the system it is viewing.
+
+    channels.py imports only the stdlib, so loading it in isolation is safe and
+    keeps the routing table as the single owner rather than copying the channel
+    names into this file.
+    """
+    import importlib.util
+    path = Path(__file__).resolve().parent / relative
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    # REGISTER BEFORE EXECUTING. @dataclass resolves its annotations through
+    # sys.modules[cls.__module__]; an unregistered module makes that None and
+    # the class body dies with "'NoneType' object has no attribute '__dict__'".
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        del sys.modules[name]
+        raise
+    return module
+
+
+_channels = _load_isolated("torin_channels", "core/observability/channels.py")
+ALL_CHANNELS = _channels.ALL_CHANNELS
+channel_for = _channels.channel_for
+
+HOME = Path(os.getenv("TORIN_HOME", Path(__file__).resolve().parent))
+CHANNEL_DIR = HOME / "logs" / "channels"
+
+TITLES = {
+    "substrate": ("SUBSTRATE", "bright_magenta", "thinking · acting · learning · memory"),
+    "system":    ("SYSTEM",    "grey62",         "database · tools · api · services"),
+    "security":  ("SECURITY",  "bright_yellow",  "evaluations · contracts · audit"),
+    "health":    ("HEALTH",    "bright_green",   "monitoring · watchdog · recovery"),
+}
+
+LEVEL_STYLE = {
+    "DEBUG": "grey42", "INFO": "", "WARNING": "yellow",
+    "ERROR": "bright_red", "CRITICAL": "bold bright_red",
+}
+
+
+MAIN_LOG = HOME / "logs" / "torin_main.log"
+BACKFILL_BYTES = 400_000
+
+#: `2026-08-18 20:22:55,874 - core.agents.memory_agent - INFO - message`
+_MAIN_LINE = re.compile(
+    r"^\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2}),\d+ - (\S+) - (\w+) - (.*)$")
+
+
+def backfill(channel: str, limit: int) -> list:
+    """This channel's recent history, recovered from the combined log.
+
+    Channel files only start filling when TorinAI next runs, so on a stopped
+    system every pane except SUBSTRATE read as empty -- which looks identical to
+    a broken channel. The combined log already holds the same records with the
+    logger name intact, and the channel is derivable from that name, so the
+    history can be routed after the fact instead of being lost.
+
+    Only the tail is read: torin_main.log is 36MB and this is a viewer.
+    """
+    if not MAIN_LOG.exists():
+        return []
+    out = []
+    try:
+        with MAIN_LOG.open("rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            fh.seek(max(0, fh.tell() - BACKFILL_BYTES))
+            fh.readline()                      # discard the partial first line
+            for raw in fh.read().decode("utf-8", "replace").splitlines():
+                m = _MAIN_LINE.match(raw)
+                if not m or channel_for(m.group(2)) != channel:
+                    continue
+                # Re-emit in the channel format so one renderer handles both.
+                out.append(f"{m.group(1)} {m.group(3):<7} {m.group(2)} | {m.group(4)}")
+    except OSError:
+        return []
+    return out[-limit:]
+
+
+class Tail:
+    """Follow one file, surviving truncation and absence."""
+
+    def __init__(self, path: Path, keep: int, channel: str = ""):
+        self.path = path
+        self.channel = channel
+        self.lines = deque(maxlen=keep)
+        self.pos = 0
+        self.inode = None
+        self.total = 0
+        self.from_history = False
+
+    def poll(self) -> None:
+        try:
+            st = self.path.stat()
+        except FileNotFoundError:
+            self._backfill_once()
+            return
+        if st.st_size == 0:
+            self._backfill_once()
+            return
+        # Rotated or truncated: start over rather than seeking past the end.
+        if self.inode is not None and (st.st_ino != self.inode or st.st_size < self.pos):
+            self.pos = 0
+        self.inode = st.st_ino
+        if st.st_size == self.pos:
+            return
+        with self.path.open("r", errors="replace") as fh:
+            fh.seek(self.pos)
+            for line in fh:
+                if line.endswith("\n"):
+                    self.lines.append(line.rstrip("\n"))
+                    self.total += 1
+            self.pos = fh.tell()
+        if self.lines and self.from_history:
+            # Live records have arrived; stop showing recovered history so the
+            # same line can never appear from both sources.
+            pass
+
+    def _backfill_once(self) -> None:
+        if self.from_history or not self.channel:
+            return
+        recovered = backfill(self.channel, self.lines.maxlen)
+        if recovered:
+            self.lines.extend(recovered)
+            self.total = len(recovered)
+            self.from_history = True
+
+
+class SubstrateFeed:
+    """Torin's own record, read from where the coordinator already writes it.
+
+    NOT the substrate log channel. AutonomousCoordinator.store_memory keeps the
+    structured event verbatim at thinking_state["raw_event"] and renders a
+    narrative into `content`; the dict is the record and the narrative is its
+    rendering. Reading log lines instead would show the machinery's commentary
+    about the substrate rather than the substrate's own account of what it did.
+
+    Nothing is generated here. Each line is the recorded event name plus the
+    fields that event actually carried -- if a field is absent it is not shown,
+    rather than filled in.
+    """
+
+    #: Fields worth surfacing, in display order. Anything else stays in the
+    #: record; this is a view, not a summary.
+    SALIENT = ("domain", "task_type", "outcome", "confidence", "reason",
+               "action", "category", "cycle_reward_sum")
+
+    def __init__(self, keep: int):
+        self.lines = deque(maxlen=keep)
+        self.conn = None
+        self.after = None
+        self.total = 0
+        self.error = None
+
+    async def connect(self) -> None:
+        try:
+            import asyncpg
+            # Isolated for the same reason as channels.py: postgres_config
+            # imports only the stdlib and dotenv, but reaching it through the
+            # `core.database` package would execute core/__init__.py and
+            # initialise the system this viewer is only meant to observe.
+            cfg = _load_isolated("torin_pgconfig",
+                                 "core/database/postgres_config.py").PostgresConfig.resolve()
+            self.conn = await asyncpg.connect(
+                host=cfg.host, port=cfg.port, user=cfg.user,
+                password=cfg.password, database=cfg.database)
+        except Exception as e:
+            self.error = f"{type(e).__name__}: {e}"
+
+    async def poll(self) -> None:
+        if self.conn is None:
+            return
+        try:
+            if self.after is None:
+                rows = await self.conn.fetch("""
+                    SELECT created_at, thinking_state->'raw_event' AS raw
+                    FROM memory_hot.memory_hot
+                    WHERE thinking_state ? 'raw_event'
+                    ORDER BY created_at DESC LIMIT 30""")
+                rows = list(reversed(rows))
+            else:
+                rows = await self.conn.fetch("""
+                    SELECT created_at, thinking_state->'raw_event' AS raw
+                    FROM memory_hot.memory_hot
+                    WHERE thinking_state ? 'raw_event' AND created_at > $1
+                    ORDER BY created_at LIMIT 100""", self.after)
+            for r in rows:
+                self.after = r["created_at"]
+                self.lines.append((r["created_at"], r["raw"]))
+                self.total += 1
+        except Exception as e:
+            self.error = f"{type(e).__name__}: {e}"
+
+    def render(self, raw, when) -> Text:
+        try:
+            event = json.loads(raw) if isinstance(raw, str) else (raw or {})
+        except (TypeError, ValueError):
+            event = {}
+        t = Text()
+        t.append(when.strftime("%H:%M:%S "), style="grey37")
+        name = str(event.get("event", "unnamed"))
+        t.append(name, style="bright_magenta")
+        for key in self.SALIENT:
+            if key in event and event[key] is not None:
+                value = event[key]
+                if isinstance(value, float):
+                    value = f"{value:.2f}"
+                t.append(f"  {key}=", style="grey42")
+                t.append(str(value)[:28], style="white")
+        return t
+
+
+def substrate_panel(feed: "SubstrateFeed", height: int) -> Panel:
+    title, colour, subtitle = TITLES["substrate"]
+    if feed.error:
+        body = Text(f"cannot read the record: {feed.error}", style="bright_red")
+    elif not feed.lines:
+        body = Text("no recorded events yet", style="grey42")
+    else:
+        body = Group(*[feed.render(raw, when)
+                       for when, raw in list(feed.lines)[-height:]])
+    return Panel(body, title=f"[{colour}]{title}[/]",
+                 subtitle=f"[grey37]{subtitle} · {feed.total}[/]",
+                 border_style=colour, padding=(0, 1))
+
+
+def render_line(raw: str) -> Text:
+    """`HH:MM:SS LEVEL   logger | message` — dim the scaffolding, keep the message."""
+    parts = raw.split(None, 2)
+    if len(parts) < 3:
+        return Text(raw)
+    ts, level, rest = parts
+    logger, _, message = rest.partition(" | ")
+    if not message:
+        logger, message = "", rest
+    short = logger.replace("core.", "", 1)
+    t = Text()
+    t.append(ts + " ", style="grey37")
+    if level in ("WARNING", "ERROR", "CRITICAL"):
+        t.append(f"{level[:4]} ", style=LEVEL_STYLE.get(level, ""))
+    if short:
+        t.append(short.split(".")[-1][:22] + " ", style="grey50")
+    t.append(message, style=LEVEL_STYLE.get(level, ""))
+    return t
+
+
+def panel_for(name: str, tail: Tail, height: int) -> Panel:
+    title, colour, subtitle = TITLES[name]
+    # LINES FIRST. Checking path existence first hid recovered history: the
+    # channel file legitimately does not exist until TorinAI next runs, so a
+    # pane holding 500 backfilled records still reported itself empty.
+    if tail.lines:
+        body = Group(*[render_line(l) for l in list(tail.lines)[-height:]])
+    else:
+        body = Text("no records for this channel", style="grey42")
+    origin = " · from torin_main.log" if tail.from_history else ""
+    return Panel(body, title=f"[{colour}]{title}[/]",
+                 subtitle=f"[grey37]{subtitle} · {tail.total}{origin}[/]",
+                 border_style=colour, padding=(0, 1))
+
+
+def header() -> Panel:
+    pid_file = HOME / "runtime" / "torin_main.pid"
+    running, pid = False, None
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            os.kill(pid, 0)
+            running = True
+        except (ValueError, ProcessLookupError, PermissionError, OSError):
+            running = False
+
+    grid = Table.grid(expand=True)
+    grid.add_column(justify="left")
+    grid.add_column(justify="right")
+    state = (Text(f"running · PID {pid}", style="bright_green") if running
+             else Text("stopped", style="grey50"))
+    left = Text("TorinAI ", style="bold bright_yellow") + Text("dashboard", style="grey50")
+    grid.add_row(left, state)
+    return Panel(grid, border_style="grey30", padding=(0, 1))
+
+
+async def run() -> int:
+    ap = argparse.ArgumentParser(description="TorinAI channel dashboard")
+    ap.add_argument("--focus", choices=ALL_CHANNELS,
+                    help="show a single channel full-screen")
+    ap.add_argument("--interval", type=float, default=0.5)
+    args = ap.parse_args()
+
+    console = Console()
+    shown = (args.focus,) if args.focus else ALL_CHANNELS
+    feed = SubstrateFeed(keep=500) if "substrate" in shown else None
+    if feed:
+        await feed.connect()
+    tails = {c: Tail(CHANNEL_DIR / f"{c}.log", keep=500, channel=c)
+             for c in shown if c != "substrate"}
+    for t in tails.values():          # start at the end: this is a live view
+        t.poll()
+        t.lines.clear()
+
+    layout = Layout()
+    layout.split_column(Layout(name="head", size=3), Layout(name="body"))
+    if len(shown) == 1:
+        layout["body"].update(Layout(name=shown[0]))
+    else:
+        layout["body"].split_column(Layout(name="top"), Layout(name="bottom"))
+        layout["body"]["top"].split_row(Layout(name="substrate"), Layout(name="tasks"))
+        layout["body"]["bottom"].split_row(Layout(name="security"), Layout(name="system"))
+
+    try:
+        with Live(layout, console=console, screen=True, refresh_per_second=4):
+            while True:
+                pane_h = max(3, (console.size.height - 5) // (1 if len(shown) == 1 else 2) - 2)
+                layout["head"].update(header())
+                for name, tail in tails.items():
+                    tail.poll()
+                    target = layout["body"] if len(shown) == 1 else layout[name]
+                    target.update(panel_for(name, tail, pane_h))
+                if feed:
+                    await feed.poll()
+                    target = (layout["body"] if len(shown) == 1
+                              else layout["substrate"])
+                    target.update(substrate_panel(feed, pane_h))
+                await asyncio.sleep(args.interval)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if feed and feed.conn is not None:
+            await feed.conn.close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(run()))

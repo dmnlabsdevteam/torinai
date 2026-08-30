@@ -1,0 +1,133 @@
+{
+  "domain": "comprehension",
+  "description": "Frozen comprehension capability benchmarks - context understanding, instruction following, nuance detection",
+  "frozen_date": "2026-02-09",
+  "tests": [
+    {
+      "test_id": "comprehension_context_001",
+      "domain": "comprehension",
+      "difficulty": "easy",
+      "prompt": "Context: Sarah is allergic to peanuts. At a restaurant, she orders a salad. Question: Should the waiter mention that the salad dressing contains peanut oil? Yes or no, and why?",
+      "expected_output": "Yes. Given Sarah's peanut allergy, the waiter must inform her that the dressing contains peanut oil so she can avoid a potentially dangerous allergic reaction.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["yes", "allergic", "inform"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "comprehension_type": "contextual_inference",
+        "skill": "safety_awareness"
+      }
+    },
+    {
+      "test_id": "comprehension_instruction_001",
+      "domain": "comprehension",
+      "difficulty": "easy",
+      "prompt": "Follow these instructions exactly: 1) Write the word 'apple', 2) Skip step 3, 3) Write the word 'orange', 4) Write the word 'banana'. What should you write?",
+      "expected_output": "apple banana",
+      "evaluation_criteria": {
+        "type": "exact_match",
+        "threshold": 1.0
+      },
+      "metadata": {
+        "comprehension_type": "instruction_following",
+        "skill": "literal_interpretation"
+      }
+    },
+    {
+      "test_id": "comprehension_nuance_001",
+      "domain": "comprehension",
+      "difficulty": "medium",
+      "prompt": "Read this email: 'I appreciate your suggestion, but I think we should stick with the current approach.' Is the sender accepting or rejecting the suggestion?",
+      "expected_output": "Rejecting. The phrase 'I appreciate your suggestion, but...' is a polite rejection. The word 'but' signals disagreement, and 'stick with the current approach' means they're not adopting the suggestion.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["rejecting", "but", "polite"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "comprehension_type": "nuance_detection",
+        "skill": "polite_disagreement_recognition"
+      }
+    },
+    {
+      "test_id": "comprehension_context_002",
+      "domain": "comprehension",
+      "difficulty": "medium",
+      "prompt": "Context: A user asks 'Can you help me optimize my code?' but their previous messages show they're a complete beginner who just learned what a variable is today. How should you approach your response?",
+      "expected_output": "Provide beginner-friendly explanations with simple optimizations. Avoid advanced concepts like Big-O notation or complex algorithms. Focus on readable improvements and explain why each change helps. Match the complexity to their skill level shown in prior conversation.",
+      "evaluation_criteria": {
+        "type": "semantic_similarity",
+        "threshold": 0.7
+      },
+      "metadata": {
+        "comprehension_type": "context_adaptation",
+        "skill": "audience_awareness"
+      }
+    },
+    {
+      "test_id": "comprehension_implicit_001",
+      "domain": "comprehension",
+      "difficulty": "hard",
+      "prompt": "A user says: 'The deployment went fine. No errors in the logs. Everything looks perfect.' Two hours later: 'Why are customers complaining about slow load times?' What's the implicit issue?",
+      "expected_output": "The deployment introduced a performance regression that doesn't cause errors but degrades user experience. The issue is implicit because: 1) No errors means code executes successfully, 2) Perfect logs don't capture latency degradation, 3) The user didn't initially monitor performance metrics, only error logs. The deployment 'succeeded' technically but failed functionally.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["performance", "regression", "latency", "metrics"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "comprehension_type": "implicit_reasoning",
+        "skill": "gap_detection"
+      }
+    },
+    {
+      "test_id": "comprehension_contradiction_001",
+      "domain": "comprehension",
+      "difficulty": "hard",
+      "prompt": "A manager says: 'We need to move fast and break things, but also ensure zero bugs in production.' Identify the contradiction and suggest how to address it.",
+      "expected_output": "Contradiction: 'Move fast and break things' accepts bugs as a cost of speed, while 'zero bugs in production' demands perfection. These are incompatible goals. Resolution: Clarify priorities - either move fast with staged rollouts and rollback capability (accepting some production issues), or slow down with rigorous testing (ensuring quality). A middle ground: move fast in development/staging, strict quality gates before production.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["contradiction", "incompatible", "clarify"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "comprehension_type": "contradiction_detection",
+        "skill": "logical_inconsistency_analysis"
+      }
+    },
+    {
+      "test_id": "comprehension_instruction_002",
+      "domain": "comprehension",
+      "difficulty": "hard",
+      "prompt": "Instruction: 'Respond to this message WITHOUT using the letter E.' How would you acknowledge this instruction?",
+      "expected_output": "I will follow your instruction by avoiding that particular symbol in my reply.",
+      "evaluation_criteria": {
+        "type": "custom",
+        "description": "Response must not contain the letter 'e' or 'E'",
+        "threshold": 1.0
+      },
+      "metadata": {
+        "comprehension_type": "constraint_following",
+        "skill": "lipogram_generation"
+      }
+    },
+    {
+      "test_id": "comprehension_multilayer_001",
+      "domain": "comprehension",
+      "difficulty": "hard",
+      "prompt": "A developer says: 'I fixed the bug by commenting out the validation logic.' What are the immediate and long-term implications of this 'fix'?",
+      "expected_output": "Immediate: The error stops occurring because validation is skipped, so the code 'works' superficially. Long-term implications: 1) Invalid data now enters the system unchecked, causing data corruption, 2) Security vulnerabilities if validation included safety checks, 3) Harder to debug downstream issues, 4) Technical debt as the root cause remains unfixed. This is a symptom suppression, not a real fix.",
+      "evaluation_criteria": {
+        "type": "contains",
+        "required_phrases": ["invalid data", "security", "symptom", "not a fix"],
+        "threshold": 0.7
+      },
+      "metadata": {
+        "comprehension_type": "multilayer_consequence_analysis",
+        "skill": "second_order_thinking"
+      }
+    }
+  ]
+}

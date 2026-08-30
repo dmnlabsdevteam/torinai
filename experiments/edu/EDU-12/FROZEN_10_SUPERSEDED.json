@@ -1,0 +1,45 @@
+{
+  "freeze_id": "EDU-12_S0_ADMISSIBLE_10",
+  "frozen_at": "2026-08-20T20:30:40.757887+00:00",
+  "architecture_fingerprint": "625d955a2912e993eff53728ce0a5e122cf89244c2d3fa4eaac8776c20ee16dd",
+  "substrate_files": 285,
+  "baseline": "manifest.json (first admissible S0)",
+  "rule": "During the frozen educational phase, failures may repair the EXPERIMENT but may not expand Torin's cognitive implementation.",
+  "may_be_repaired": [
+    "an exam that leaks an answer",
+    "a harness that bypasses the production ingress",
+    "a metric that cannot report failure",
+    "a database or process state that does not reset"
+  ],
+  "may_not_be_repaired": [
+    "Torin cannot learn percentages",
+    "Torin cannot synthesise programs",
+    "Torin cannot parse a legitimate held-out construction",
+    "Torin cannot transfer a concept"
+  ],
+  "why": "Repairing a cognitive capability mid-experiment destroys the distinction between 'Torin learned' and 'we upgraded Torin while teaching it'. A capability Torin cannot acquire through education IS the result.",
+  "supersedes": {
+    "freeze_id": "EDU-12_S0_ADMISSIBLE_09",
+    "fingerprint": "18ee0bcbcda572202b01d33ab4ded496fd5e5d4f42201b8ba39660fb320ffd47",
+    "record": "FROZEN_09_SUPERSEDED.json"
+  },
+  "why_refrozen": "CSP-AGI-1 Block 1 measured transfer at 38% and the failures were all refusals, not errors. The cause was in the substrate, so it is repaired rather than accommodated -- and that keeps the Block 1 run what it already was, developmental data rather than evidence.",
+  "change": {
+    "what": "`derive_correspondence` took ONE target transition and refused whenever two source preconditions shared an arity. It now takes the transitions the target world offers, keeps only predicates present throughout every firing one, and where candidate mappings remain it compares them BY THE RULE THEY WOULD PRODUCE.",
+    "effect": "Two failures fixed at once. A property varying independently of the law can be excluded, which one observation can never do. And an ambiguity that changes nothing stops being treated as one: `ACT \u2227 P \u2227 Q \u2192 R` maps either way to the same rule, so there was never anything to choose. Where the candidate mappings really do give different rules -- one precondition retracted, the other not -- it still refuses.",
+    "unlocked": "Transfer into a vocabulary invented after the freeze: 8/8 held, 0 wrong, 0 refused, up from 3/8 held and 5 refused.",
+    "same_defect_class_as": "alpha-variant supersets surviving version-space minimality, and the commutative mirror image reported as a rival hypothesis. Three times in one day: a question with one answer, asked as though it had two."
+  },
+  "verification": {
+    "suite": "1066 passed, 3 skipped, 1 failed (this guard, before re-freezing)",
+    "edu07": "PASS \u2014 the other consumer of correspondence derivation, unchanged",
+    "correspondence": "tests/test_correspondence_derivation.py, 5 oracles",
+    "chains": {
+      "arithmetic": "plan_found / guaranteed / TAKE_TOTAL -> TAKE_COUNT -> DIVIDE",
+      "file": "plan_found / conditional / READ -> PARSE_NUMBER -> MULTIPLY -> WRITE",
+      "lookup": "plan_found / conditional / LOOKUP -> COMPARE -> BRANCH"
+    },
+    "execution": "planned before the value existed; four steps confirmed against the world; output.dat holds 34; a restart between steps 2 and 3 carries JSON only; 0 model calls",
+    "rederivation": "instruction set 9/9 rule_learned; MAXIMUM SUM LENGTH derived, EXCEEDING underdetermined into 2 procedures that agree; 5/5 at lengths 5,7,11,20,50 each; MEAN composed and guaranteed; 0 model attempts, 0 executed"
+  }
+}

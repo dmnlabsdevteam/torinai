@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Approval requests, for the dashboard to read and decide.
+
+`core.governance.approval_requests` owns the SQL; this is a command-line face on
+it so the app never speaks to Postgres itself and there is only ever one place
+that decides what an approval means.
+
+    --json                 pending + recently decided, as JSON
+    --approve ID --by WHO  record an approval
+    --decline ID --by WHO  record a refusal
+
+`--by` is required for a decision and is stored. An approval that cannot say who
+gave it is the flag this whole path exists to replace.
+
+WHY THE OWNER IS LOADED BY PATH. `from core.governance import approval_requests`
+executes `core/__init__.py`, which builds the tool registry and every service
+behind it: measured at 19.5 SECONDS per invocation. The dashboard polls this,
+so that cost was paid on a repeating timer and the window locked up — the same
+trap `torin-dash` documents ("a viewer must not initialise the system it is
+viewing"). Loading the one module by path costs about a tenth of a second.
+
+The owner takes a `db_manager`, so the connection can come from here without
+the module learning a second way to reach the database. `_Conn` supplies the
+`execute_query` shape it already expects over a raw asyncpg connection —
+adapting the transport, never the queries.
+"""
+
+import argparse
+import asyncio
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+HOME = Path(__file__).resolve().parent
+
+
+def _load_isolated(name: str, relative: str):
+    """Import one module by path, WITHOUT executing `core/__init__.py`."""
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, HOME / relative)
+    module = importlib.util.module_from_spec(spec)
+    # REGISTER BEFORE EXECUTING: @dataclass resolves annotations through
+    # sys.modules[cls.__module__], and an unregistered module makes that None.
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        del sys.modules[name]
+        raise
+    return module
+
+
+class _Conn:
+    """`execute_query` over one asyncpg connection.
+
+    Only the transport the owner needs: positional $1 params, `fetch_all`, and
+    `commit` (asyncpg autocommits outside an explicit transaction, so it is
+    accepted and ignored rather than silently changing what a caller asked for).
+    """
+
+    def __init__(self, connection):
+        self._connection = connection
+
+    async def execute_query(self, query, params=None, fetch_all=False,
+                            commit=False, **_ignored):
+        args = tuple(params or ())
+        if fetch_all:
+            return await self._connection.fetch(query, *args)
+        # RETURNING rows must survive a non-fetch_all call: the owner's
+        # `decide()` reads them back to confirm the update actually landed.
+        if " returning " in query.lower():
+            return await self._connection.fetch(query, *args)
+        await self._connection.execute(query, *args)
+        return None
+
+
+async def run() -> int:
+    ap = argparse.ArgumentParser(description="TorinAI approval requests")
+    ap.add_argument("--json", action="store_true", help="print pending + recent")
+    ap.add_argument("--approve", type=int, metavar="ID")
+    ap.add_argument("--decline", type=int, metavar="ID")
+    ap.add_argument("--by", default="", help="who is deciding")
+    ap.add_argument("--note", default="")
+    ap.add_argument("--authenticated", action="store_true",
+                    help="the decider re-authenticated (Touch ID) for this decision")
+    ap.add_argument("--limit", type=int, default=50)
+    args = ap.parse_args()
+
+    connection = None
+    try:
+        import asyncpg
+
+        config = _load_isolated("torin_pgconfig",
+                                "core/database/postgres_config.py").PostgresConfig.resolve()
+        approvals = _load_isolated("torin_approval_requests",
+                                   "core/governance/approval_requests.py")
+
+        connection = await asyncpg.connect(
+            host=config.host, port=config.port, user=config.user,
+            password=config.password, database=config.database)
+        db = _Conn(connection)
+
+        if args.approve is not None or args.decline is not None:
+            if args.approve is not None and args.decline is not None:
+                print(json.dumps({"error": "choose --approve or --decline, not both"}))
+                return 2
+            if not args.by.strip():
+                print(json.dumps({"error": "--by is required: a decision must name who made it"}))
+                return 2
+            approval_id = args.approve if args.approve is not None else args.decline
+            decided = await approvals.decide(
+                approval_id=approval_id,
+                approved=args.approve is not None,
+                decided_by=args.by.strip(),
+                note=args.note,
+                authenticated=args.authenticated,
+                db_manager=db)
+            print(json.dumps({"decided": decided.as_dict()}, default=str))
+            return 0
+
+        waiting = await approvals.pending(limit=args.limit, db_manager=db)
+        settled = await approvals.recent(limit=args.limit, db_manager=db)
+        print(json.dumps({
+            "pending": [r.as_dict() for r in waiting],
+            "recent": [r.as_dict() for r in settled],
+        }, default=str))
+        return 0
+
+    except Exception as error:
+        # The app renders this. A silent failure would show an empty bell,
+        # which reads as "nothing needs you" -- the one wrong answer.
+        print(json.dumps({"error": f"{type(error).__name__}: {error}"}))
+        return 1
+    finally:
+        if connection is not None:
+            await connection.close()
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(run()))

@@ -1,0 +1,1089 @@
+{
+  "schema_version": "1.0.0",
+  "last_updated": "2025-12-29T00:00:00Z",
+  "description": "Per-invocation governance trigger rules. Matched against tool_name and parameter VALUES to assign severity. The governance-session keys (decision_tiers, escalation_categories) were retired 2026-08-12 \u2014 both had zero readers; tier logic lives in _determine_decision_tier().",
+  "action_categories": {
+    "TOOL_EXECUTION": {
+      "description": "Governance triggers for tool execution actions",
+      "triggers": [
+        {
+          "trigger_id": "shell_destructive_recursive",
+          "name": "Recursive destructive delete",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\brm\\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\\b|\\bfind\\b.*-delete\\b"
+              }
+            }
+          },
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "Recursive force-delete destroys data with no rollback"
+        },
+        {
+          "trigger_id": "shell_disk_overwrite",
+          "name": "Raw disk / filesystem overwrite",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\bmkfs\\b|\\bdd\\b[^|]*\\bof=/dev/|>\\s*/dev/(sd|disk|nvme)"
+              }
+            }
+          },
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "Writing to a raw device destroys the filesystem"
+        },
+        {
+          "trigger_id": "shell_system_path_write",
+          "name": "Write or delete under a system path",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\b(rm|mv|chmod|chown|truncate)\\b[^|]*\\s(/etc|/usr|/bin|/sbin|/boot|/System|/Library)(/|\\s|$)"
+              }
+            }
+          },
+          "irreversibility_class": "MOSTLY_IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "Mutating system directories can render the host unbootable"
+        },
+        {
+          "trigger_id": "shell_privilege_escalation",
+          "name": "Privilege escalation",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "^\\s*(sudo|su|doas)\\b|\\bchmod\\s+(-R\\s+)?[0-7]*777\\b|\\bsetuid\\b"
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "Escalating privileges exceeds the agent's operating boundary"
+        },
+        {
+          "trigger_id": "shell_remote_exec",
+          "name": "Pipe remote content to a shell",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\b(curl|wget|fetch)\\b[^|;]*[|]\\s*(ba|z|k|d)?sh\\b|\\b(curl|wget)\\b[^|;]*\\|\\s*(python|perl|ruby|node)\\b"
+              }
+            }
+          },
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "security",
+          "rationale": "Executing unreviewed remote code is arbitrary code execution"
+        },
+        {
+          "trigger_id": "shell_fork_bomb",
+          "name": "Fork bomb / resource exhaustion",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": ":\\(\\)\\s*\\{.*\\|.*&.*\\}\\s*;?\\s*:|\\bwhile\\s+true\\b.*&\\s*$"
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "Unbounded process spawning takes down the host"
+        },
+        {
+          "trigger_id": "credential_path_access",
+          "name": "Access to credential material",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell|read_file|cat_file"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\.ssh/(id_[a-z0-9]+|identity)\\b|\\.aws/credentials\\b|\\.kube/config\\b|\\.netrc\\b|(^|/)\\.env($|[\\s'\\\"])|\\bkeychain\\b|private[_-]?key"
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "security",
+          "rationale": "Reading private keys or credential stores enables exfiltration"
+        },
+        {
+          "trigger_id": "credential_file_read",
+          "name": "Credential file read by path",
+          "conditions": {
+            "tool_name": {
+              "matches": "read_file|cat_file|open_file"
+            },
+            "parameters": {
+              "file_path": {
+                "matches": "\\.ssh/id_|\\.aws/credentials|\\.netrc|/\\.env$|private[_-]?key|\\.pem$|\\.p12$"
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "security",
+          "rationale": "Reading private keys or credential stores enables exfiltration"
+        },
+        {
+          "trigger_id": "shell_data_egress",
+          "name": "Piping local data to a remote endpoint",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\b(env|cat|tar|zip)\\b[^|]*\\|[^|]*\\b(curl|wget|nc|netcat|ssh|scp)\\b|\\bcurl\\b[^|]*(-d\\s*@|--data-binary\\s*@)"
+              }
+            }
+          },
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "security",
+          "rationale": "Sending local data to an external host is exfiltration"
+        },
+        {
+          "trigger_id": "shell_process_kill_critical",
+          "name": "Killing init or a critical process",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\bkill\\s+(-9\\s+)?1\\b|\\bkillall5\\b|\\b(shutdown|reboot|halt|poweroff)\\b"
+              }
+            }
+          },
+          "irreversibility_class": "MOSTLY_IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "Halting init or the host terminates all work in flight"
+        },
+        {
+          "trigger_id": "shell_service_control",
+          "name": "Service stop / restart",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\b(systemctl|launchctl|service)\\b.*\\b(stop|disable|unload)\\b|\\bbrew\\s+services\\s+stop\\b"
+              }
+            }
+          },
+          "irreversibility_class": "MOSTLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "escalation_category": "operational",
+          "rationale": "Stopping a service interrupts dependent systems"
+        },
+        {
+          "trigger_id": "shell_persistence",
+          "name": "Installing persistence",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "\\bcrontab\\b|/etc/cron|\\blaunchctl\\s+load\\b|\\.bashrc\\b|\\.zshrc\\b|/Library/LaunchAgents"
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "escalation_category": "security",
+          "rationale": "Scheduled or login-triggered execution outlives the current session"
+        },
+        {
+          "trigger_id": "db_schema_destruction",
+          "name": "Schema destruction",
+          "conditions": {
+            "parameters": {
+              "query": {
+                "matches": "\\bDROP\\s+(TABLE|DATABASE|SCHEMA)\\b|\\bTRUNCATE\\s+TABLE\\b"
+              }
+            }
+          },
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "Dropping or truncating destroys data irrecoverably"
+        },
+        {
+          "trigger_id": "db_unbounded_mutation",
+          "name": "UPDATE or DELETE without a WHERE clause",
+          "conditions": {
+            "parameters": {
+              "query": {
+                "matches": "^\\s*(DELETE\\s+FROM|UPDATE)\\s+(?!.*\\bWHERE\\b).*$"
+              }
+            }
+          },
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "An unbounded mutation rewrites every row in the table"
+        },
+        {
+          "trigger_id": "db_privilege_change",
+          "name": "Database privilege change",
+          "conditions": {
+            "parameters": {
+              "query": {
+                "matches": "\\bGRANT\\b|\\bREVOKE\\b|\\bALTER\\s+USER\\b|\\bCREATE\\s+USER\\b|SET\\s+.*\\badmin\\b\\s*="
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "escalation_category": "security",
+          "rationale": "Changing database privileges alters the security boundary"
+        },
+        {
+          "trigger_id": "safety_infrastructure_write",
+          "name": "Modifying safety infrastructure",
+          "conditions": {
+            "tool_name": {
+              "matches": "write_file|atomic_write_file|patch_file|edit_file|apply_patch|file_delete|delete_file|move_file|copy_file|chmod|chown"
+            },
+            "parameters": {
+              "file_path": {
+                "matches": "core/(safety|security|governance)/|governance_triggers\\.json"
+              }
+            }
+          },
+          "irreversibility_class": "MOSTLY_IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "The agent must not rewrite the machinery that constrains it. Target sensitivity RAISES SCRUTINY; it does not convert a read into a write. This condition previously matched on file_path alone, so read_file and get_file_info against core/security/ were MUST_BLOCKed under a rule about rewriting \u2014 which suppressed the investigation the finding asked for, and depressed measured controllability. Mutating tools only; the sibling safety_infrastructure_shell rule already scoped by verb."
+        },
+        {
+          "trigger_id": "safety_infrastructure_shell",
+          "name": "Shell write against safety infrastructure",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "(rm|mv|>|sed\\s+-i|tee)\\b[^|]*core/(safety|security|governance)/"
+              }
+            }
+          },
+          "irreversibility_class": "MOSTLY_IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "safety",
+          "rationale": "The agent must not rewrite the machinery that constrains it"
+        },
+        {
+          "trigger_id": "code_dynamic_eval",
+          "name": "Dynamic code evaluation",
+          "conditions": {
+            "parameters": {
+              "code": {
+                "matches": "\\beval\\s*\\(|\\bexec\\s*\\("
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "escalation_category": "security",
+          "rationale": "eval/exec on constructed input is arbitrary code execution"
+        },
+        {
+          "trigger_id": "code_dynamic_import",
+          "name": "Dynamic import from a non-literal",
+          "conditions": {
+            "parameters": {
+              "code": {
+                "matches": "__import__\\s*\\(\\s*[^'\\\"\\)]"
+              }
+            }
+          },
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "HIGH",
+          "escalation_category": "security",
+          "rationale": "Importing a computed module name can load unreviewed code"
+        },
+        {
+          "trigger_id": "tool_exec_001",
+          "name": "Production Chaos Testing",
+          "conditions": {
+            "tool_name": {
+              "matches": "ChaosTestingTool|chaos_testing"
+            },
+            "parameters": {
+              "target": {
+                "matches": "production|prod"
+              }
+            }
+          },
+          "escalation_category": "CHAOS_TESTING_PRODUCTION",
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "rationale": "Chaos testing in production can cause service outages and data loss"
+        },
+        {
+          "trigger_id": "tool_exec_002",
+          "name": "Dangerous Chaos: high intensity or failure/resource injection",
+          "conditions": {
+            "tool_name": {
+              "matches": "ChaosTestingTool|chaos_testing"
+            },
+            "parameters": {
+              "intensity": {
+                ">=": 7
+              }
+            }
+          },
+          "escalation_category": "CHAOS_TESTING_DANGEROUS_TYPE",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "rationale": "Chaos at intensity >= 7 can degrade a live service regardless of which chaos type is selected, and the environment gate (tool_exec_001) only covers production"
+        },
+        {
+          "trigger_id": "tool_exec_003",
+          "name": "Mutation Testing on Critical Files",
+          "conditions": {
+            "tool_name": {
+              "matches": "MutationTestingTool|mutation_testing"
+            },
+            "parameters": {
+              "target_files": {
+                "contains_any": [
+                  "core/governance",
+                  "core/safety",
+                  "core/memory"
+                ]
+              }
+            }
+          },
+          "escalation_category": "MUTATION_TESTING_CRITICAL_FILES",
+          "irreversibility_class": "MOSTLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "rationale": "Mutating critical system files could break governance or safety mechanisms"
+        },
+        {
+          "trigger_id": "tool_exec_004",
+          "name": "Fuzz Testing with Code Execution",
+          "conditions": {
+            "tool_name": {
+              "matches": "FuzzTestingTool|fuzz_testing"
+            },
+            "parameters": {
+              "allow_code_execution": true
+            }
+          },
+          "escalation_category": "FUZZ_TESTING_CODE_EXECUTION",
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "rationale": "Fuzz testing with code execution is dangerous and can crash systems or expose vulnerabilities"
+        },
+        {
+          "trigger_id": "chaos_001",
+          "name": "Production Chaos Experiment",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_chaos_experiment|create_chaos_experiment"
+            },
+            "parameters": {
+              "environment": "production"
+            }
+          },
+          "escalation_category": "CHAOS_PRODUCTION_EXPERIMENT",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "human_only_approval": true,
+          "requires_rollback_plan": true,
+          "rationale": "Production chaos experiments can cause service outages and require careful oversight"
+        },
+        {
+          "trigger_id": "chaos_002",
+          "name": "High Blast Radius Chaos (>50%)",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_chaos_experiment|create_chaos_experiment"
+            },
+            "parameters": {
+              "blast_radius": {
+                ">": 50
+              }
+            }
+          },
+          "escalation_category": "CHAOS_HIGH_BLAST_RADIUS",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "human_only_approval": true,
+          "rationale": "High blast radius (>50%) chaos experiments affect majority of traffic and require governance"
+        },
+        {
+          "trigger_id": "chaos_003",
+          "name": "Critical System Chaos Targeting",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_chaos_experiment|create_chaos_experiment"
+            },
+            "parameters": {
+              "target_system": {
+                "matches": "governance_.*|safety_.*|memory_system"
+              }
+            }
+          },
+          "escalation_category": "CHAOS_CRITICAL_SYSTEM",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "human_only_approval": true,
+          "requires_rollback_plan": true,
+          "rationale": "Chaos experiments targeting critical systems (governance, safety, memory) require human approval"
+        },
+        {
+          "trigger_id": "chaos_004",
+          "name": "Resource Exhaustion Chaos Type",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_chaos_experiment|create_chaos_experiment"
+            },
+            "parameters": {
+              "chaos_type": "RESOURCE_EXHAUSTION"
+            }
+          },
+          "escalation_category": "CHAOS_RESOURCE_EXHAUSTION",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "rationale": "Resource exhaustion chaos can cause system-wide failures and memory issues"
+        },
+        {
+          "trigger_id": "chaos_005",
+          "name": "Data Corruption Chaos Type",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_chaos_experiment|create_chaos_experiment"
+            },
+            "parameters": {
+              "chaos_type": "DATA_CORRUPTION"
+            }
+          },
+          "escalation_category": "CHAOS_DATA_CORRUPTION",
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "CRITICAL",
+          "safety_risk": "CRITICAL",
+          "human_only_approval": true,
+          "requires_cryptographic_signature": true,
+          "rationale": "Data corruption chaos is irreversible and requires cryptographic signature approval"
+        },
+        {
+          "trigger_id": "chaos_006",
+          "name": "Medium Blast Radius Staging (10-50%)",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_chaos_experiment|create_chaos_experiment"
+            },
+            "parameters": {
+              "environment": "staging",
+              "blast_radius": {
+                ">": 10,
+                "<=": 50
+              }
+            }
+          },
+          "escalation_category": "CHAOS_MEDIUM_BLAST_STAGING",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "rationale": "Medium blast radius in staging (10-50%) recommended for governance review"
+        },
+        {
+          "trigger_id": "shell_readonly_inspection",
+          "name": "Read-only shell inspection",
+          "conditions": {
+            "tool_name": {
+              "matches": "run_shell_command|execute_command|run_command|shell"
+            },
+            "parameters": {
+              "command": {
+                "matches": "^\\s*(echo|ls|pwd|whoami|date|cat|head|tail|wc|grep|find|which|env|ps|df|du|uname|git\\s+(status|log|diff|show|branch))\\b"
+              }
+            }
+          },
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "LOW",
+          "safety_risk": "LOW",
+          "escalation_category": "operational",
+          "rationale": "Read-only inspection has no side effects regardless of the tool's capability"
+        }
+      ]
+    },
+    "MEMORY_OPERATIONS": {
+      "description": "Governance triggers for memory system architecture changes (NOT individual memory deletion)",
+      "critical_restriction": "Singleton can ONLY improve memory system architecture (indexing, search, storage). Singleton CANNOT delete or edit individual memories.",
+      "capability_enforcement": "All memory operations require capability tokens from MemoryAgent. Direct backend access without token is denied.",
+      "triggers": [
+        {
+          "trigger_id": "mem_ops_001",
+          "name": "Memory System Architecture Change",
+          "conditions": {
+            "action_type": "upgrade_memory_system",
+            "parameters": {
+              "change_type": {
+                "matches": "indexing_algorithm|search_optimization|retrieval_mechanism"
+              }
+            }
+          },
+          "escalation_category": "MEMORY_SYSTEM_ARCHITECTURE",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "requires_rollback_plan": true,
+          "requires_migration_dry_run": true,
+          "rationale": "Memory system architecture changes affect all memories and must be carefully reviewed"
+        },
+        {
+          "trigger_id": "mem_ops_002",
+          "name": "Memory Storage Format Change",
+          "conditions": {
+            "action_type": "upgrade_memory_system",
+            "parameters": {
+              "change_type": "storage_format"
+            }
+          },
+          "escalation_category": "MEMORY_STORAGE_FORMAT",
+          "irreversibility_class": "MOSTLY_IRREVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "requires_rollback_plan": true,
+          "requires_migration_dry_run": true,
+          "rationale": "Storage format changes could make existing memories unreadable if failed"
+        },
+        {
+          "trigger_id": "mem_ops_003",
+          "name": "Hot/Cold Tier Threshold Change",
+          "conditions": {
+            "action_type": "change_memory_tier_threshold",
+            "parameters": {
+              "threshold_change_days": {
+                ">": 0
+              }
+            }
+          },
+          "escalation_category": "MEMORY_TIER_THRESHOLD_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "requires_rollback_plan": true,
+          "requires_migration_dry_run": true,
+          "rationale": "Hot/cold tier threshold changes trigger memory migrations and affect query performance"
+        },
+        {
+          "trigger_id": "mem_ops_004",
+          "name": "Index/Ranking Parameter Changes",
+          "conditions": {
+            "action_type": {
+              "matches": "change_ranking_weights|change_similarity_threshold|change_indexing_parameters"
+            }
+          },
+          "escalation_category": "MEMORY_INDEXING_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "rationale": "Index/ranking changes can hide memories via indirect manipulation (shadow suppression)"
+        },
+        {
+          "trigger_id": "mem_ops_005",
+          "name": "Memory Visibility Parameter Changes",
+          "conditions": {
+            "action_type": {
+              "matches": "change_ttl|change_privacy_flags|change_semantic_threshold"
+            }
+          },
+          "escalation_category": "MEMORY_VISIBILITY_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "HIGH",
+          "rationale": "TTL/privacy flag changes can suppress memories without explicit deletion"
+        },
+        {
+          "trigger_id": "mem_ops_006",
+          "name": "Backend Storage Switch",
+          "conditions": {
+            "action_type": "change_storage_backend",
+            "parameters": {
+              "new_backend": {
+                "matches": ".*"
+              }
+            }
+          },
+          "escalation_category": "MEMORY_BACKEND_SWITCH",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "requires_rollback_plan": true,
+          "requires_migration_dry_run": true,
+          "rationale": "Storage backend changes are high-risk migrations requiring careful validation"
+        },
+        {
+          "trigger_id": "mem_ops_007",
+          "name": "Query Filter Logic Modification",
+          "conditions": {
+            "action_type": "change_query_filter_logic"
+          },
+          "escalation_category": "MEMORY_QUERY_FILTER_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "requires_rollback_plan": true,
+          "rationale": "Query filter logic changes can hide memories via retrieval mechanism manipulation (shadow suppression)"
+        }
+      ]
+    },
+    "RESOURCE_ALLOCATION": {
+      "description": "Governance triggers for resource allocation changes",
+      "cumulative_tracking": "System tracks aggregate changes over time windows to prevent death-by-a-thousand-cuts attacks",
+      "reserved_margin_enforcement": "Over-capacity checks validate against usable capacity (total - reserved margins)",
+      "triggers": [
+        {
+          "trigger_id": "resource_002",
+          "name": "Resource Allocation Exceeds Capacity",
+          "conditions": {
+            "action_type": "allocate_resources",
+            "parameters": {
+              "exceeds_usable_capacity": true
+            }
+          },
+          "escalation_category": "RESOURCE_ALLOCATION_OVER_CAPACITY",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "validation_mode": "PRE_GOVERNANCE",
+          "rationale": "Allocating resources beyond usable capacity will cause system failures. Validated before governance."
+        },
+        {
+          "trigger_id": "resource_003",
+          "name": "Cumulative Resource Changes Exceed Threshold",
+          "conditions": {
+            "action_type": "allocate_resources",
+            "parameters": {
+              "cumulative_change_percent": {
+                ">": 25
+              },
+              "time_window_hours": {
+                "<=": 1
+              }
+            }
+          },
+          "escalation_category": "RESOURCE_CUMULATIVE_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "rationale": "Cumulative changes exceeding 25% in 1 hour prevent death-by-a-thousand-cuts resource exhaustion"
+        },
+        {
+          "trigger_id": "resource_004",
+          "name": "Resource Allocation Oscillation Detected",
+          "conditions": {
+            "action_type": "allocate_resources",
+            "parameters": {
+              "change_count_in_window": {
+                ">": 3
+              },
+              "time_window_minutes": {
+                "<=": 5
+              }
+            }
+          },
+          "escalation_category": "RESOURCE_OSCILLATION",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "cooldown_period_minutes": 10,
+          "rationale": "Rapid oscillating changes (>3 in 5 min) indicate instability or attack. Requires cooldown."
+        },
+        {
+          "trigger_id": "resource_001",
+          "name": "Large Resource Allocation Change",
+          "conditions": {
+            "action_type": "allocate_resources",
+            "parameters": {
+              "percent_change": {
+                ">=": 25
+              }
+            }
+          },
+          "escalation_category": "RESOURCE_ALLOCATION_LARGE_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "rationale": "Large resource allocation changes (>=25%) can affect system performance and stability"
+        }
+      ]
+    },
+    "LEARNING_PARAMETERS": {
+      "description": "Governance triggers for learning system parameter changes (RISK-BASED)",
+      "risk_based_enforcement": "Learning changes use magnitude-based risk tiers: LOW (<1%/5% no governance), MEDIUM (1-10%/5-25% AI judges allowed), HIGH (10-25% human preferred), CRITICAL (>25% or safety params human-only with crypto signature)",
+      "learner_self_approval_blocked": "Learner CANNOT approve its own config changes regardless of risk tier (prevents direct self-modification)",
+      "expiration_enforcement": "All approved changes expire after 90 days using trusted monotonic time source",
+      "atomic_reversion": "Configuration reversion on expiration is atomic (no partial config states)",
+      "triggers": [
+        {
+          "trigger_id": "learning_002",
+          "name": "Large Learning Rate Change",
+          "conditions": {
+            "action_type": "update_learning_parameters",
+            "parameters": {
+              "parameter_name": "learning_rate",
+              "percent_change": {
+                ">": 10
+              }
+            }
+          },
+          "escalation_category": "LEARNING_RATE_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "human_only_approval": true,
+          "requires_cryptographic_signature": true,
+          "approval_expiration_days": 90,
+          "rationale": "Large learning rate changes can destabilize training"
+        },
+        {
+          "trigger_id": "learning_003",
+          "name": "Learner Config Change Proposal (Risk-Based)",
+          "conditions": {
+            "action_type": "propose_learner_config_change",
+            "source": "GovernancePatternLearner"
+          },
+          "escalation_category": "LEARNER_CONFIG_CHANGE",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "VARIES_BY_PARAM",
+          "safety_risk": "VARIES_BY_PARAM",
+          "learner_self_approval_always_blocked": true,
+          "safety_critical_params": [
+            "pattern_threshold",
+            "approval_threshold",
+            "safety_threshold",
+            "governance_enabled",
+            "security_level"
+          ],
+          "risk_tiers": {
+            "SAFETY_CRITICAL": {
+              "params": "safety/security/governance keywords",
+              "crypto_signature": true
+            },
+            "MEDIUM": {
+              "threshold": "< 5% change",
+              "crypto_signature": false
+            },
+            "HIGH": {
+              "threshold": "5-25% change",
+              "crypto_signature": false
+            },
+            "CRITICAL": {
+              "threshold": "> 25% change",
+              "crypto_signature": true
+            }
+          },
+          "approval_expiration_days": 90,
+          "rationale": "Learner config uses parameter sensitivity and magnitude. Safety-critical params always human-only. Learner self-approval ALWAYS blocked (prevents direct self-modification)."
+        },
+        {
+          "trigger_id": "learning_003b",
+          "name": "Learning Adapter Config Change (Risk-Based)",
+          "conditions": {
+            "action_type": "propose_learner_config_change",
+            "source": "LearningAdapter"
+          },
+          "escalation_category": "LEARNER_CONFIG_CHANGE",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "VARIES_BY_PARAM",
+          "safety_risk": "VARIES_BY_PARAM",
+          "learner_self_approval_always_blocked": true,
+          "safety_critical_params": [
+            "pattern_threshold",
+            "approval_threshold",
+            "safety_threshold",
+            "governance_enabled",
+            "security_level"
+          ],
+          "risk_tiers": {
+            "SAFETY_CRITICAL": {
+              "params": "safety/security/governance keywords",
+              "crypto_signature": true
+            },
+            "MEDIUM": {
+              "threshold": "< 5% change",
+              "crypto_signature": false
+            },
+            "HIGH": {
+              "threshold": "5-25% change",
+              "crypto_signature": false
+            },
+            "CRITICAL": {
+              "threshold": "> 25% change",
+              "crypto_signature": true
+            }
+          },
+          "approval_expiration_days": 90,
+          "rationale": "Learning adapter config uses parameter sensitivity and magnitude. Safety-critical params always human-only. Learner self-approval ALWAYS blocked."
+        },
+        {
+          "trigger_id": "learning_004",
+          "name": "Learning Strategy Change",
+          "conditions": {
+            "action_type": "change_learning_strategy",
+            "parameters": {
+              "strategy_type": {
+                "matches": ".*"
+              }
+            }
+          },
+          "escalation_category": "LEARNING_STRATEGY_CHANGE",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "HIGH",
+          "human_only_approval": true,
+          "requires_cryptographic_signature": true,
+          "approval_expiration_days": 90,
+          "rationale": "Learning strategy changes affect how the system learns and evolves"
+        },
+        {
+          "trigger_id": "learning_005",
+          "name": "Meta-Learning Parameter Change",
+          "conditions": {
+            "action_type": "update_meta_learning_parameters"
+          },
+          "escalation_category": "META_LEARNING_CHANGE",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "human_only_approval": true,
+          "requires_cryptographic_signature": true,
+          "approval_expiration_days": 90,
+          "rationale": "Meta-learning parameters control learning-to-learn behavior"
+        }
+      ]
+    },
+    "CONFIGURATION_CHANGES": {
+      "description": "Governance triggers for system configuration changes",
+      "triggers": [
+        {
+          "trigger_id": "config_001",
+          "name": "Safety Threshold Modification",
+          "conditions": {
+            "action_type": "update_config",
+            "parameters": {
+              "config_key": {
+                "matches": "safety_threshold|security_level|risk_tolerance"
+              }
+            }
+          },
+          "escalation_category": "CONFIG_SAFETY_THRESHOLD",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "rationale": "Safety threshold changes directly affect system risk tolerance"
+        },
+        {
+          "trigger_id": "config_002",
+          "name": "General Configuration Change",
+          "conditions": {
+            "action_type": "update_config",
+            "parameters": {
+              "config_key": {
+                "not_matches": "safety_threshold|security_level|risk_tolerance"
+              }
+            }
+          },
+          "escalation_category": "CONFIG_GENERAL",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "LOW",
+          "safety_risk": "LOW",
+          "rationale": "Non-safety config changes are low risk and can be logged for audit"
+        }
+      ]
+    },
+    "EXTERNAL_INTEGRATIONS": {
+      "description": "Governance triggers for external API and service integrations",
+      "triggers": [
+        {
+          "trigger_id": "external_001",
+          "name": "New External Integration",
+          "conditions": {
+            "action_type": "register_external_integration"
+          },
+          "escalation_category": "EXTERNAL_NEW_INTEGRATION",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "rationale": "New external integrations introduce security and data privacy risks"
+        },
+        {
+          "trigger_id": "external_002",
+          "name": "External Integration Scope Change",
+          "conditions": {
+            "action_type": "modify_integration_scope",
+            "parameters": {
+              "scope_expansion": true
+            }
+          },
+          "escalation_category": "EXTERNAL_SCOPE_EXPANSION",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "rationale": "Expanding integration scope increases attack surface and data exposure"
+        }
+      ]
+    },
+    "TASK_CREATION": {
+      "description": "Governance triggers for autonomous task creation",
+      "critical_note": "User-defined tasks in extrinsic_tasks.json do NOT require governance. Only autonomous task creation triggers governance.",
+      "triggers": [
+        {
+          "trigger_id": "task_001",
+          "name": "Recursive Task Creation",
+          "conditions": {
+            "action_type": "create_task",
+            "parameters": {
+              "creates_subtasks": true,
+              "recursion_depth": {
+                ">": 2
+              }
+            }
+          },
+          "escalation_category": "TASK_RECURSIVE_CREATION",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "rationale": "Deep recursive task creation can lead to exponential task explosion"
+        },
+        {
+          "trigger_id": "task_002",
+          "name": "Bulk Task Creation (Phase 5)",
+          "conditions": {
+            "action_type": {
+              "matches": "bulk_task_creation|create_task_batch"
+            },
+            "parameters": {
+              "task_count": {
+                ">": 50
+              }
+            }
+          },
+          "escalation_category": "TASK_BULK_CREATION",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "MEDIUM",
+          "safety_risk": "MODERATE",
+          "rationale": "Bulk task creation (>50 tasks in 10s) can overwhelm the task queue and consume resources. Phase 5: Must block until governance approves.",
+          "phase5_notes": "Triggers when >50 tasks created in 10-second window. Requires governance approval before queuing."
+        }
+      ]
+    },
+    "CURIOSITY_EXPLORATION": {
+      "description": "Governance triggers for curiosity-driven exploration and novelty seeking",
+      "triggers": [
+        {
+          "trigger_id": "curiosity_001",
+          "name": "High-Risk Curiosity Goal",
+          "conditions": {
+            "action_type": "generate_curiosity_goal",
+            "parameters": {
+              "risk_level": {
+                "matches": "HIGH|CRITICAL"
+              }
+            }
+          },
+          "escalation_category": "CURIOSITY_HIGH_RISK",
+          "irreversibility_class": "PARTIALLY_REVERSIBLE",
+          "impact_level": "LOW",
+          "safety_risk": "LOW",
+          "rationale": "High-risk curiosity goals may lead to dangerous or unintended exploration"
+        },
+        {
+          "trigger_id": "curiosity_002",
+          "name": "Curiosity Budget Exceeded",
+          "conditions": {
+            "action_type": "execute_curiosity_task",
+            "parameters": {
+              "exceeds_budget": true
+            }
+          },
+          "escalation_category": "CURIOSITY_BUDGET_EXCEEDED",
+          "irreversibility_class": "FULLY_REVERSIBLE",
+          "impact_level": "LOW",
+          "safety_risk": "LOW",
+          "rationale": "Exceeding curiosity budget prevents resource starvation for user tasks"
+        },
+        {
+          "trigger_id": "curiosity_003",
+          "name": "Dangerous Tool in Curiosity Task",
+          "conditions": {
+            "action_type": "execute_curiosity_task",
+            "parameters": {
+              "tool_name": {
+                "matches": "chaos_testing|mutation_testing|fuzz_testing"
+              }
+            }
+          },
+          "escalation_category": "CURIOSITY_DANGEROUS_TOOL",
+          "irreversibility_class": "IRREVERSIBLE",
+          "impact_level": "HIGH",
+          "safety_risk": "CRITICAL",
+          "rationale": "Curiosity-driven use of dangerous tools must be explicitly approved"
+        }
+      ]
+    }
+  }
+}

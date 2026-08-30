@@ -1,0 +1,874 @@
+{
+  "benchmark": "EDU-09",
+  "title": "Bounded Active Teaching in a Combinatorial Situation Space",
+  "recorded_at": "2026-08-23T19:28:40.597706+00:00",
+  "situation_space": 4096,
+  "version_space": 6144,
+  "budget_per_lesson": 8,
+  "max_lessons": 20,
+  "trials_per_condition": 3,
+  "truth": {
+    "requires": [
+      "AUTHORISED",
+      "AVAILABLE",
+      "LOCATED",
+      "POWERED",
+      "ROUTE"
+    ],
+    "locked": "forbidden"
+  },
+  "conditions": {
+    "A_random": {
+      "trials": [
+        {
+          "condition": "A_random",
+          "seed": 0,
+          "lessons": 11,
+          "surviving": 121,
+          "converged": false,
+          "learned_correct_rule": false,
+          "learned": null,
+          "proposal_precision": 0.271,
+          "proposals_offered": 96,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 2048,
+              "expected_eliminated": 2730.7
+            },
+            {
+              "step": 2,
+              "alive_before": 2048,
+              "alive_after": 1792,
+              "expected_eliminated": 448.0
+            },
+            {
+              "step": 3,
+              "alive_before": 1792,
+              "alive_after": 1728,
+              "expected_eliminated": 123.4
+            },
+            {
+              "step": 4,
+              "alive_before": 1728,
+              "alive_after": 1704,
+              "expected_eliminated": 47.3
+            },
+            {
+              "step": 5,
+              "alive_before": 1704,
+              "alive_after": 1668,
+              "expected_eliminated": 70.5
+            },
+            {
+              "step": 6,
+              "alive_before": 1668,
+              "alive_after": 1632,
+              "expected_eliminated": 70.4
+            },
+            {
+              "step": 7,
+              "alive_before": 1632,
+              "alive_after": 1576,
+              "expected_eliminated": 108.2
+            },
+            {
+              "step": 8,
+              "alive_before": 1576,
+              "alive_after": 1428,
+              "expected_eliminated": 268.2
+            },
+            {
+              "step": 9,
+              "alive_before": 1428,
+              "alive_after": 1382,
+              "expected_eliminated": 89.0
+            },
+            {
+              "step": 10,
+              "alive_before": 1382,
+              "alive_after": 122,
+              "expected_eliminated": 222.5
+            },
+            {
+              "step": 11,
+              "alive_before": 122,
+              "alive_after": 121,
+              "expected_eliminated": 2.0
+            },
+            {
+              "step": 12,
+              "note": "nothing offered eliminates anything",
+              "alive": 121
+            }
+          ]
+        },
+        {
+          "condition": "A_random",
+          "seed": 1,
+          "lessons": 12,
+          "surviving": 68,
+          "converged": false,
+          "learned_correct_rule": false,
+          "learned": null,
+          "proposal_precision": 0.385,
+          "proposals_offered": 104,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 5120,
+              "expected_eliminated": 1706.7
+            },
+            {
+              "step": 2,
+              "alive_before": 5120,
+              "alive_after": 4352,
+              "expected_eliminated": 1305.6
+            },
+            {
+              "step": 3,
+              "alive_before": 4352,
+              "alive_after": 2048,
+              "expected_eliminated": 2168.5
+            },
+            {
+              "step": 4,
+              "alive_before": 2048,
+              "alive_after": 2032,
+              "expected_eliminated": 31.8
+            },
+            {
+              "step": 5,
+              "alive_before": 2032,
+              "alive_after": 1524,
+              "expected_eliminated": 762.0
+            },
+            {
+              "step": 6,
+              "alive_before": 1524,
+              "alive_after": 378,
+              "expected_eliminated": 568.5
+            },
+            {
+              "step": 7,
+              "alive_before": 378,
+              "alive_after": 375,
+              "expected_eliminated": 6.0
+            },
+            {
+              "step": 8,
+              "alive_before": 375,
+              "alive_after": 372,
+              "expected_eliminated": 6.0
+            },
+            {
+              "step": 9,
+              "alive_before": 372,
+              "alive_after": 84,
+              "expected_eliminated": 130.1
+            },
+            {
+              "step": 10,
+              "alive_before": 84,
+              "alive_after": 82,
+              "expected_eliminated": 3.9
+            },
+            {
+              "step": 11,
+              "alive_before": 82,
+              "alive_after": 70,
+              "expected_eliminated": 20.5
+            },
+            {
+              "step": 12,
+              "alive_before": 70,
+              "alive_after": 68,
+              "expected_eliminated": 3.9
+            },
+            {
+              "step": 13,
+              "note": "nothing offered eliminates anything",
+              "alive": 68
+            }
+          ]
+        },
+        {
+          "condition": "A_random",
+          "seed": 2,
+          "lessons": 6,
+          "surviving": 1810,
+          "converged": false,
+          "learned_correct_rule": false,
+          "learned": null,
+          "proposal_precision": 0.554,
+          "proposals_offered": 56,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 5632,
+              "expected_eliminated": 938.7
+            },
+            {
+              "step": 2,
+              "alive_before": 5632,
+              "alive_after": 2048,
+              "expected_eliminated": 2606.5
+            },
+            {
+              "step": 3,
+              "alive_before": 2048,
+              "alive_after": 2032,
+              "expected_eliminated": 31.8
+            },
+            {
+              "step": 4,
+              "alive_before": 2032,
+              "alive_after": 1912,
+              "expected_eliminated": 225.8
+            },
+            {
+              "step": 5,
+              "alive_before": 1912,
+              "alive_after": 1854,
+              "expected_eliminated": 112.5
+            },
+            {
+              "step": 6,
+              "alive_before": 1854,
+              "alive_after": 1810,
+              "expected_eliminated": 85.9
+            },
+            {
+              "step": 7,
+              "note": "nothing offered eliminates anything",
+              "alive": 1810
+            }
+          ]
+        }
+      ],
+      "convergence_rate": 0.0,
+      "correct_rule_rate": 0.0,
+      "false_knowledge_rate": 0.0,
+      "median_lessons": null,
+      "mean_proposal_precision": 0.403
+    },
+    "B_search": {
+      "trials": [
+        {
+          "condition": "B_search",
+          "seed": 0,
+          "lessons": 13,
+          "surviving": 1,
+          "converged": true,
+          "learned_correct_rule": true,
+          "learned": {
+            "requires": [
+              "AUTHORISED",
+              "AVAILABLE",
+              "LOCATED",
+              "POWERED",
+              "ROUTE"
+            ],
+            "locked": "forbidden"
+          },
+          "proposal_precision": 0.519,
+          "proposals_offered": 104,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 4096,
+              "expected_eliminated": 2730.7
+            },
+            {
+              "step": 2,
+              "alive_before": 4096,
+              "alive_after": 2048,
+              "expected_eliminated": 2048.0
+            },
+            {
+              "step": 3,
+              "alive_before": 2048,
+              "alive_after": 1024,
+              "expected_eliminated": 1024.0
+            },
+            {
+              "step": 4,
+              "alive_before": 1024,
+              "alive_after": 512,
+              "expected_eliminated": 512.0
+            },
+            {
+              "step": 5,
+              "alive_before": 512,
+              "alive_after": 256,
+              "expected_eliminated": 256.0
+            },
+            {
+              "step": 6,
+              "alive_before": 256,
+              "alive_after": 128,
+              "expected_eliminated": 128.0
+            },
+            {
+              "step": 7,
+              "alive_before": 128,
+              "alive_after": 64,
+              "expected_eliminated": 64.0
+            },
+            {
+              "step": 8,
+              "alive_before": 64,
+              "alive_after": 32,
+              "expected_eliminated": 32.0
+            },
+            {
+              "step": 9,
+              "alive_before": 32,
+              "alive_after": 16,
+              "expected_eliminated": 16.0
+            },
+            {
+              "step": 10,
+              "alive_before": 16,
+              "alive_after": 8,
+              "expected_eliminated": 8.0
+            },
+            {
+              "step": 11,
+              "alive_before": 8,
+              "alive_after": 4,
+              "expected_eliminated": 4.0
+            },
+            {
+              "step": 12,
+              "alive_before": 4,
+              "alive_after": 2,
+              "expected_eliminated": 2.0
+            },
+            {
+              "step": 13,
+              "alive_before": 2,
+              "alive_after": 1,
+              "expected_eliminated": 1.0
+            }
+          ]
+        },
+        {
+          "condition": "B_search",
+          "seed": 1,
+          "lessons": 13,
+          "surviving": 1,
+          "converged": true,
+          "learned_correct_rule": true,
+          "learned": {
+            "requires": [
+              "AUTHORISED",
+              "AVAILABLE",
+              "LOCATED",
+              "POWERED",
+              "ROUTE"
+            ],
+            "locked": "forbidden"
+          },
+          "proposal_precision": 0.519,
+          "proposals_offered": 104,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 4096,
+              "expected_eliminated": 2730.7
+            },
+            {
+              "step": 2,
+              "alive_before": 4096,
+              "alive_after": 2048,
+              "expected_eliminated": 2048.0
+            },
+            {
+              "step": 3,
+              "alive_before": 2048,
+              "alive_after": 1024,
+              "expected_eliminated": 1024.0
+            },
+            {
+              "step": 4,
+              "alive_before": 1024,
+              "alive_after": 512,
+              "expected_eliminated": 512.0
+            },
+            {
+              "step": 5,
+              "alive_before": 512,
+              "alive_after": 256,
+              "expected_eliminated": 256.0
+            },
+            {
+              "step": 6,
+              "alive_before": 256,
+              "alive_after": 128,
+              "expected_eliminated": 128.0
+            },
+            {
+              "step": 7,
+              "alive_before": 128,
+              "alive_after": 64,
+              "expected_eliminated": 64.0
+            },
+            {
+              "step": 8,
+              "alive_before": 64,
+              "alive_after": 32,
+              "expected_eliminated": 32.0
+            },
+            {
+              "step": 9,
+              "alive_before": 32,
+              "alive_after": 16,
+              "expected_eliminated": 16.0
+            },
+            {
+              "step": 10,
+              "alive_before": 16,
+              "alive_after": 8,
+              "expected_eliminated": 8.0
+            },
+            {
+              "step": 11,
+              "alive_before": 8,
+              "alive_after": 4,
+              "expected_eliminated": 4.0
+            },
+            {
+              "step": 12,
+              "alive_before": 4,
+              "alive_after": 2,
+              "expected_eliminated": 2.0
+            },
+            {
+              "step": 13,
+              "alive_before": 2,
+              "alive_after": 1,
+              "expected_eliminated": 1.0
+            }
+          ]
+        },
+        {
+          "condition": "B_search",
+          "seed": 2,
+          "lessons": 13,
+          "surviving": 1,
+          "converged": true,
+          "learned_correct_rule": true,
+          "learned": {
+            "requires": [
+              "AUTHORISED",
+              "AVAILABLE",
+              "LOCATED",
+              "POWERED",
+              "ROUTE"
+            ],
+            "locked": "forbidden"
+          },
+          "proposal_precision": 0.519,
+          "proposals_offered": 104,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 4096,
+              "expected_eliminated": 2730.7
+            },
+            {
+              "step": 2,
+              "alive_before": 4096,
+              "alive_after": 2048,
+              "expected_eliminated": 2048.0
+            },
+            {
+              "step": 3,
+              "alive_before": 2048,
+              "alive_after": 1024,
+              "expected_eliminated": 1024.0
+            },
+            {
+              "step": 4,
+              "alive_before": 1024,
+              "alive_after": 512,
+              "expected_eliminated": 512.0
+            },
+            {
+              "step": 5,
+              "alive_before": 512,
+              "alive_after": 256,
+              "expected_eliminated": 256.0
+            },
+            {
+              "step": 6,
+              "alive_before": 256,
+              "alive_after": 128,
+              "expected_eliminated": 128.0
+            },
+            {
+              "step": 7,
+              "alive_before": 128,
+              "alive_after": 64,
+              "expected_eliminated": 64.0
+            },
+            {
+              "step": 8,
+              "alive_before": 64,
+              "alive_after": 32,
+              "expected_eliminated": 32.0
+            },
+            {
+              "step": 9,
+              "alive_before": 32,
+              "alive_after": 16,
+              "expected_eliminated": 16.0
+            },
+            {
+              "step": 10,
+              "alive_before": 16,
+              "alive_after": 8,
+              "expected_eliminated": 8.0
+            },
+            {
+              "step": 11,
+              "alive_before": 8,
+              "alive_after": 4,
+              "expected_eliminated": 4.0
+            },
+            {
+              "step": 12,
+              "alive_before": 4,
+              "alive_after": 2,
+              "expected_eliminated": 2.0
+            },
+            {
+              "step": 13,
+              "alive_before": 2,
+              "alive_after": 1,
+              "expected_eliminated": 1.0
+            }
+          ]
+        }
+      ],
+      "convergence_rate": 1.0,
+      "correct_rule_rate": 1.0,
+      "false_knowledge_rate": 0.0,
+      "median_lessons": 13,
+      "mean_proposal_precision": 0.519
+    },
+    "D_oracle": {
+      "trials": [
+        {
+          "condition": "D_oracle",
+          "seed": 0,
+          "lessons": 12,
+          "surviving": 1,
+          "converged": true,
+          "learned_correct_rule": true,
+          "learned": {
+            "requires": [
+              "AUTHORISED",
+              "AVAILABLE",
+              "LOCATED",
+              "POWERED",
+              "ROUTE"
+            ],
+            "locked": "forbidden"
+          },
+          "proposal_precision": 1.0,
+          "proposals_offered": 96,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 2048,
+              "expected_eliminated": 2730.7
+            },
+            {
+              "step": 2,
+              "alive_before": 2048,
+              "alive_after": 1024,
+              "expected_eliminated": 1024.0
+            },
+            {
+              "step": 3,
+              "alive_before": 1024,
+              "alive_after": 512,
+              "expected_eliminated": 512.0
+            },
+            {
+              "step": 4,
+              "alive_before": 512,
+              "alive_after": 256,
+              "expected_eliminated": 256.0
+            },
+            {
+              "step": 5,
+              "alive_before": 256,
+              "alive_after": 128,
+              "expected_eliminated": 128.0
+            },
+            {
+              "step": 6,
+              "alive_before": 128,
+              "alive_after": 64,
+              "expected_eliminated": 64.0
+            },
+            {
+              "step": 7,
+              "alive_before": 64,
+              "alive_after": 32,
+              "expected_eliminated": 32.0
+            },
+            {
+              "step": 8,
+              "alive_before": 32,
+              "alive_after": 16,
+              "expected_eliminated": 16.0
+            },
+            {
+              "step": 9,
+              "alive_before": 16,
+              "alive_after": 8,
+              "expected_eliminated": 8.0
+            },
+            {
+              "step": 10,
+              "alive_before": 8,
+              "alive_after": 4,
+              "expected_eliminated": 4.0
+            },
+            {
+              "step": 11,
+              "alive_before": 4,
+              "alive_after": 2,
+              "expected_eliminated": 2.0
+            },
+            {
+              "step": 12,
+              "alive_before": 2,
+              "alive_after": 1,
+              "expected_eliminated": 1.0
+            }
+          ]
+        },
+        {
+          "condition": "D_oracle",
+          "seed": 1,
+          "lessons": 12,
+          "surviving": 1,
+          "converged": true,
+          "learned_correct_rule": true,
+          "learned": {
+            "requires": [
+              "AUTHORISED",
+              "AVAILABLE",
+              "LOCATED",
+              "POWERED",
+              "ROUTE"
+            ],
+            "locked": "forbidden"
+          },
+          "proposal_precision": 1.0,
+          "proposals_offered": 96,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 2048,
+              "expected_eliminated": 2730.7
+            },
+            {
+              "step": 2,
+              "alive_before": 2048,
+              "alive_after": 1024,
+              "expected_eliminated": 1024.0
+            },
+            {
+              "step": 3,
+              "alive_before": 1024,
+              "alive_after": 512,
+              "expected_eliminated": 512.0
+            },
+            {
+              "step": 4,
+              "alive_before": 512,
+              "alive_after": 256,
+              "expected_eliminated": 256.0
+            },
+            {
+              "step": 5,
+              "alive_before": 256,
+              "alive_after": 128,
+              "expected_eliminated": 128.0
+            },
+            {
+              "step": 6,
+              "alive_before": 128,
+              "alive_after": 64,
+              "expected_eliminated": 64.0
+            },
+            {
+              "step": 7,
+              "alive_before": 64,
+              "alive_after": 32,
+              "expected_eliminated": 32.0
+            },
+            {
+              "step": 8,
+              "alive_before": 32,
+              "alive_after": 16,
+              "expected_eliminated": 16.0
+            },
+            {
+              "step": 9,
+              "alive_before": 16,
+              "alive_after": 8,
+              "expected_eliminated": 8.0
+            },
+            {
+              "step": 10,
+              "alive_before": 8,
+              "alive_after": 4,
+              "expected_eliminated": 4.0
+            },
+            {
+              "step": 11,
+              "alive_before": 4,
+              "alive_after": 2,
+              "expected_eliminated": 2.0
+            },
+            {
+              "step": 12,
+              "alive_before": 2,
+              "alive_after": 1,
+              "expected_eliminated": 1.0
+            }
+          ]
+        },
+        {
+          "condition": "D_oracle",
+          "seed": 2,
+          "lessons": 12,
+          "surviving": 1,
+          "converged": true,
+          "learned_correct_rule": true,
+          "learned": {
+            "requires": [
+              "AUTHORISED",
+              "AVAILABLE",
+              "LOCATED",
+              "POWERED",
+              "ROUTE"
+            ],
+            "locked": "forbidden"
+          },
+          "proposal_precision": 1.0,
+          "proposals_offered": 96,
+          "first_discriminating_step": 1,
+          "trace": [
+            {
+              "step": 1,
+              "alive_before": 6144,
+              "alive_after": 2048,
+              "expected_eliminated": 2730.7
+            },
+            {
+              "step": 2,
+              "alive_before": 2048,
+              "alive_after": 1024,
+              "expected_eliminated": 1024.0
+            },
+            {
+              "step": 3,
+              "alive_before": 1024,
+              "alive_after": 512,
+              "expected_eliminated": 512.0
+            },
+            {
+              "step": 4,
+              "alive_before": 512,
+              "alive_after": 256,
+              "expected_eliminated": 256.0
+            },
+            {
+              "step": 5,
+              "alive_before": 256,
+              "alive_after": 128,
+              "expected_eliminated": 128.0
+            },
+            {
+              "step": 6,
+              "alive_before": 128,
+              "alive_after": 64,
+              "expected_eliminated": 64.0
+            },
+            {
+              "step": 7,
+              "alive_before": 64,
+              "alive_after": 32,
+              "expected_eliminated": 32.0
+            },
+            {
+              "step": 8,
+              "alive_before": 32,
+              "alive_after": 16,
+              "expected_eliminated": 16.0
+            },
+            {
+              "step": 9,
+              "alive_before": 16,
+              "alive_after": 8,
+              "expected_eliminated": 8.0
+            },
+            {
+              "step": 10,
+              "alive_before": 8,
+              "alive_after": 4,
+              "expected_eliminated": 4.0
+            },
+            {
+              "step": 11,
+              "alive_before": 4,
+              "alive_after": 2,
+              "expected_eliminated": 2.0
+            },
+            {
+              "step": 12,
+              "alive_before": 2,
+              "alive_after": 1,
+              "expected_eliminated": 1.0
+            }
+          ]
+        }
+      ],
+      "convergence_rate": 1.0,
+      "correct_rule_rate": 1.0,
+      "false_knowledge_rate": 0.0,
+      "median_lessons": 12,
+      "mean_proposal_precision": 1.0
+    }
+  },
+  "safety_axis_passed": true,
+  "name_blindness": {
+    "identical_trajectory": true,
+    "semantic_lessons": 13,
+    "opaque_lessons": 13
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "freeze_id": "EDU-12_S0_ADMISSIBLE_04",
+  "frozen_at": "2026-08-20T16:24:24.626911+00:00",
+  "architecture_fingerprint": "224ff6c6cdf3a641e2dc9a25c3eee6035c9b1461871bf0aa3d9a42661e521891",
+  "substrate_files": 282,
+  "baseline": "manifest.json (first admissible S0)",
+  "rule": "During the frozen educational phase, failures may repair the EXPERIMENT but may not expand Torin's cognitive implementation.",
+  "may_be_repaired": [
+    "an exam that leaks an answer",
+    "a harness that bypasses the production ingress",
+    "a metric that cannot report failure",
+    "a database or process state that does not reset"
+  ],
+  "may_not_be_repaired": [
+    "Torin cannot learn percentages",
+    "Torin cannot synthesise programs",
+    "Torin cannot parse a legitimate held-out construction",
+    "Torin cannot transfer a concept"
+  ],
+  "why": "Repairing a cognitive capability mid-experiment destroys the distinction between 'Torin learned' and 'we upgraded Torin while teaching it'. A capability Torin cannot acquire through education IS the result.",
+  "supersedes": {
+    "freeze_id": "EDU-12_S0_ADMISSIBLE_03",
+    "fingerprint": "dbb44a484cc6950f30809ba4ee78e23cfcf19f7cbdd54ddb845c5f6a40c9d773",
+    "record": "FROZEN_03_SUPERSEDED.json"
+  },
+  "why_refrozen": "MAX_BODY_LITERALS raised 12 -> 16. It bounds a 2**n subset enumeration, not what a real rule may look like, and at 12 a THIRD demonstration could push the LGG to 14 literals and return INSUFFICIENT_EVIDENCE -- more evidence made induction fail. Still before any Stage 2 instruction.",
+  "change": {
+    "what": "MAX_BODY_LITERALS 12 -> 16 (65,536 subsets, affordable)",
+    "reverted": "a greedy LGG reduction was implemented first and REVERTED: it picks one minimal body and discards the competing ones, so underdetermined demonstrations returned RULE_LEARNED instead of MULTIPLE_HYPOTHESES. It manufactured certainty to fit under a performance bound; the version-space tests caught it.",
+    "verified_model_free": {
+      "list operator learned": "MEAN_OF -> [MEAN(?X1,?X0), MEAN_OF(?X1)] => VALUE(?X0), choosing MEAN over SUM/LENGTH/MAXIMUM/EXCEEDING",
+      "composition on an UNSEEN list": "[5,15,25,35] -> PLAN_FOUND: MEAN_OF(lx) -> COUNT_EXCEEDING(lx), the second requiring the threshold the first produces"
+    }
+  }
+}

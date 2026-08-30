@@ -1,0 +1,32 @@
+# The upgrade sandbox's image.
+#
+# `UpgradeSandbox` ran candidates in a bare `python:3.11-slim` with no repo and
+# no dependencies, so importing a changed file only proved the text parsed.
+# Anything that touched the real import graph died on a missing package, which
+# reads as "the change is broken" when it is the sandbox that is empty.
+#
+# This mirrors the system's dependencies so a change can be imported and
+# exercised in the context it will actually run in.
+FROM python:3.11-slim
+
+# dlib (face-recognition) compiles from source; opencv and librosa need these.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake pkg-config \
+        libgl1 libglib2.0-0 libsndfile1 ffmpeg git \
+    && rm -rf /var/lib/apt/lists/*
+
+# CPU-only torch: the sandbox verifies imports and logic, not GPU throughput,
+# and the CUDA wheels are several GB that would never be used here.
+# torchaudio MUST come from the same index as torch. Installing torch from the
+# CPU index and letting torchaudio be pulled from PyPI (as a transformers
+# dependency) mixes ABIs, and the native extension then fails to load:
+#   OSError: Could not load this library: .../torchaudio/lib/_torchaudio.abi3.so
+# which surfaces on any import of transformers.audio_utils.
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+        torch torchvision torchaudio
+
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+WORKDIR /repo

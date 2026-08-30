@@ -1,0 +1,52 @@
+{
+  "test_name": "Cross-Domain Transfer Learning",
+  "date": "2025-12-24T17:24:20.842367",
+  "version": "v1.0",
+  "tests": [
+    {
+      "test": "medical_to_mechanical",
+      "source_domain": "medical_diagnosis",
+      "target_domain": "mechanical_fault",
+      "training_provided": "medical_only",
+      "response": "To diagnose and address the issues with the car engine exhibiting symptoms of overheating, unusual noise, and power loss, we can follow a systematic diagnostic pattern:\n\n1. **Symptoms Identification:**\n   - Overheating: The engine temperature gauge is likely showing higher than normal readings, or the warning light for overheating may be on.\n   - Unusual noise: This could be a knocking, ticking, or grinding sound coming from the engine compartment.\n   - Power loss: The car may struggle to accelerate or maintain speed, indicating a drop in engine power.\n\n2. **Systematic Testing:**\n   - **Check the Cooling System:** Start by inspecting the radiator, coolant levels, and the thermostat. Ensure there are no leaks, and the coolant is at the appropriate level.\n   - **Inspect the Engine Internals:** Listen closely to the engine while it's running to pinpoint the source of the unusual noise. This could indicate issues like a failing bearing, worn piston rings, or other internal components.\n   - **Evaluate the Electrical and Fuel Systems:** Check the battery, alternator, and fuel pump to ensure they are functioning correctly. Malfunctions in these systems can also lead to power loss.\n   - **Examine the Exhaust System:** Sometimes, issues in the exhaust system, like a clogged catalytic converter, can cause power loss and unusual noises.\n\n3. **Root Cause Analysis:**\n   - **Overheating:** If the cooling system is not functioning properly (e.g., low coolant, blocked radiator, faulty thermostat), this would be the primary cause of overheating.\n   - **Unusual Noise:** The noise could be due to a mechanical issue such as a failing bearing, which would require a more detailed inspection or possibly a mechanic\u2019s diagnosis.\n   - **Power Loss:** Power loss could be due to a combination of issues, including a malfunctioning fuel pump, electrical faults, or internal engine problems like worn piston rings.\n\n4. **Solution:**\n   - **Cooling System Fix:** If the coolant level is low, refill it. If the radiator is blocked or the thermostat is faulty, replace or clean them as necessary.\n   - **Engine Repair:** If the noise is coming from a failing bearing or worn piston rings, the engine may need to be overhauled or parts replaced.\n   - **Electrical and Fuel System Checks:** Ensure the battery and alternator are working correctly. If the fuel pump is malfunctioning, it should be replaced",
+      "thinking": null,
+      "transfer_score": 1.0,
+      "pattern_match": 1.0,
+      "time_seconds": 78.43827199935913,
+      "passed": true
+    },
+    {
+      "test": "chess_to_business",
+      "source_domain": "chess_strategy",
+      "target_domain": "business_strategy",
+      "training_provided": "chess_only",
+      "response": "To apply the strategic thinking pattern from chess (control \u2192 build \u2192 leverage \u2192 execute) to the business scenario of a small startup entering a crowded market, here is a step-by-step strategic business plan:\n\n1. **Control**: Establish a foothold and control a niche market.\n   - **Identify a Niche**: Analyze the market to find a segment that is underserved or not fully addressed by competitors. This could be a specific demographic, a unique product feature, or a particular service offering.\n   - **Differentiate**: Develop a value proposition that clearly differentiates your startup from the competition. This could be through superior customer service, innovative technology, or a unique business model.\n   - **Initial Market Entry**: Focus on this niche to gain initial traction and control. Create a strong, loyal customer base within this segment.\n\n2. **Build**: Strengthen your position and build your resources.\n   - **Product Development**: Continuously improve your product or service based on customer feedback and market trends. Innovate to stay ahead.\n   - **Brand Building**: Invest in branding and marketing efforts to build a strong reputation. Use digital marketing strategies, content marketing, and social media to reach your target audience.\n   - **Resource Accumulation**: Build financial reserves, hire key talent, and establish partnerships or collaborations that can provide additional resources and support.\n\n3. **Leverage**: Use your advantages to expand and challenge the market.\n   - **Market Expansion**: Gradually expand from your initial niche into adjacent markets. Use the insights and customer base from your initial market to inform and support this expansion.\n   - **Competitive Advantage**: Leverage your unique value proposition to attract more customers and build a larger market share. Use data and analytics to refine your offerings and marketing strategies.\n   - **Partnerships and Alliances**: Form strategic alliances with complementary businesses to enhance your offerings and reach new customer segments.\n\n4. **Execute**: Implement your strategy with precision and agility.\n   - **Strategic Execution**: Execute your plans with clear objectives and timelines. Ensure that all team members are aligned and working towards common goals.\n   - **Agility and Adaptation**: Be prepared to adapt your strategy as market conditions change. Monitor your progress and make adjustments as necessary to stay competitive.\n   - **Scaling**: As you gain traction and market share, scale your operations efficiently to handle growth without compromising on quality or service.\n\nBy following this strategic plan, the startup can effectively navigate the challenges of entering",
+      "thinking": null,
+      "transfer_score": 0.8,
+      "pattern_match": 1.0,
+      "time_seconds": 78.558100938797,
+      "passed": true
+    },
+    {
+      "test": "physics_to_economics",
+      "source_domain": "physics",
+      "target_domain": "economics",
+      "training_provided": "physics_only",
+      "response": "To analyze the economic problem of government-imposed price controls on essential goods using physics principles, we can draw analogies to concepts such as conservation of energy, equilibrium, and inertia. Here's a step-by-step thought process using these principles:\n\n### Conservation Principles\nIn physics, the law of conservation of energy states that energy cannot be created or destroyed, only transformed from one form to another. Applying this to economics:\n\n- **Conservation of Value**: The total economic value in the market is conserved. If the government imposes price controls, the value of goods and services does not disappear; it merely shifts between different actors in the economy. For example, if prices are set below the equilibrium price, producers may receive less revenue, but consumers might gain from lower prices. However, this does not account for potential inefficiencies or shortages that might arise.\n\n### Equilibrium\nIn physics, equilibrium is a state where all forces are balanced, resulting in no net change. In economics, market equilibrium occurs where supply equals demand. When the government imposes price controls:\n\n- **Market Equilibrium**: If the government sets a price ceiling below the equilibrium price, it can lead to a shortage because the quantity demanded exceeds the quantity supplied. Conversely, if a price floor is set above the equilibrium price, it can lead to a surplus because the quantity supplied exceeds the quantity demanded. This disrupts the natural balance of the market.\n\n### Inertia\nIn physics, inertia is the resistance of an object to change its state of motion. In economics, inertia can be seen as the resistance of the market to change, especially in the face of government intervention.\n\n- **Market Inertia**: The market may resist changes imposed by price controls. For instance, if a price ceiling is implemented, suppliers might reduce their supply or decrease the quality of goods, leading to inefficiencies. Similarly, consumers might seek alternatives or black markets to meet their needs, which can undermine the intended effects of the price controls.\n\n### Analysis\n<think>\n1. **Conservation of Value**: When price controls are imposed, the total economic value is conserved but reallocated. Producers might suffer from lower revenues, and consumers might benefit from lower prices. However, this does not account for inefficiencies such as reduced supply or black market activities.\n\n2. **Market Equilibrium**: Price controls disrupt the natural equilibrium. A price ceiling below the equilibrium price creates a shortage, while a price floor above the equilibrium price creates a surplus. This imbalance can",
+      "thinking": null,
+      "transfer_score": 0.8,
+      "pattern_match": 1.0,
+      "time_seconds": 77.92813205718994,
+      "passed": true
+    }
+  ],
+  "summary": {
+    "total_tests": 3,
+    "passed": 3,
+    "failed": 0,
+    "pass_rate": 100.0,
+    "avg_transfer_score": 0.8666666666666667,
+    "agi_threshold": 0.6,
+    "meets_agi_criteria": true
+  }
+}

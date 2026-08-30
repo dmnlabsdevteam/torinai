@@ -1,0 +1,108 @@
+{
+  "timestamp": "2025-10-07T12:31:53.926884",
+  "server": "unified",
+  "pid": 43772,
+  "port": null,
+  "services": {
+    "nats_jetstream": {
+      "name": "nats_jetstream",
+      "status": "running",
+      "type": "external",
+      "pid": 43787
+    },
+    "database_manager": {
+      "name": "database_manager",
+      "status": "running",
+      "type": "internal"
+    },
+    "memory_system": {
+      "name": "memory_system",
+      "status": "running",
+      "type": "internal"
+    },
+    "orchestrator": {
+      "name": "orchestrator",
+      "status": "running",
+      "type": "internal"
+    },
+    "learning_system": {
+      "name": "learning_system",
+      "status": "running",
+      "type": "internal"
+    },
+    "research_system": {
+      "name": "research_system",
+      "status": "running",
+      "type": "internal"
+    },
+    "research_agent": {
+      "name": "research_agent",
+      "status": "running",
+      "type": "internal"
+    },
+    "monitoring_system": {
+      "name": "monitoring_system",
+      "status": "running",
+      "type": "internal"
+    },
+    "health_manager": {
+      "name": "health_manager",
+      "status": "running",
+      "type": "internal"
+    },
+    "monitoring_agent": {
+      "name": "monitoring_agent",
+      "status": "running",
+      "type": "internal"
+    },
+    "security_system": {
+      "name": "security_system",
+      "status": "running",
+      "type": "internal"
+    },
+    "voice_service": {
+      "name": "voice_service",
+      "status": "not_found"
+    },
+    "alert_system": {
+      "name": "alert_system",
+      "status": "running",
+      "type": "internal"
+    },
+    "email_system": {
+      "name": "email_system",
+      "status": "running",
+      "type": "internal"
+    },
+    "autonomous_controller": {
+      "name": "autonomous_controller",
+      "status": "running",
+      "type": "internal"
+    },
+    "autonomous_tasks": {
+      "name": "autonomous_tasks",
+      "status": "running",
+      "type": "internal"
+    },
+    "framework_coordination": {
+      "name": "framework_coordination",
+      "status": "running",
+      "type": "internal"
+    },
+    "agent_communication": {
+      "name": "agent_communication",
+      "status": "running",
+      "type": "internal"
+    },
+    "unified_agents": {
+      "name": "unified_agents",
+      "status": "running",
+      "type": "internal"
+    }
+  },
+  "ports": {
+    "main": 8080,
+    "chat": "integrated",
+    "nats": 4222
+  }
+}

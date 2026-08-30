@@ -1,0 +1,75 @@
+{
+  "test_name": "Episodic Memory Test",
+  "date": "2025-12-24T17:46:12.903957",
+  "version": "v2.0-rigorous",
+  "tests": [
+    {
+      "test": "episodic_memory_recall",
+      "recall_accuracy": 0.0,
+      "interference_resistance": 1.0,
+      "results": [
+        {
+          "question": "What is the capital of Zorland and what is its population?",
+          "answer": "I cannot provide the capital and population of Zorland because Zorland is not a recognized country in the world. It might be a fictional place or a typo. Could you please check the name and provide more information?",
+          "expected": {
+            "capital": "Xanadu",
+            "population": "3.2 million"
+          },
+          "correct_facts": false,
+          "no_interference": true,
+          "passed": false
+        },
+        {
+          "question": "What does Zorland export and what is the annual value?",
+          "answer": "I don't have specific information about Zorland's exports or their annual value based on the context provided earlier. To answer this question accurately, I would need details about Zorland's economy, which were not provided in previous interactions. If you can provide details about Zorland's economy or the specific context you're referring to, I would be able to assist you better.",
+          "expected": {
+            "export": "rare earth metals",
+            "value": "$5.8 billion"
+          },
+          "correct_facts": false,
+          "no_interference": true,
+          "passed": false
+        },
+        {
+          "question": "What is Zorland's currency and its gold peg rate?",
+          "answer": "I don't have specific information about Zorland's currency or its gold peg rate as Zorland is not a real country and thus does not have an official currency or monetary policy. Could you provide more context or clarify if this is part of a fictional scenario or a specific exercise?",
+          "expected": {
+            "currency": "Zar",
+            "peg": "150 Z$ per gram"
+          },
+          "correct_facts": false,
+          "no_interference": true,
+          "passed": false
+        },
+        {
+          "question": "When did Zorland join the Galactic Trade Consortium?",
+          "answer": "I don't have specific information about when Zorland joined the Galactic Trade Consortium as this scenario seems to be part of a fictional universe. Without additional context or details provided earlier in our conversation, I cannot give an accurate date or year for when Zorland became a member of the Galactic Trade Consortium. If you have more details or if this was mentioned in a previous part of our discussion, please provide them so I can assist you better.",
+          "expected": {
+            "year": "2847"
+          },
+          "correct_facts": false,
+          "no_interference": true,
+          "passed": false
+        }
+      ],
+      "passed": false
+    },
+    {
+      "test": "reasoning_with_recall",
+      "question": "\n        Based on what you learned about Zorland earlier:\n        If Zorland's capital has 3.2 million people and exports $5.8 billion in rare earth metals annually,\n        what is the per-capita export value? Show your calculation.\n        ",
+      "answer": "To calculate the per-capita export value, we need to divide the total export value by the population of the capital.\n\n\n\nLet's do the calculation:\n\nTotal export value = $5.8 billion\nPopulation = 3.2 million\n\nPer-capita export value = Total export value / Population\nPer-capita export value = $5.8 billion / 3.2 million\n\n\n\nPer-capita export value = 5800 million / 3.2 million\n\nPer-capita export value = 1812.5\n\nSo, the per-capita export value of rare earth metals in Zorland's capital is $1812.5.",
+      "used_recalled_facts": true,
+      "showed_reasoning": true,
+      "correct_ballpark": true,
+      "passed": true
+    }
+  ],
+  "summary": {
+    "total_tests": 2,
+    "passed": 1,
+    "failed": 1,
+    "pass_rate": 50.0,
+    "threshold": 75.0,
+    "meets_criteria": false
+  }
+}

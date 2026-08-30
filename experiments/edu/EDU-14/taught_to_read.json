@@ -1,0 +1,293 @@
+{
+  "experiment": "EDU-14 taught to read by a language model",
+  "question": "can a model hand over what sentences mean, once, and then be removed",
+  "recorded_at": "2026-08-20T21:33:45.138888+00:00",
+  "teacher": {
+    "model": "35b",
+    "calls": {
+      "policy": "normal",
+      "attempts": 5,
+      "blocked": 0,
+      "executed": 5,
+      "by_class": {
+        "llm": {
+          "attempts": 5,
+          "blocked": 0,
+          "executed": 5,
+          "sites": {
+            "unified_llm._remote_chat": 5
+          }
+        },
+        "vlm": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "embedding": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "reranker": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "classifier": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "encoder": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        }
+      }
+    },
+    "declined": [],
+    "proposals": [
+      {
+        "sentence": "robin is a bird",
+        "proposed": [
+          "robin",
+          "bird",
+          "affirms"
+        ]
+      },
+      {
+        "sentence": "the vault is locked",
+        "proposed": [
+          "vault",
+          "locked",
+          "affirms"
+        ]
+      },
+      {
+        "sentence": "a dog is an animal",
+        "proposed": [
+          "dog",
+          "animal",
+          "affirms"
+        ]
+      },
+      {
+        "sentence": "robin is not a mammal",
+        "proposed": [
+          "robin",
+          "mammal",
+          "denies"
+        ]
+      },
+      {
+        "sentence": "the engine is not cold",
+        "proposed": [
+          "engine",
+          "cold",
+          "denies"
+        ]
+      }
+    ]
+  },
+  "derivation": {
+    "status": "multiple_procedures",
+    "size": 6,
+    "candidates_run": 251487,
+    "procedures": [
+      [
+        "DONE \u2192 EMIT",
+        "DETERMINER \u2192 SKIP",
+        "SUBJECT_UNSET \u2192 BIND_SUBJECT",
+        "CONTENT \u2192 BIND_OBJECT",
+        "OBJECT_UNSET \u2192 BIND_OBJECT",
+        "otherwise \u2192 MARK_NEGATIVE"
+      ],
+      [
+        "DONE \u2192 EMIT",
+        "DETERMINER \u2192 BIND_OBJECT",
+        "COPULA \u2192 BIND_OBJECT",
+        "SUBJECT_UNSET \u2192 BIND_SUBJECT",
+        "CONTENT \u2192 BIND_OBJECT",
+        "otherwise \u2192 MARK_NEGATIVE"
+      ],
+      [
+        "DONE \u2192 EMIT",
+        "DETERMINER \u2192 BIND_OBJECT",
+        "COPULA \u2192 SKIP",
+        "SUBJECT_UNSET \u2192 BIND_SUBJECT",
+        "CONTENT \u2192 BIND_OBJECT",
+        "otherwise \u2192 MARK_NEGATIVE"
+      ],
+      [
+        "DONE \u2192 EMIT",
+        "DETERMINER \u2192 SKIP",
+        "COPULA \u2192 SKIP",
+        "SUBJECT_UNSET \u2192 BIND_SUBJECT",
+        "CONTENT \u2192 BIND_OBJECT",
+        "otherwise \u2192 MARK_NEGATIVE"
+      ]
+    ]
+  },
+  "reading": {
+    "held_out": [
+      {
+        "sentence": "sparrow is a bird",
+        "expected": [
+          "sparrow",
+          "bird",
+          "affirms"
+        ],
+        "produced": [
+          "sparrow",
+          "bird",
+          "affirms"
+        ],
+        "correct": true
+      },
+      {
+        "sentence": "the turbine is hot",
+        "expected": [
+          "turbine",
+          "hot",
+          "affirms"
+        ],
+        "produced": [
+          "turbine",
+          "hot",
+          "affirms"
+        ],
+        "correct": true
+      },
+      {
+        "sentence": "an ostrich is a bird",
+        "expected": [
+          "ostrich",
+          "bird",
+          "affirms"
+        ],
+        "produced": [
+          "ostrich",
+          "bird",
+          "affirms"
+        ],
+        "correct": true
+      },
+      {
+        "sentence": "mercury is a metal",
+        "expected": [
+          "mercury",
+          "metal",
+          "affirms"
+        ],
+        "produced": [
+          "mercury",
+          "metal",
+          "affirms"
+        ],
+        "correct": true
+      },
+      {
+        "sentence": "a whale is not a fish",
+        "expected": [
+          "whale",
+          "fish",
+          "denies"
+        ],
+        "produced": [
+          "whale",
+          "fish",
+          "denies"
+        ],
+        "correct": true
+      },
+      {
+        "sentence": "the ledger is not balanced",
+        "expected": [
+          "ledger",
+          "balanced",
+          "denies"
+        ],
+        "produced": [
+          "ledger",
+          "balanced",
+          "denies"
+        ],
+        "correct": true
+      },
+      {
+        "sentence": "copper is not brittle",
+        "expected": [
+          "copper",
+          "brittle",
+          "denies"
+        ],
+        "produced": [
+          "copper",
+          "brittle",
+          "denies"
+        ],
+        "correct": true
+      }
+    ],
+    "correct": "7/7",
+    "procedures_agree": true,
+    "model": {
+      "policy": "strict_model_free",
+      "attempts": 0,
+      "blocked": 0,
+      "executed": 0,
+      "by_class": {
+        "llm": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "vlm": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "embedding": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "reranker": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "classifier": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        },
+        "encoder": {
+          "attempts": 0,
+          "blocked": 0,
+          "executed": 0,
+          "sites": {}
+        }
+      }
+    }
+  },
+  "wrong_teacher": {
+    "status": "no_procedure",
+    "detail": "no procedure of 6 step(s) or fewer produces the required answer on all 5 example(s); the bound was reached, so this is not a proof that none exists"
+  },
+  "taught_vs_read": {
+    "sentences_taught": 5,
+    "never_taught_sentences_read": 7
+  },
+  "passed": true
+}

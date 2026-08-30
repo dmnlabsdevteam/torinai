@@ -1,0 +1,88 @@
+{
+  "benchmark": "EDU-05",
+  "title": "Executed Action Becomes Root Evidence",
+  "recorded_at": "2026-08-19T18:38:08.241284+00:00",
+  "passed": true,
+  "model_calls": 0,
+  "domain": "kite17",
+  "rule_id": "rule_edbe5a8b4ad8",
+  "operator": "MOVE(z,HALL,LAB)",
+  "oracle": "filesystem listing, independent of the tool's return value",
+  "world_before": [
+    "AT(z, HALL)",
+    "OPEN(HALL)",
+    "OPEN(LAB)",
+    "OPEN(VAULT)",
+    "PATH(HALL, LAB)",
+    "PATH(LAB, VAULT)"
+  ],
+  "world_after": [
+    "AT(z, LAB)",
+    "OPEN(HALL)",
+    "OPEN(LAB)",
+    "OPEN(VAULT)",
+    "PATH(HALL, LAB)",
+    "PATH(LAB, VAULT)"
+  ],
+  "evidence": {
+    "evidence_id": "obs_a702657a7fee",
+    "source_type": "task_artifact",
+    "producer": "substrate_execution",
+    "is_own_root": true,
+    "observation": {
+      "adds": [
+        {
+          "arity": 2,
+          "predicate": "AT"
+        }
+      ],
+      "atoms": [
+        {
+          "arity": 2,
+          "predicate": "AT"
+        },
+        {
+          "arity": 1,
+          "predicate": "OPEN"
+        },
+        {
+          "arity": 2,
+          "predicate": "PATH"
+        }
+      ],
+      "action": {
+        "arity": 3,
+        "predicate": "MOVE"
+      },
+      "domain": "kite17",
+      "removes": [
+        {
+          "arity": 2,
+          "predicate": "AT"
+        }
+      ]
+    }
+  },
+  "concepts_supported": [
+    {
+      "concept_id": "kite17:at",
+      "kind": "relation",
+      "epistemic_status": "WELL_SUPPORTED"
+    },
+    {
+      "concept_id": "kite17:move",
+      "kind": "process",
+      "epistemic_status": "WELL_SUPPORTED"
+    },
+    {
+      "concept_id": "kite17:open",
+      "kind": "state",
+      "epistemic_status": "WELL_SUPPORTED"
+    },
+    {
+      "concept_id": "kite17:path",
+      "kind": "relation",
+      "epistemic_status": "WELL_SUPPORTED"
+    }
+  ]
+}

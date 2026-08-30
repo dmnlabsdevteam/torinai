@@ -1,0 +1,74 @@
+{
+  "memory": {
+    "system": "memory",
+    "n_experiments": 150,
+    "verdict": "PASS",
+    "baseline_results": {
+      "no_intervention": {
+        "baseline_type": "no_intervention",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.30963020490612414,
+        "std_outcome_quality": 0.05834732185445936,
+        "mean_intrinsic_reward": 0.1970502231207812,
+        "mean_constitutional_alignment": 0.7015977846588616,
+        "mean_system_health_impact": 0.4944519588438084,
+        "success_rate": 0.32666666666666666,
+        "overall_performance": 0.42568254288239377
+      },
+      "random_selection": {
+        "baseline_type": "random_selection",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.40366804252263144,
+        "std_outcome_quality": 0.0565138114035555,
+        "mean_intrinsic_reward": 0.2959612899972353,
+        "mean_constitutional_alignment": 0.607466107980103,
+        "mean_system_health_impact": 0.45281927565666136,
+        "success_rate": 0.4066666666666667,
+        "overall_performance": 0.43997867903915777
+      },
+      "wrong_context": {
+        "baseline_type": "wrong_context",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.20307472299157595,
+        "std_outcome_quality": 0.058125089966836734,
+        "mean_intrinsic_reward": 0.13189061882163158,
+        "mean_constitutional_alignment": 0.44298351017105253,
+        "mean_system_health_impact": 0.34359515722376444,
+        "success_rate": 0.17333333333333334,
+        "overall_performance": 0.28038600230200617
+      },
+      "historical": {
+        "baseline_type": "historical_average",
+        "system": "memory",
+        "n_experiments": 150,
+        "mean_outcome_quality": 0.49696901167679186,
+        "std_outcome_quality": 0.060726356208424793,
+        "mean_intrinsic_reward": 0.5031264747136023,
+        "mean_constitutional_alignment": 0.497642631758222,
+        "mean_system_health_impact": 0.49991141903136965,
+        "success_rate": 0.5066666666666667,
+        "overall_performance": 0.49941238429499646
+      }
+    },
+    "actual_results": {
+      "baseline_type": "no_intervention",
+      "system": "memory",
+      "n_experiments": 150,
+      "mean_outcome_quality": 0.19999999999999996,
+      "std_outcome_quality": 5.551115123125783e-17,
+      "mean_intrinsic_reward": 0.19838067865376233,
+      "mean_constitutional_alignment": 0.9500000000000002,
+      "mean_system_health_impact": 0.8499999999999998,
+      "success_rate": 0.0,
+      "overall_performance": 0.5495951696634406
+    },
+    "comparisons": {
+      "no_intervention": {
+        "baseline_type": "no_intervention",
+        "mean_diff_overall": 0.12391262678104681,
+        "p_value_overall": 7.596831151578482e-141,
+        "effect_size_overall": 5.4929393973372225,
+        "statistically_significant": 

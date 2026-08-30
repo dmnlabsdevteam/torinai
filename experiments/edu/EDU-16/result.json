@@ -1,0 +1,629 @@
+{
+  "pretest_words": "0/18",
+  "pretest_sentences": "6/12",
+  "assisted_words": "18/18",
+  "substrate_words": "18/18",
+  "substrate_sentences": "12/12",
+  "transfer_sentences": "6/6",
+  "model_calls_instruction": 12,
+  "model_calls_exam": 0,
+  "model_reaches_blocked_in_exam": 0,
+  "proposals": 28,
+  "confirmations": 27,
+  "contradictions": 1,
+  "undecided_after": 0,
+  "false_confidence": 0,
+  "lessons_delivered": 9,
+  "elapsed": 34.13990616798401,
+  "limits": [],
+  "detail": {
+    "pretest_words": {
+      "tank": {
+        "truth": "NOUN",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "motor": {
+        "truth": "NOUN",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "pipe": {
+        "truth": "NOUN",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "rotor": {
+        "truth": "NOUN",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "bearing": {
+        "truth": "NOUN",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "shaft": {
+        "truth": "NOUN",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "loud": {
+        "truth": "ADJECTIVE",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "empty": {
+        "truth": "ADJECTIVE",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "rusty": {
+        "truth": "ADJECTIVE",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "smooth": {
+        "truth": "ADJECTIVE",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "worn": {
+        "truth": "ADJECTIVE",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "clean": {
+        "truth": "ADJECTIVE",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "pushes": {
+        "truth": "VERB",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "seals": {
+        "truth": "VERB",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "drains": {
+        "truth": "VERB",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "spins": {
+        "truth": "VERB",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "lifts": {
+        "truth": "VERB",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      },
+      "guides": {
+        "truth": "VERB",
+        "verdict": null,
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN"
+        ]
+      }
+    },
+    "pretest_sentences": {
+      "the motor is rusty": {
+        "stage": "L1-L2",
+        "expected": [
+          "motor_rusty"
+        ],
+        "got": "motor_rusty"
+      },
+      "the tank is not empty": {
+        "stage": "L1-L2",
+        "expected": [
+          "~tank_empty"
+        ],
+        "got": "~tank_empty"
+      },
+      "the pipes are loud": {
+        "stage": "L6",
+        "expected": [
+          "pipes_loud"
+        ],
+        "got": "pipes_loud"
+      },
+      "the rotors are smooth": {
+        "stage": "L6",
+        "expected": [
+          "rotors_smooth"
+        ],
+        "got": "rotors_smooth"
+      },
+      "the shaft is not worn": {
+        "stage": "L7",
+        "expected": [
+          "~shaft_worn"
+        ],
+        "got": "~shaft_worn"
+      },
+      "the bearing is not clean": {
+        "stage": "L7",
+        "expected": [
+          "~bearing_clean"
+        ],
+        "got": "~bearing_clean"
+      },
+      "the motor drains": {
+        "stage": "L4",
+        "expected": [
+          "motor_drains"
+        ],
+        "got": null
+      },
+      "the rotor spins": {
+        "stage": "L4",
+        "expected": [
+          "rotor_spins"
+        ],
+        "got": null
+      },
+      "the pump pushes water": {
+        "stage": "L5",
+        "expected": [
+          "pump_pushes_water"
+        ],
+        "got": null
+      },
+      "the valve seals the pipe": {
+        "stage": "L5",
+        "expected": [
+          "valve_seals_pipe"
+        ],
+        "got": null
+      },
+      "the bearing lifts the shaft": {
+        "stage": "L5",
+        "expected": [
+          "bearing_lifts_shaft"
+        ],
+        "got": null
+      },
+      "the shaft guides the belt": {
+        "stage": "L5",
+        "expected": [
+          "shaft_guides_belt"
+        ],
+        "got": null
+      }
+    },
+    "induced_rules": [
+      "VERB: a word that ends in -s (from carries, cools, heats, moves, opens, tightens, turns, warms)"
+    ],
+    "unseparated": [
+      [
+        "ADJECTIVE",
+        "NOUN"
+      ]
+    ],
+    "exposure_read": "12/12",
+    "assisted_words": {
+      "tank": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "motor": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "pipe": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "rotor": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "bearing": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "shaft": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "loud": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "empty": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "rusty": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "smooth": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "worn": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "clean": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "pushes": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "seals": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "drains": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "spins": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "lifts": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "guides": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      }
+    },
+    "exam_words": {
+      "tank": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "motor": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "pipe": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "rotor": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "bearing": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "shaft": {
+        "truth": "NOUN",
+        "verdict": "NOUN",
+        "fitted": [
+          "NOUN"
+        ]
+      },
+      "loud": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "empty": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "rusty": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "smooth": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "worn": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "clean": {
+        "truth": "ADJECTIVE",
+        "verdict": "ADJECTIVE",
+        "fitted": [
+          "ADJECTIVE"
+        ]
+      },
+      "pushes": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "seals": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "drains": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "spins": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "lifts": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      },
+      "guides": {
+        "truth": "VERB",
+        "verdict": "VERB",
+        "fitted": [
+          "ADJECTIVE",
+          "NOUN",
+          "VERB"
+        ]
+      }
+    },
+    "exam_sentences": {
+      "the motor is rusty": {
+        "stage": "L1-L2",
+        "expected": [
+          "motor_rusty"
+        ],
+        "got": "motor_rusty"
+      },
+      "the tank is not empty": {
+        "stage": "L1-L2",
+        "expected": [
+          "~tank_empty"
+        ],
+        "got": "~tank_empty"
+      },
+      "the pipes are loud": {
+        "stage": "L6",
+        "expected": [
+          "pipes_loud"
+        ],
+        "got": "pipes_loud"
+      },
+      "the rotors are smooth": {
+        "stage": "L6",
+        "expected": [
+          "rotors_smooth"
+        ],
+        "got": "rotors_smooth"
+      },
+      "the shaft is not worn": {
+        "stage": "L7",
+        "expected": [
+          "~shaft_worn"
+        ],
+        "got": "~shaft_worn"
+      },
+      "the bearing is not clean": {
+        "stage": "L7",
+        "expected": [
+          "~bearing_clean"
+        ],
+        "got": "~bearing_clean"
+      },
+      "the motor drains": {
+        "stage": "L4",
+        "expected": [
+          "motor_drains"
+        ],
+        "got": "motor_drains"
+      },
+      "the rotor spins": {
+        "stage": "L4",
+        "expected": [
+          "rotor_spins"
+        ],
+        "got": "rotor_spins"
+      },
+      "the pump pushes water": {
+        "stage": "L5",
+        "expected": [
+          "pump_pushes_water"
+        ],
+        "got": "pump_pushes_water"
+      },
+      "the valve seals the pipe": {
+        "stage": "L5",
+        "expected": [
+          "valve_seals_pipe"
+        ],
+        "got": "valve_seals_pipe"
+      },
+      "the bearing lifts the shaft": {
+        "stage": "L5",
+        "expected": [
+          "bearing_lifts_shaft"
+        ],
+        "got": "bearing_lifts_shaft"
+      },
+      "the shaft guides the belt": {
+        "stage": "L5",
+        "expected": [
+          "shaft_guides_belt"
+        ],
+        "got": "shaft_guides_belt"
+      }
+    }
+  }
+}

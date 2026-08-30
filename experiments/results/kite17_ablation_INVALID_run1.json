@@ -1,0 +1,1644 @@
+{
+  "experiment": "kite17_ablation",
+  "hypothesis": "The novel capability is causally carried by unified.learned_rules. Removing that learned state removes the capability; restoring the same state restores it, with source code, runtime, evaluation inputs and model availability unchanged.",
+  "run_at": "2026-08-17T20:14:05.502163+00:00",
+  "commit": "not_a_git_repo",
+  "source_database": "torinai_db",
+  "frozen_rule_state": [
+    {
+      "rule_id": "rule_d3244fd036c3",
+      "domain_id": "kite17",
+      "rule_kind": "move",
+      "canonical_rule_json": {
+        "body": [
+          {
+            "args": [
+              "?X0",
+              "?X2",
+              "?X1"
+            ],
+            "predicate": "MOVE"
+          },
+          {
+            "args": [
+              "?X1"
+            ],
+            "predicate": "OPEN"
+          },
+          {
+            "args": [
+              "?X2",
+              "?X1"
+            ],
+            "predicate": "PATH"
+          }
+        ],
+        "add_effects": [
+          {
+            "args": [
+              "?X0",
+              "?X1"
+            ],
+            "predicate": "AT"
+          }
+        ],
+        "delete_effects": [
+          {
+            "args": [
+              "?X0",
+              "?X2"
+            ],
+            "predicate": "AT"
+          }
+        ],
+        "schema_version": 1
+      },
+      "rendered_formula": "MOVE(?X0, ?X2, ?X1) \u2227 OPEN(?X1) \u2227 PATH(?X2, ?X1) \u2192 AT(?X0, ?X1) \u2296 AT(?X0, ?X2)",
+      "epistemic_status": "validated",
+      "induction_method": "plotkin_lgg_minimal",
+      "induction_version": 1,
+      "validation_policy": "held_out_disjoint_roots",
+      "validation_version": 1,
+      "positive_root_count": 2,
+      "negative_root_count": 3,
+      "detail": "confirmed by 2 independent observation(s)",
+      "created_at": "2026-08-17T16:10:28.712212-04:00",
+      "updated_at": "2026-08-17T16:10:28.720487-04:00",
+      "validated_at": "2026-08-17T16:10:28.720323-04:00",
+      "supersedes_rule_id": null
+    },
+    {
+      "rule_id": "rule_dcd916b30f7f",
+      "domain_id": "kite17",
+      "rule_kind": "zor",
+      "canonical_rule_json": {
+        "body": [
+          {
+            "args": [
+              "?X0",
+              "?X1"
+            ],
+            "predicate": "KEM"
+          },
+          {
+            "args": [
+              "?X0"
+            ],
+            "predicate": "NAL"
+          },
+          {
+            "args": [
+              "?X1"
+            ],
+            "predicate": "TOR"
+          },
+          {
+            "args": [
+              "?X0",
+              "?X1"
+            ],
+            "predicate": "VEX"
+          }
+        ],
+        "add_effects": [
+          {
+            "args": [
+              "?X0",
+              "?X1"
+            ],
+            "predicate": "ZOR"
+          }
+        ],
+        "delete_effects": [],
+        "schema_version": 1
+      },
+      "rendered_formula": "KEM(?X0, ?X1) \u2227 NAL(?X0) \u2227 TOR(?X1) \u2227 VEX(?X0, ?X1) \u2192 ZOR(?X0, ?X1)",
+      "epistemic_status": "validated",
+      "induction_method": "plotkin_lgg_minimal",
+      "induction_version": 1,
+      "validation_policy": "held_out_disjoint_roots",
+      "validation_version": 1,
+      "positive_root_count": 2,
+      "negative_root_count": 4,
+      "detail": "confirmed by 2 independent observation(s)",
+      "created_at": "2026-08-17T16:10:28.695923-04:00",
+      "updated_at": "2026-08-17T16:10:28.708506-04:00",
+      "validated_at": "2026-08-17T16:10:28.708331-04:00",
+      "supersedes_rule_id": null
+    }
+  ],
+  "conditions": {
+    "FULL": {
+      "condition": "FULL",
+      "database": "torinai_db",
+      "pid": 16031,
+      "suite_version": 1,
+      "policies": {
+        "model": "strict_model_free",
+        "learning": "frozen"
+      },
+      "loader": {
+        "rules_available": 2,
+        "rules_executable": 2,
+        "rule_ids_loaded": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "by_status": {
+          "candidate": 0,
+          "supported": 0,
+          "validated": 2,
+          "refuted": 0
+        }
+      },
+      "cases": [
+        {
+          "id": "pos_unseen_1",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_2",
+          "kind": "derive",
+          "derived": [
+            "ZOR(alpha, beta)"
+          ],
+          "expected": [
+            "ZOR(alpha, beta)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_3",
+          "kind": "derive",
+          "derived": [
+            "ZOR(n1, n2)"
+          ],
+          "expected": [
+            "ZOR(n1, n2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_two_independent_bindings",
+          "kind": "derive",
+          "derived": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "expected": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "missing_NAL",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_VEX",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_TOR",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_KEM",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "irrelevant_extra_facts",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "role_reversal_trap",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "role_reversal_trap_kem",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "transition_single_step_with_retraction",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, LAB)",
+            "OPEN(LAB)",
+            "PATH(HALL, LAB)"
+          ],
+          "expect_present": [
+            "AT(z, LAB)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_two_step_chain",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, VAULT)",
+            "OPEN(LAB)",
+            "OPEN(VAULT)",
+            "PATH(HALL, LAB)",
+            "PATH(LAB, VAULT)"
+          ],
+          "expect_present": [
+            "AT(z, VAULT)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)",
+            "AT(z, LAB)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_blocked_destination",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, HALL)",
+            "PATH(HALL, CELL)"
+          ],
+          "expect_present": [
+            "AT(z, HALL)"
+          ],
+          "expect_absent": [
+            "AT(z, CELL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        }
+      ],
+      "passed": 14,
+      "total": 14,
+      "model": {
+        "attempts": 0,
+        "executed": 0,
+        "blocked": 0
+      },
+      "returncode": 0,
+      "stderr_tail": "elfimprovement\n2026-08-17 16:12:59,272 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: detectpatterns (learning, safe)\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: detectpatterns\n2026-08-17 16:12:59,272 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: extractlessonslearned (learning, safe)\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: extractlessonslearned\n2026-08-17 16:12:59,272 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: generatehypothesis (learning, safe)\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: generatehypothesis\n2026-08-17 16:12:59,272 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: benchmarklearningsystems (learning, safe)\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: benchmarklearningsystems\n2026-08-17 16:12:59,272 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: visualizelearningprogress (learning, safe)\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: visualizelearningprogress\n2026-08-17 16:12:59,272 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: identifyskillgaps (learning, safe)\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: identifyskillgaps\n2026-08-17 16:12:59,272 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: recommendtraining (learning, safe)\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: recommendtraining\n2026-08-17 16:12:59,272 - core.tools.learning_tools - INFO - \u2705 Registered 12 learning tools\n2026-08-17 16:12:59,273 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: delegate_task (system, safe)\n2026-08-17 16:12:59,274 - core.tools.delegation_tools - INFO - \u2705 Registered delegation tool: delegate_task\n2026-08-17 16:12:59,274 - core.tools.delegation_tools - INFO - \u2705 Registered 1 delegation tool(s)\n",
+      "intervention": {
+        "database": "torinai_abl_full",
+        "sql_applied": [],
+        "rows_restored": [],
+        "note": ""
+      }
+    },
+    "SHAM": {
+      "condition": "SHAM",
+      "database": "torinai_db",
+      "pid": 16106,
+      "suite_version": 1,
+      "policies": {
+        "model": "strict_model_free",
+        "learning": "frozen"
+      },
+      "loader": {
+        "rules_available": 2,
+        "rules_executable": 2,
+        "rule_ids_loaded": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "by_status": {
+          "candidate": 0,
+          "supported": 0,
+          "validated": 2,
+          "refuted": 0
+        }
+      },
+      "cases": [
+        {
+          "id": "pos_unseen_1",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_2",
+          "kind": "derive",
+          "derived": [
+            "ZOR(alpha, beta)"
+          ],
+          "expected": [
+            "ZOR(alpha, beta)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_3",
+          "kind": "derive",
+          "derived": [
+            "ZOR(n1, n2)"
+          ],
+          "expected": [
+            "ZOR(n1, n2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_two_independent_bindings",
+          "kind": "derive",
+          "derived": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "expected": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "missing_NAL",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_VEX",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_TOR",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_KEM",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "irrelevant_extra_facts",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "role_reversal_trap",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "role_reversal_trap_kem",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "transition_single_step_with_retraction",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, LAB)",
+            "OPEN(LAB)",
+            "PATH(HALL, LAB)"
+          ],
+          "expect_present": [
+            "AT(z, LAB)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_two_step_chain",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, VAULT)",
+            "OPEN(LAB)",
+            "OPEN(VAULT)",
+            "PATH(HALL, LAB)",
+            "PATH(LAB, VAULT)"
+          ],
+          "expect_present": [
+            "AT(z, VAULT)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)",
+            "AT(z, LAB)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_blocked_destination",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, HALL)",
+            "PATH(HALL, CELL)"
+          ],
+          "expect_present": [
+            "AT(z, HALL)"
+          ],
+          "expect_absent": [
+            "AT(z, CELL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        }
+      ],
+      "passed": 14,
+      "total": 14,
+      "model": {
+        "attempts": 0,
+        "executed": 0,
+        "blocked": 0
+      },
+      "returncode": 0,
+      "stderr_tail": "elfimprovement\n2026-08-17 16:13:10,038 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: detectpatterns (learning, safe)\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: detectpatterns\n2026-08-17 16:13:10,038 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: extractlessonslearned (learning, safe)\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: extractlessonslearned\n2026-08-17 16:13:10,038 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: generatehypothesis (learning, safe)\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: generatehypothesis\n2026-08-17 16:13:10,038 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: benchmarklearningsystems (learning, safe)\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: benchmarklearningsystems\n2026-08-17 16:13:10,038 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: visualizelearningprogress (learning, safe)\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: visualizelearningprogress\n2026-08-17 16:13:10,038 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: identifyskillgaps (learning, safe)\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: identifyskillgaps\n2026-08-17 16:13:10,038 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: recommendtraining (learning, safe)\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: recommendtraining\n2026-08-17 16:13:10,038 - core.tools.learning_tools - INFO - \u2705 Registered 12 learning tools\n2026-08-17 16:13:10,039 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: delegate_task (system, safe)\n2026-08-17 16:13:10,039 - core.tools.delegation_tools - INFO - \u2705 Registered delegation tool: delegate_task\n2026-08-17 16:13:10,039 - core.tools.delegation_tools - INFO - \u2705 Registered 1 delegation tool(s)\n",
+      "intervention": {
+        "database": "torinai_abl_sham",
+        "sql_applied": [],
+        "rows_restored": [],
+        "note": "cloned and restored, nothing ablated \u2014 controls for cloning itself"
+      }
+    },
+    "NO_LEARNED_RULES": {
+      "condition": "NO_LEARNED_RULES",
+      "database": "torinai_db",
+      "pid": 16187,
+      "suite_version": 1,
+      "policies": {
+        "model": "strict_model_free",
+        "learning": "frozen"
+      },
+      "loader": {
+        "rules_available": 2,
+        "rules_executable": 2,
+        "rule_ids_loaded": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "by_status": {
+          "candidate": 0,
+          "supported": 0,
+          "validated": 2,
+          "refuted": 0
+        }
+      },
+      "cases": [
+        {
+          "id": "pos_unseen_1",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_2",
+          "kind": "derive",
+          "derived": [
+            "ZOR(alpha, beta)"
+          ],
+          "expected": [
+            "ZOR(alpha, beta)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_3",
+          "kind": "derive",
+          "derived": [
+            "ZOR(n1, n2)"
+          ],
+          "expected": [
+            "ZOR(n1, n2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_two_independent_bindings",
+          "kind": "derive",
+          "derived": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "expected": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "missing_NAL",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_VEX",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_TOR",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_KEM",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "irrelevant_extra_facts",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "role_reversal_trap",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "role_reversal_trap_kem",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "transition_single_step_with_retraction",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, LAB)",
+            "OPEN(LAB)",
+            "PATH(HALL, LAB)"
+          ],
+          "expect_present": [
+            "AT(z, LAB)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_two_step_chain",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, VAULT)",
+            "OPEN(LAB)",
+            "OPEN(VAULT)",
+            "PATH(HALL, LAB)",
+            "PATH(LAB, VAULT)"
+          ],
+          "expect_present": [
+            "AT(z, VAULT)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)",
+            "AT(z, LAB)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_blocked_destination",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, HALL)",
+            "PATH(HALL, CELL)"
+          ],
+          "expect_present": [
+            "AT(z, HALL)"
+          ],
+          "expect_absent": [
+            "AT(z, CELL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        }
+      ],
+      "passed": 14,
+      "total": 14,
+      "model": {
+        "attempts": 0,
+        "executed": 0,
+        "blocked": 0
+      },
+      "returncode": 0,
+      "stderr_tail": "elfimprovement\n2026-08-17 16:13:20,676 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: detectpatterns (learning, safe)\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: detectpatterns\n2026-08-17 16:13:20,676 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: extractlessonslearned (learning, safe)\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: extractlessonslearned\n2026-08-17 16:13:20,676 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: generatehypothesis (learning, safe)\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: generatehypothesis\n2026-08-17 16:13:20,676 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: benchmarklearningsystems (learning, safe)\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: benchmarklearningsystems\n2026-08-17 16:13:20,676 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: visualizelearningprogress (learning, safe)\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: visualizelearningprogress\n2026-08-17 16:13:20,676 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: identifyskillgaps (learning, safe)\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: identifyskillgaps\n2026-08-17 16:13:20,676 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: recommendtraining (learning, safe)\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: recommendtraining\n2026-08-17 16:13:20,676 - core.tools.learning_tools - INFO - \u2705 Registered 12 learning tools\n2026-08-17 16:13:20,677 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: delegate_task (system, safe)\n2026-08-17 16:13:20,677 - core.tools.delegation_tools - INFO - \u2705 Registered delegation tool: delegate_task\n2026-08-17 16:13:20,677 - core.tools.delegation_tools - INFO - \u2705 Registered 1 delegation tool(s)\n",
+      "intervention": {
+        "database": "torinai_abl_no_learned_rules",
+        "sql_applied": [
+          "DELETE FROM unified.learned_rule_evidence WHERE rule_id IN (SELECT rule_id FROM unified.learned_rules WHERE domain_id = 'kite17')",
+          "UPDATE unified.learned_rules SET supersedes_rule_id = NULL WHERE domain_id = 'kite17'",
+          "DELETE FROM unified.learned_rules WHERE domain_id = 'kite17'"
+        ],
+        "rows_restored": [],
+        "note": ""
+      }
+    },
+    "RULE_PRESENT_BUT_NOT_VALIDATED": {
+      "condition": "RULE_PRESENT_BUT_NOT_VALIDATED",
+      "database": "torinai_db",
+      "pid": 16276,
+      "suite_version": 1,
+      "policies": {
+        "model": "strict_model_free",
+        "learning": "frozen"
+      },
+      "loader": {
+        "rules_available": 2,
+        "rules_executable": 2,
+        "rule_ids_loaded": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "by_status": {
+          "candidate": 0,
+          "supported": 0,
+          "validated": 2,
+          "refuted": 0
+        }
+      },
+      "cases": [
+        {
+          "id": "pos_unseen_1",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_2",
+          "kind": "derive",
+          "derived": [
+            "ZOR(alpha, beta)"
+          ],
+          "expected": [
+            "ZOR(alpha, beta)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_3",
+          "kind": "derive",
+          "derived": [
+            "ZOR(n1, n2)"
+          ],
+          "expected": [
+            "ZOR(n1, n2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_two_independent_bindings",
+          "kind": "derive",
+          "derived": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "expected": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "missing_NAL",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_VEX",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_TOR",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_KEM",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "irrelevant_extra_facts",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "role_reversal_trap",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "role_reversal_trap_kem",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "transition_single_step_with_retraction",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, LAB)",
+            "OPEN(LAB)",
+            "PATH(HALL, LAB)"
+          ],
+          "expect_present": [
+            "AT(z, LAB)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_two_step_chain",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, VAULT)",
+            "OPEN(LAB)",
+            "OPEN(VAULT)",
+            "PATH(HALL, LAB)",
+            "PATH(LAB, VAULT)"
+          ],
+          "expect_present": [
+            "AT(z, VAULT)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)",
+            "AT(z, LAB)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_blocked_destination",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, HALL)",
+            "PATH(HALL, CELL)"
+          ],
+          "expect_present": [
+            "AT(z, HALL)"
+          ],
+          "expect_absent": [
+            "AT(z, CELL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        }
+      ],
+      "passed": 14,
+      "total": 14,
+      "model": {
+        "attempts": 0,
+        "executed": 0,
+        "blocked": 0
+      },
+      "returncode": 0,
+      "stderr_tail": "elfimprovement\n2026-08-17 16:13:31,027 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: detectpatterns (learning, safe)\n2026-08-17 16:13:31,027 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: detectpatterns\n2026-08-17 16:13:31,027 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: extractlessonslearned (learning, safe)\n2026-08-17 16:13:31,027 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: extractlessonslearned\n2026-08-17 16:13:31,027 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: generatehypothesis (learning, safe)\n2026-08-17 16:13:31,027 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: generatehypothesis\n2026-08-17 16:13:31,027 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: benchmarklearningsystems (learning, safe)\n2026-08-17 16:13:31,028 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: benchmarklearningsystems\n2026-08-17 16:13:31,028 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: visualizelearningprogress (learning, safe)\n2026-08-17 16:13:31,028 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: visualizelearningprogress\n2026-08-17 16:13:31,028 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: identifyskillgaps (learning, safe)\n2026-08-17 16:13:31,028 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: identifyskillgaps\n2026-08-17 16:13:31,028 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: recommendtraining (learning, safe)\n2026-08-17 16:13:31,028 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: recommendtraining\n2026-08-17 16:13:31,028 - core.tools.learning_tools - INFO - \u2705 Registered 12 learning tools\n2026-08-17 16:13:31,028 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: delegate_task (system, safe)\n2026-08-17 16:13:31,028 - core.tools.delegation_tools - INFO - \u2705 Registered delegation tool: delegate_task\n2026-08-17 16:13:31,028 - core.tools.delegation_tools - INFO - \u2705 Registered 1 delegation tool(s)\n",
+      "intervention": {
+        "database": "torinai_abl_rule_present_but_not_validated",
+        "sql_applied": [
+          "UPDATE unified.learned_rules SET epistemic_status = 'supported', validated_at = NULL WHERE domain_id = 'kite17'"
+        ],
+        "rows_restored": [],
+        "note": "the rule and its evidence remain; only the execution gate is closed"
+      }
+    },
+    "NO_CONCEPTS": {
+      "condition": "NO_CONCEPTS",
+      "database": "torinai_db",
+      "pid": 16365,
+      "suite_version": 1,
+      "policies": {
+        "model": "strict_model_free",
+        "learning": "frozen"
+      },
+      "loader": {
+        "rules_available": 2,
+        "rules_executable": 2,
+        "rule_ids_loaded": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "by_status": {
+          "candidate": 0,
+          "supported": 0,
+          "validated": 2,
+          "refuted": 0
+        }
+      },
+      "cases": [
+        {
+          "id": "pos_unseen_1",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_2",
+          "kind": "derive",
+          "derived": [
+            "ZOR(alpha, beta)"
+          ],
+          "expected": [
+            "ZOR(alpha, beta)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_3",
+          "kind": "derive",
+          "derived": [
+            "ZOR(n1, n2)"
+          ],
+          "expected": [
+            "ZOR(n1, n2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_two_independent_bindings",
+          "kind": "derive",
+          "derived": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "expected": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "missing_NAL",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_VEX",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_TOR",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_KEM",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "irrelevant_extra_facts",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "role_reversal_trap",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "role_reversal_trap_kem",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "transition_single_step_with_retraction",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, LAB)",
+            "OPEN(LAB)",
+            "PATH(HALL, LAB)"
+          ],
+          "expect_present": [
+            "AT(z, LAB)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_two_step_chain",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, VAULT)",
+            "OPEN(LAB)",
+            "OPEN(VAULT)",
+            "PATH(HALL, LAB)",
+            "PATH(LAB, VAULT)"
+          ],
+          "expect_present": [
+            "AT(z, VAULT)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)",
+            "AT(z, LAB)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_blocked_destination",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, HALL)",
+            "PATH(HALL, CELL)"
+          ],
+          "expect_present": [
+            "AT(z, HALL)"
+          ],
+          "expect_absent": [
+            "AT(z, CELL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        }
+      ],
+      "passed": 14,
+      "total": 14,
+      "model": {
+        "attempts": 0,
+        "executed": 0,
+        "blocked": 0
+      },
+      "returncode": 0,
+      "stderr_tail": "elfimprovement\n2026-08-17 16:13:41,605 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: detectpatterns (learning, safe)\n2026-08-17 16:13:41,605 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: detectpatterns\n2026-08-17 16:13:41,605 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: extractlessonslearned (learning, safe)\n2026-08-17 16:13:41,605 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: extractlessonslearned\n2026-08-17 16:13:41,605 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: generatehypothesis (learning, safe)\n2026-08-17 16:13:41,605 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: generatehypothesis\n2026-08-17 16:13:41,605 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: benchmarklearningsystems (learning, safe)\n2026-08-17 16:13:41,605 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: benchmarklearningsystems\n2026-08-17 16:13:41,605 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: visualizelearningprogress (learning, safe)\n2026-08-17 16:13:41,605 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: visualizelearningprogress\n2026-08-17 16:13:41,606 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: identifyskillgaps (learning, safe)\n2026-08-17 16:13:41,606 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: identifyskillgaps\n2026-08-17 16:13:41,606 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: recommendtraining (learning, safe)\n2026-08-17 16:13:41,606 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: recommendtraining\n2026-08-17 16:13:41,606 - core.tools.learning_tools - INFO - \u2705 Registered 12 learning tools\n2026-08-17 16:13:41,606 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: delegate_task (system, safe)\n2026-08-17 16:13:41,606 - core.tools.delegation_tools - INFO - \u2705 Registered delegation tool: delegate_task\n2026-08-17 16:13:41,606 - core.tools.delegation_tools - INFO - \u2705 Registered 1 delegation tool(s)\n",
+      "intervention": {
+        "database": "torinai_abl_no_concepts",
+        "sql_applied": [
+          "DELETE FROM unified.concept_evidence",
+          "DELETE FROM unified.concept_aliases",
+          "DELETE FROM unified.concept_domains",
+          "DELETE FROM unified.concept_identity_relations",
+          "DELETE FROM unified.concept_mappings",
+          "DELETE FROM unified.concept_relations",
+          "DELETE FROM unified.concepts"
+        ],
+        "rows_restored": [],
+        "note": "negative control \u2014 this competence should not need the semantic store"
+      }
+    },
+    "BLANK": {
+      "condition": "BLANK",
+      "database": "torinai_db",
+      "pid": 16452,
+      "suite_version": 1,
+      "policies": {
+        "model": "strict_model_free",
+        "learning": "frozen"
+      },
+      "loader": {
+        "rules_available": 2,
+        "rules_executable": 2,
+        "rule_ids_loaded": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "by_status": {
+          "candidate": 0,
+          "supported": 0,
+          "validated": 2,
+          "refuted": 0
+        }
+      },
+      "cases": [
+        {
+          "id": "pos_unseen_1",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_2",
+          "kind": "derive",
+          "derived": [
+            "ZOR(alpha, beta)"
+          ],
+          "expected": [
+            "ZOR(alpha, beta)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_3",
+          "kind": "derive",
+          "derived": [
+            "ZOR(n1, n2)"
+          ],
+          "expected": [
+            "ZOR(n1, n2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_two_independent_bindings",
+          "kind": "derive",
+          "derived": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "expected": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "missing_NAL",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_VEX",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_TOR",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_KEM",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "irrelevant_extra_facts",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "role_reversal_trap",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "role_reversal_trap_kem",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "transition_single_step_with_retraction",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, LAB)",
+            "OPEN(LAB)",
+            "PATH(HALL, LAB)"
+          ],
+          "expect_present": [
+            "AT(z, LAB)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_two_step_chain",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, VAULT)",
+            "OPEN(LAB)",
+            "OPEN(VAULT)",
+            "PATH(HALL, LAB)",
+            "PATH(LAB, VAULT)"
+          ],
+          "expect_present": [
+            "AT(z, VAULT)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)",
+            "AT(z, LAB)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_blocked_destination",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, HALL)",
+            "PATH(HALL, CELL)"
+          ],
+          "expect_present": [
+            "AT(z, HALL)"
+          ],
+          "expect_absent": [
+            "AT(z, CELL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        }
+      ],
+      "passed": 14,
+      "total": 14,
+      "model": {
+        "attempts": 0,
+        "executed": 0,
+        "blocked": 0
+      },
+      "returncode": 0,
+      "stderr_tail": "elfimprovement\n2026-08-17 16:13:52,178 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: detectpatterns (learning, safe)\n2026-08-17 16:13:52,178 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: detectpatterns\n2026-08-17 16:13:52,178 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: extractlessonslearned (learning, safe)\n2026-08-17 16:13:52,178 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: extractlessonslearned\n2026-08-17 16:13:52,178 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: generatehypothesis (learning, safe)\n2026-08-17 16:13:52,178 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: generatehypothesis\n2026-08-17 16:13:52,178 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: benchmarklearningsystems (learning, safe)\n2026-08-17 16:13:52,178 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: benchmarklearningsystems\n2026-08-17 16:13:52,178 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: visualizelearningprogress (learning, safe)\n2026-08-17 16:13:52,178 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: visualizelearningprogress\n2026-08-17 16:13:52,178 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: identifyskillgaps (learning, safe)\n2026-08-17 16:13:52,178 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: identifyskillgaps\n2026-08-17 16:13:52,178 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: recommendtraining (learning, safe)\n2026-08-17 16:13:52,179 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: recommendtraining\n2026-08-17 16:13:52,179 - core.tools.learning_tools - INFO - \u2705 Registered 12 learning tools\n2026-08-17 16:13:52,179 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: delegate_task (system, safe)\n2026-08-17 16:13:52,179 - core.tools.delegation_tools - INFO - \u2705 Registered delegation tool: delegate_task\n2026-08-17 16:13:52,179 - core.tools.delegation_tools - INFO - \u2705 Registered 1 delegation tool(s)\n",
+      "intervention": {
+        "database": "torinai_abl_blank",
+        "sql_applied": [
+          "DELETE FROM unified.learned_rule_evidence",
+          "UPDATE unified.learned_rules SET supersedes_rule_id = NULL",
+          "DELETE FROM unified.learned_rules",
+          "DELETE FROM unified.concept_evidence",
+          "DELETE FROM unified.concept_aliases",
+          "DELETE FROM unified.concept_domains",
+          "DELETE FROM unified.concept_identity_relations",
+          "DELETE FROM unified.concept_mappings",
+          "DELETE FROM unified.concept_relations",
+          "DELETE FROM unified.concepts",
+          "DELETE FROM unified.domain_mappings",
+          "DELETE FROM unified.beliefs"
+        ],
+        "rows_restored": [],
+        "note": "no acquired substrate state; the architecture is untouched"
+      }
+    },
+    "RESTORED": {
+      "condition": "RESTORED",
+      "database": "torinai_db",
+      "pid": 16538,
+      "suite_version": 1,
+      "policies": {
+        "model": "strict_model_free",
+        "learning": "frozen"
+      },
+      "loader": {
+        "rules_available": 2,
+        "rules_executable": 2,
+        "rule_ids_loaded": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "by_status": {
+          "candidate": 0,
+          "supported": 0,
+          "validated": 2,
+          "refuted": 0
+        }
+      },
+      "cases": [
+        {
+          "id": "pos_unseen_1",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_2",
+          "kind": "derive",
+          "derived": [
+            "ZOR(alpha, beta)"
+          ],
+          "expected": [
+            "ZOR(alpha, beta)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_unseen_3",
+          "kind": "derive",
+          "derived": [
+            "ZOR(n1, n2)"
+          ],
+          "expected": [
+            "ZOR(n1, n2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "pos_two_independent_bindings",
+          "kind": "derive",
+          "derived": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "expected": [
+            "ZOR(u1, u2)",
+            "ZOR(v1, v2)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "missing_NAL",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_VEX",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_TOR",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "missing_KEM",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "irrelevant_extra_facts",
+          "kind": "derive",
+          "derived": [
+            "ZOR(w, x)"
+          ],
+          "expected": [
+            "ZOR(w, x)"
+          ],
+          "passed": true,
+          "no_derivation": false
+        },
+        {
+          "id": "role_reversal_trap",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "role_reversal_trap_kem",
+          "kind": "derive",
+          "derived": [],
+          "expected": [],
+          "passed": true,
+          "no_derivation": true
+        },
+        {
+          "id": "transition_single_step_with_retraction",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, LAB)",
+            "OPEN(LAB)",
+            "PATH(HALL, LAB)"
+          ],
+          "expect_present": [
+            "AT(z, LAB)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_two_step_chain",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, VAULT)",
+            "OPEN(LAB)",
+            "OPEN(VAULT)",
+            "PATH(HALL, LAB)",
+            "PATH(LAB, VAULT)"
+          ],
+          "expect_present": [
+            "AT(z, VAULT)"
+          ],
+          "expect_absent": [
+            "AT(z, HALL)",
+            "AT(z, LAB)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        },
+        {
+          "id": "transition_blocked_destination",
+          "kind": "sequence",
+          "final_state": [
+            "AT(z, HALL)",
+            "PATH(HALL, CELL)"
+          ],
+          "expect_present": [
+            "AT(z, HALL)"
+          ],
+          "expect_absent": [
+            "AT(z, CELL)"
+          ],
+          "passed": true,
+          "missing": [],
+          "lingering": [],
+          "no_derivation": false
+        }
+      ],
+      "passed": 14,
+      "total": 14,
+      "model": {
+        "attempts": 0,
+        "executed": 0,
+        "blocked": 0
+      },
+      "returncode": 0,
+      "stderr_tail": "elfimprovement\n2026-08-17 16:14:02,828 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: detectpatterns (learning, safe)\n2026-08-17 16:14:02,828 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: detectpatterns\n2026-08-17 16:14:02,828 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: extractlessonslearned (learning, safe)\n2026-08-17 16:14:02,828 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: extractlessonslearned\n2026-08-17 16:14:02,828 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: generatehypothesis (learning, safe)\n2026-08-17 16:14:02,828 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: generatehypothesis\n2026-08-17 16:14:02,828 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: benchmarklearningsystems (learning, safe)\n2026-08-17 16:14:02,828 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: benchmarklearningsystems\n2026-08-17 16:14:02,829 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: visualizelearningprogress (learning, safe)\n2026-08-17 16:14:02,829 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: visualizelearningprogress\n2026-08-17 16:14:02,829 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: identifyskillgaps (learning, safe)\n2026-08-17 16:14:02,829 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: identifyskillgaps\n2026-08-17 16:14:02,829 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: recommendtraining (learning, safe)\n2026-08-17 16:14:02,829 - core.tools.learning_tools - INFO - \u2705 Registered learning tool: recommendtraining\n2026-08-17 16:14:02,829 - core.tools.learning_tools - INFO - \u2705 Registered 12 learning tools\n2026-08-17 16:14:02,829 - core.tools.tool_registry - INFO - \ud83d\udd27 Registered tool: delegate_task (system, safe)\n2026-08-17 16:14:02,829 - core.tools.delegation_tools - INFO - \u2705 Registered delegation tool: delegate_task\n2026-08-17 16:14:02,829 - core.tools.delegation_tools - INFO - \u2705 Registered 1 delegation tool(s)\n",
+      "intervention": {
+        "database": "torinai_abl_restored",
+        "sql_applied": [
+          "DELETE FROM unified.learned_rule_evidence WHERE rule_id IN (SELECT rule_id FROM unified.learned_rules WHERE domain_id = 'kite17')",
+          "UPDATE unified.learned_rules SET supersedes_rule_id = NULL WHERE domain_id = 'kite17'",
+          "DELETE FROM unified.learned_rules WHERE domain_id = 'kite17'"
+        ],
+        "rows_restored": [
+          "rule_d3244fd036c3",
+          "rule_dcd916b30f7f"
+        ],
+        "note": "ablated exactly as NO_LEARNED_RULES, then the same rows reinstated"
+      }
+    }
+  },
+  "validity": "INVALID \u2014 CONFIGURATION ISOLATION FAILURE",
+  "invalidation": {
+    "cause": "core/database/unified_database_postgres.py called load_dotenv('.env.postgres', override=True) inside the constructor and then read os.getenv('POSTGRES_DATABASE') on the following line. override=True rewrote the process environment, so the externally supplied per-condition database was discarded and every condition connected to the same authority.",
+    "observed_consequence": "All 7 conditions loaded identical rules (executable=2) and passed 14/14, including NO_LEARNED_RULES and BLANK, whose learned state had been deleted from their clones.",
+    "what_this_demonstrates": "The severance oracle behaved correctly: it showed the intended intervention was not causally connected to the runtime's actual configuration authority. The null result is evidence about the harness, not about the substrate.",
+    "repair": "load_dotenv removed from the database class; PostgresConfig introduced as the single resolution authority (explicit > environment > .env file > coded default) reading via dotenv_values so os.environ is never mutated. assert_database_identity() added, which asks the server SELECT current_database() rather than trusting configuration.",
+    "regression_oracles": "tests/test_postgres_config_authority.py (10)"
+  }
+}

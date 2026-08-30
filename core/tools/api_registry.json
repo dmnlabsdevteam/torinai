@@ -1,0 +1,1430 @@
+{
+  "version": "2.0",
+  "last_updated": "2025-12-28",
+  "tested": true,
+  "categories": {
+    "academic": {
+      "description": "Academic papers, research, scientific publications",
+      "apis": [
+        {
+          "name": "arXiv",
+          "base_url": "http://export.arxiv.org/api/query",
+          "description": "Physics, math, CS, and quantitative biology preprints",
+          "auth": "none",
+          "rate_limit": "5 req/min",
+          "https": false,
+          "quality_score": 0.95,
+          "tested": true,
+          "topics": [
+            "science",
+            "physics",
+            "mathematics",
+            "computer_science",
+            "ai",
+            "ml"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Semantic Scholar",
+          "base_url": "https://api.semanticscholar.org/graph/v1",
+          "description": "Academic paper search with citation data",
+          "auth": "apiKey_optional",
+          "rate_limit": "100 req/5min (with key)",
+          "https": true,
+          "quality_score": 0.92,
+          "tested": false,
+          "topics": [
+            "science",
+            "research",
+            "citations",
+            "academic"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey_optional credential not configured"
+        },
+        {
+          "name": "PubMed",
+          "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+          "description": "Medical and life sciences literature",
+          "auth": "none",
+          "rate_limit": "3 req/sec",
+          "https": true,
+          "quality_score": 0.94,
+          "tested": false,
+          "topics": [
+            "medicine",
+            "biology",
+            "health",
+            "medical_research"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "IEEE Xplore",
+          "base_url": "https://ieeexploreapi.ieee.org/api/v1",
+          "description": "Engineering and technology research papers",
+          "auth": "apiKey",
+          "rate_limit": "200 req/day",
+          "https": true,
+          "quality_score": 0.93,
+          "tested": false,
+          "topics": [
+            "engineering",
+            "technology",
+            "electrical",
+            "computer_science"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "CORE",
+          "base_url": "https://core.ac.uk/api-v2",
+          "description": "Open access research papers aggregator",
+          "auth": "apiKey",
+          "rate_limit": "Varies",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": false,
+          "topics": [
+            "open_access",
+            "research",
+            "academic"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "PLOS",
+          "base_url": "https://api.plos.org/search",
+          "description": "Open access scientific journals",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.9,
+          "tested": true,
+          "topics": [
+            "science",
+            "biology",
+            "medicine",
+            "open_access"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "bioRxiv",
+          "base_url": "https://api.biorxiv.org",
+          "description": "Biology preprint server",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.89,
+          "tested": true,
+          "topics": [
+            "biology",
+            "preprints",
+            "life_sciences"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        }
+      ]
+    },
+    "government_data": {
+      "description": "Official government databases and statistics",
+      "apis": [
+        {
+          "name": "Data.gov",
+          "base_url": "https://api.data.gov",
+          "description": "US government open data",
+          "auth": "apiKey",
+          "rate_limit": "1000 req/hour",
+          "https": true,
+          "quality_score": 0.9,
+          "tested": false,
+          "topics": [
+            "government",
+            "statistics",
+            "public_data",
+            "usa"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "World Bank",
+          "base_url": "https://api.worldbank.org/v2",
+          "description": "Global development data and indicators",
+          "auth": "none",
+          "rate_limit": "Unlimited",
+          "https": true,
+          "quality_score": 0.93,
+          "tested": true,
+          "topics": [
+            "economics",
+            "development",
+            "global",
+            "statistics"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "FRED (Federal Reserve)",
+          "base_url": "https://api.stlouisfed.org/fred",
+          "description": "Economic data from Federal Reserve",
+          "auth": "apiKey",
+          "rate_limit": "120 req/min",
+          "https": true,
+          "quality_score": 0.95,
+          "tested": false,
+          "topics": [
+            "economics",
+            "finance",
+            "monetary_policy",
+            "usa"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Census Bureau",
+          "base_url": "https://api.census.gov/data",
+          "description": "US demographic and economic data",
+          "auth": "apiKey",
+          "rate_limit": "500 req/day",
+          "https": true,
+          "quality_score": 0.92,
+          "tested": false,
+          "topics": [
+            "demographics",
+            "population",
+            "usa",
+            "statistics"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "NASA",
+          "base_url": "https://api.nasa.gov",
+          "description": "Space, astronomy, and Earth science data",
+          "auth": "apiKey",
+          "api_key_default": "DEMO_KEY",
+          "rate_limit": "1000 req/hour",
+          "https": true,
+          "quality_score": 0.94,
+          "tested": false,
+          "topics": [
+            "space",
+            "astronomy",
+            "earth_science",
+            "satellites"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "NOAA",
+          "base_url": "https://www.ncdc.noaa.gov/cdo-web/api/v2",
+          "description": "Climate and weather data",
+          "auth": "apiKey",
+          "rate_limit": "1000 req/day",
+          "https": true,
+          "quality_score": 0.91,
+          "tested": false,
+          "topics": [
+            "weather",
+            "climate",
+            "ocean",
+            "atmosphere"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "SEC EDGAR",
+          "base_url": "https://www.sec.gov/cgi-bin/browse-edgar",
+          "description": "Corporate filings and financial statements",
+          "auth": "none",
+          "rate_limit": "10 req/sec",
+          "https": true,
+          "quality_score": 0.93,
+          "tested": false,
+          "topics": [
+            "finance",
+            "corporations",
+            "filings",
+            "stocks"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "USPTO",
+          "base_url": "https://developer.uspto.gov",
+          "description": "Patent and trademark data",
+          "auth": "apiKey",
+          "rate_limit": "Varies",
+          "https": true,
+          "quality_score": 0.89,
+          "tested": false,
+          "topics": [
+            "patents",
+            "trademarks",
+            "innovation",
+            "legal"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "UK Government Data",
+          "base_url": "https://www.api.gov.uk",
+          "description": "UK open government data",
+          "auth": "varies",
+          "rate_limit": "Varies by API",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": false,
+          "topics": [
+            "government",
+            "uk",
+            "public_data"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires varies credential not configured"
+        },
+        {
+          "name": "EU Open Data",
+          "base_url": "https://data.europa.eu",
+          "description": "European Union open data portal",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.87,
+          "tested": true,
+          "topics": [
+            "government",
+            "europe",
+            "eu",
+            "statistics"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Canada Open Data",
+          "base_url": "https://open.canada.ca",
+          "description": "Canadian government open data",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.86,
+          "tested": true,
+          "topics": [
+            "government",
+            "canada",
+            "public_data"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "IMF Data",
+          "base_url": "https://www.imf.org/external/datamapper/api",
+          "description": "International Monetary Fund economic data",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.91,
+          "tested": false,
+          "topics": [
+            "economics",
+            "finance",
+            "global",
+            "monetary"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "UN Data",
+          "base_url": "https://data.un.org",
+          "description": "United Nations statistical databases",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.9,
+          "tested": true,
+          "topics": [
+            "statistics",
+            "global",
+            "development",
+            "demographics"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        }
+      ]
+    },
+    "finance": {
+      "description": "Stock market, cryptocurrency, economic indicators",
+      "apis": [
+        {
+          "name": "Alpha Vantage",
+          "base_url": "https://www.alphavantage.co/query",
+          "description": "Stock prices, forex, crypto data",
+          "auth": "apiKey",
+          "rate_limit": "5 req/min (free)",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": false,
+          "topics": [
+            "stocks",
+            "forex",
+            "crypto",
+            "trading"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Yahoo Finance",
+          "base_url": "https://query1.finance.yahoo.com",
+          "description": "Real-time stock quotes and historical data",
+          "auth": "none",
+          "rate_limit": "2000 req/hour",
+          "https": true,
+          "quality_score": 0.85,
+          "tested": false,
+          "topics": [
+            "stocks",
+            "market_data",
+            "trading"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "CoinGecko",
+          "base_url": "https://api.coingecko.com/api/v3",
+          "description": "Cryptocurrency prices and market data",
+          "auth": "none",
+          "rate_limit": "50 req/min",
+          "https": true,
+          "quality_score": 0.86,
+          "tested": false,
+          "topics": [
+            "cryptocurrency",
+            "bitcoin",
+            "crypto_market"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "IEX Cloud",
+          "base_url": "https://cloud.iexapis.com/stable",
+          "description": "Financial data and stock market API",
+          "auth": "apiKey",
+          "rate_limit": "Varies by plan",
+          "https": true,
+          "quality_score": 0.87,
+          "tested": false,
+          "topics": [
+            "stocks",
+            "market_data",
+            "finance"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Finnhub",
+          "base_url": "https://finnhub.io/api/v1",
+          "description": "Real-time stock, forex, crypto (60 calls/min free)",
+          "auth": "apiKey",
+          "rate_limit": "60 req/min (free)",
+          "https": true,
+          "quality_score": 0.89,
+          "tested": false,
+          "topics": [
+            "stocks",
+            "forex",
+            "crypto",
+            "realtime"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Polygon.io",
+          "base_url": "https://api.polygon.io",
+          "description": "Stock market data, low-latency trading data",
+          "auth": "apiKey",
+          "rate_limit": "5 req/min (free)",
+          "https": true,
+          "quality_score": 0.9,
+          "tested": false,
+          "topics": [
+            "stocks",
+            "trading",
+            "realtime",
+            "market_data"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Quandl",
+          "base_url": "https://data.nasdaq.com/api/v3",
+          "description": "Financial, economic, and alternative datasets",
+          "auth": "apiKey",
+          "rate_limit": "300 req/10sec (free)",
+          "https": true,
+          "quality_score": 0.91,
+          "tested": false,
+          "topics": [
+            "finance",
+            "economics",
+            "alternative_data",
+            "institutional"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        }
+      ]
+    },
+    "news": {
+      "description": "News aggregation and media outlets",
+      "apis": [
+        {
+          "name": "NewsAPI",
+          "base_url": "https://newsapi.org/v2",
+          "description": "News from 80,000+ sources worldwide",
+          "auth": "apiKey",
+          "rate_limit": "100 req/day (free)",
+          "https": true,
+          "quality_score": 0.84,
+          "tested": false,
+          "topics": [
+            "news",
+            "media",
+            "current_events"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "The Guardian",
+          "base_url": "https://content.guardianapis.com",
+          "description": "Guardian newspaper articles",
+          "auth": "apiKey",
+          "rate_limit": "5000 req/day",
+          "https": true,
+          "quality_score": 0.89,
+          "tested": false,
+          "topics": [
+            "news",
+            "journalism",
+            "uk"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "New York Times",
+          "base_url": "https://api.nytimes.com/svc",
+          "description": "NYT articles, books, reviews",
+          "auth": "apiKey",
+          "rate_limit": "4000 req/day",
+          "https": true,
+          "quality_score": 0.91,
+          "tested": false,
+          "topics": [
+            "news",
+            "journalism",
+            "usa"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Reuters",
+          "base_url": "https://wireapi.reuters.com",
+          "description": "Global news and financial data",
+          "auth": "apiKey",
+          "rate_limit": "Varies",
+          "https": true,
+          "quality_score": 0.92,
+          "tested": false,
+          "topics": [
+            "news",
+            "finance",
+            "global"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "NewsData.io",
+          "base_url": "https://newsdata.io/api/1",
+          "description": "Real-time and historical news aggregator",
+          "auth": "apiKey",
+          "rate_limit": "200 req/day (free)",
+          "https": true,
+          "quality_score": 0.83,
+          "tested": false,
+          "topics": [
+            "news",
+            "aggregator",
+            "realtime"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "The News API",
+          "base_url": "https://www.thenewsapi.com/v1",
+          "description": "Free aggregated news stories in JSON",
+          "auth": "none",
+          "rate_limit": "Free tier available",
+          "https": true,
+          "quality_score": 0.8,
+          "tested": false,
+          "topics": [
+            "news",
+            "aggregator",
+            "free"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        }
+      ]
+    },
+    "knowledge": {
+      "description": "Encyclopedias, reference, general knowledge",
+      "apis": [
+        {
+          "name": "Wikipedia",
+          "base_url": "https://en.wikipedia.org/w/api.php",
+          "description": "Wikipedia content and metadata",
+          "auth": "none",
+          "rate_limit": "200 req/sec (reasonable use)",
+          "https": true,
+          "quality_score": 0.87,
+          "tested": true,
+          "topics": [
+            "encyclopedia",
+            "knowledge",
+            "reference"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Wikidata",
+          "base_url": "https://www.wikidata.org/w/api.php",
+          "description": "Structured knowledge base",
+          "auth": "none",
+          "rate_limit": "200 req/sec",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": true,
+          "topics": [
+            "structured_data",
+            "knowledge_graph",
+            "entities"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Wolfram Alpha",
+          "base_url": "https://api.wolframalpha.com/v2",
+          "description": "Computational knowledge engine",
+          "auth": "apiKey",
+          "rate_limit": "2000 req/month (free)",
+          "https": true,
+          "quality_score": 0.93,
+          "tested": false,
+          "topics": [
+            "computation",
+            "math",
+            "science",
+            "knowledge"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "DBpedia",
+          "base_url": "https://dbpedia.org/sparql",
+          "description": "Structured data extracted from Wikipedia",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.85,
+          "tested": false,
+          "topics": [
+            "knowledge_graph",
+            "linked_data",
+            "entities"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "Merriam-Webster",
+          "base_url": "https://dictionaryapi.com/api/v3",
+          "description": "Dictionary and thesaurus API",
+          "auth": "apiKey",
+          "rate_limit": "1000 req/day (free, non-commercial)",
+          "https": true,
+          "quality_score": 0.9,
+          "tested": false,
+          "topics": [
+            "dictionary",
+            "language",
+            "definitions"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Oxford Dictionaries",
+          "base_url": "https://od-api.oxforddictionaries.com/api/v2",
+          "description": "Oxford dictionary data, translations, audio",
+          "auth": "apiKey",
+          "rate_limit": "3000 req/month (free)",
+          "https": true,
+          "quality_score": 0.92,
+          "tested": false,
+          "topics": [
+            "dictionary",
+            "language",
+            "authoritative"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Wordnik",
+          "base_url": "https://api.wordnik.com/v4",
+          "description": "Definitions, examples, pronunciations",
+          "auth": "apiKey",
+          "rate_limit": "Free tier available",
+          "https": true,
+          "quality_score": 0.84,
+          "tested": false,
+          "topics": [
+            "dictionary",
+            "words",
+            "language"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Free Dictionary API",
+          "base_url": "https://api.dictionaryapi.dev/api/v2",
+          "description": "Free dictionary with no auth required",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.82,
+          "tested": false,
+          "topics": [
+            "dictionary",
+            "free",
+            "definitions"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        }
+      ]
+    },
+    "code_development": {
+      "description": "Code repositories, packages, development resources",
+      "apis": [
+        {
+          "name": "GitHub",
+          "base_url": "https://api.github.com",
+          "description": "Code repositories, issues, pull requests",
+          "auth": "OAuth/token",
+          "rate_limit": "5000 req/hour (auth), 60 req/hour (no auth)",
+          "https": true,
+          "quality_score": 0.92,
+          "tested": false,
+          "topics": [
+            "code",
+            "repositories",
+            "open_source",
+            "development"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires OAuth/token credential not configured"
+        },
+        {
+          "name": "GitLab",
+          "base_url": "https://gitlab.com/api/v4",
+          "description": "Git repository hosting and CI/CD",
+          "auth": "OAuth/token",
+          "rate_limit": "Varies",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": false,
+          "topics": [
+            "code",
+            "repositories",
+            "devops"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires OAuth/token credential not configured"
+        },
+        {
+          "name": "Bitbucket",
+          "base_url": "https://api.bitbucket.org/2.0",
+          "description": "Git repository hosting (Atlassian)",
+          "auth": "OAuth/token",
+          "rate_limit": "1000 req/hour",
+          "https": true,
+          "quality_score": 0.85,
+          "tested": false,
+          "topics": [
+            "code",
+            "repositories",
+            "atlassian"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires OAuth/token credential not configured"
+        },
+        {
+          "name": "StackOverflow",
+          "base_url": "https://api.stackexchange.com/2.3",
+          "description": "Programming Q&A and community data",
+          "auth": "apiKey",
+          "rate_limit": "10000 req/day",
+          "https": true,
+          "quality_score": 0.86,
+          "tested": false,
+          "topics": [
+            "programming",
+            "qa",
+            "community"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "npm Registry",
+          "base_url": "https://registry.npmjs.org",
+          "description": "Node.js package registry",
+          "auth": "none",
+          "rate_limit": "Unlimited",
+          "https": true,
+          "quality_score": 0.84,
+          "tested": true,
+          "topics": [
+            "packages",
+            "javascript",
+            "nodejs"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "PyPI",
+          "base_url": "https://pypi.org/pypi",
+          "description": "Python package index",
+          "auth": "none",
+          "rate_limit": "Unlimited",
+          "https": true,
+          "quality_score": 0.85,
+          "tested": true,
+          "topics": [
+            "packages",
+            "python"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Libraries.io",
+          "base_url": "https://libraries.io/api",
+          "description": "Package dependency data across platforms",
+          "auth": "apiKey",
+          "rate_limit": "60 req/min",
+          "https": true,
+          "quality_score": 0.83,
+          "tested": false,
+          "topics": [
+            "packages",
+            "dependencies",
+            "multi_platform"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        }
+      ]
+    },
+    "cultural_heritage": {
+      "description": "Museums, libraries, historical archives",
+      "apis": [
+        {
+          "name": "Smithsonian",
+          "base_url": "https://api.si.edu/openaccess/api/v1.0",
+          "description": "Museum collections and archives",
+          "auth": "apiKey",
+          "rate_limit": "5000 req/day",
+          "https": true,
+          "quality_score": 0.91,
+          "tested": false,
+          "topics": [
+            "museum",
+            "history",
+            "culture",
+            "artifacts"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Library of Congress",
+          "base_url": "https://www.loc.gov/apis",
+          "description": "Historical documents and collections",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.92,
+          "tested": true,
+          "topics": [
+            "library",
+            "history",
+            "documents",
+            "usa"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Europeana",
+          "base_url": "https://api.europeana.eu",
+          "description": "European cultural heritage",
+          "auth": "apiKey",
+          "rate_limit": "10000 req/day",
+          "https": true,
+          "quality_score": 0.89,
+          "tested": false,
+          "topics": [
+            "culture",
+            "history",
+            "europe",
+            "heritage"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Metropolitan Museum",
+          "base_url": "https://collectionapi.metmuseum.org/public/collection/v1",
+          "description": "MET museum artwork and artifacts",
+          "auth": "none",
+          "rate_limit": "80 req/sec",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": true,
+          "topics": [
+            "art",
+            "museum",
+            "history"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Harvard Art Museums",
+          "base_url": "https://api.harvardartmuseums.org",
+          "description": "Harvard museum collections",
+          "auth": "apiKey",
+          "rate_limit": "2500 req/day",
+          "https": false,
+          "quality_score": 0.87,
+          "tested": false,
+          "topics": [
+            "art",
+            "museum",
+            "culture"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Rijksmuseum",
+          "base_url": "https://www.rijksmuseum.nl/api",
+          "description": "Dutch national museum collections",
+          "auth": "apiKey",
+          "rate_limit": "10000 req/day",
+          "https": true,
+          "quality_score": 0.9,
+          "tested": false,
+          "topics": [
+            "art",
+            "museum",
+            "netherlands",
+            "dutch_masters"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Getty Museum",
+          "base_url": "https://data.getty.edu/museum/collection/api",
+          "description": "Getty art collection with IIIF support",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.89,
+          "tested": false,
+          "topics": [
+            "art",
+            "museum",
+            "iiif"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "British Library",
+          "base_url": "https://api.bl.uk",
+          "description": "British Library collections",
+          "auth": "varies",
+          "rate_limit": "Varies",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": false,
+          "topics": [
+            "library",
+            "books",
+            "uk",
+            "manuscripts"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires varies credential not configured"
+        }
+      ]
+    },
+    "educational_entertainment": {
+      "description": "High-quality casual content - educational but fun",
+      "apis": [
+        {
+          "name": "NASA APOD",
+          "base_url": "https://api.nasa.gov/planetary/apod",
+          "description": "Astronomy Picture of the Day",
+          "auth": "apiKey",
+          "api_key_default": "DEMO_KEY",
+          "rate_limit": "1000 req/hour",
+          "https": true,
+          "quality_score": 0.94,
+          "tested": false,
+          "topics": [
+            "astronomy",
+            "space",
+            "photography",
+            "education"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "xkcd",
+          "base_url": "https://xkcd.com",
+          "description": "Educational webcomic about science, math, tech",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.82,
+          "tested": true,
+          "topics": [
+            "humor",
+            "science",
+            "technology",
+            "education"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Numbers API",
+          "base_url": "http://numbersapi.com",
+          "description": "Interesting facts about numbers",
+          "auth": "none",
+          "rate_limit": "Unlimited",
+          "https": false,
+          "quality_score": 0.75,
+          "tested": false,
+          "topics": [
+            "math",
+            "trivia",
+            "facts"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "REST Countries",
+          "base_url": "https://restcountries.com/v3.1",
+          "description": "Country data, flags, geography",
+          "auth": "none",
+          "rate_limit": "Unlimited",
+          "https": true,
+          "quality_score": 0.83,
+          "tested": true,
+          "topics": [
+            "geography",
+            "countries",
+            "education"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Open Trivia",
+          "base_url": "https://opentdb.com/api.php",
+          "description": "Educational trivia questions",
+          "auth": "none",
+          "rate_limit": "1 req/5sec",
+          "https": true,
+          "quality_score": 0.76,
+          "tested": true,
+          "topics": [
+            "trivia",
+            "education",
+            "quiz"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "TED Talks",
+          "base_url": "https://api.ted.com/v1",
+          "description": "TED talk metadata and transcripts",
+          "auth": "apiKey",
+          "rate_limit": "Varies",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": false,
+          "topics": [
+            "education",
+            "talks",
+            "inspiration"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        }
+      ]
+    },
+    "weather_climate": {
+      "description": "Weather forecasts and climate data",
+      "apis": [
+        {
+          "name": "OpenWeatherMap",
+          "base_url": "https://api.openweathermap.org/data/2.5",
+          "description": "Global weather data and forecasts",
+          "auth": "apiKey",
+          "rate_limit": "60 req/min (free)",
+          "https": true,
+          "quality_score": 0.87,
+          "tested": false,
+          "topics": [
+            "weather",
+            "forecast",
+            "climate"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "WeatherAPI",
+          "base_url": "https://api.weatherapi.com/v1",
+          "description": "Weather, astronomy, and location data",
+          "auth": "apiKey",
+          "rate_limit": "1M req/month (free)",
+          "https": true,
+          "quality_score": 0.85,
+          "tested": false,
+          "topics": [
+            "weather",
+            "astronomy",
+            "forecast"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Open-Meteo",
+          "base_url": "https://api.open-meteo.com/v1",
+          "description": "Free weather API, no auth required",
+          "auth": "none",
+          "rate_limit": "10000 req/day",
+          "https": true,
+          "quality_score": 0.84,
+          "tested": false,
+          "topics": [
+            "weather",
+            "forecast",
+            "climate"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        }
+      ]
+    },
+    "geography_maps": {
+      "description": "Mapping, geocoding, location services",
+      "apis": [
+        {
+          "name": "OpenStreetMap Nominatim",
+          "base_url": "https://nominatim.openstreetmap.org",
+          "description": "Geocoding and reverse geocoding",
+          "auth": "none",
+          "rate_limit": "1 req/sec",
+          "https": true,
+          "quality_score": 0.86,
+          "tested": true,
+          "topics": [
+            "geocoding",
+            "maps",
+            "location"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Google Maps",
+          "base_url": "https://maps.googleapis.com/maps/api",
+          "description": "Maps, geocoding, places, directions",
+          "auth": "apiKey",
+          "rate_limit": "Varies by API",
+          "https": true,
+          "quality_score": 0.92,
+          "tested": false,
+          "topics": [
+            "maps",
+            "navigation",
+            "location",
+            "places"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Mapbox",
+          "base_url": "https://api.mapbox.com",
+          "description": "Custom maps and location services",
+          "auth": "apiKey",
+          "rate_limit": "100000 req/month (free)",
+          "https": true,
+          "quality_score": 0.88,
+          "tested": false,
+          "topics": [
+            "maps",
+            "visualization",
+            "location"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        }
+      ]
+    },
+    "language_text": {
+      "description": "Translation, NLP, text analysis",
+      "apis": [
+        {
+          "name": "LibreTranslate",
+          "base_url": "https://libretranslate.com/translate",
+          "description": "Free and open-source translation",
+          "auth": "apiKey",
+          "rate_limit": "Varies",
+          "https": true,
+          "quality_score": 0.79,
+          "tested": false,
+          "topics": [
+            "translation",
+            "language",
+            "nlp"
+          ],
+          "probe_verdict": "NEEDS_CREDENTIALS",
+          "probe_topic": "climate change",
+          "unavailable_reason": "requires apiKey credential not configured"
+        },
+        {
+          "name": "Dictionary API",
+          "base_url": "https://api.dictionaryapi.dev/api/v2",
+          "description": "Word definitions, synonyms, antonyms",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.82,
+          "tested": false,
+          "topics": [
+            "dictionary",
+            "language",
+            "definitions"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "Datamuse",
+          "base_url": "https://api.datamuse.com",
+          "description": "Word-finding and linguistic queries",
+          "auth": "none",
+          "rate_limit": "100000 req/day",
+          "https": true,
+          "quality_score": 0.81,
+          "tested": false,
+          "topics": [
+            "language",
+            "words",
+            "linguistics"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        }
+      ]
+    },
+    "random_fun": {
+      "description": "Safe novelty APIs - low priority, casual use only",
+      "apis": [
+        {
+          "name": "Advice Slip",
+          "base_url": "https://api.adviceslip.com",
+          "description": "Random advice messages",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.65,
+          "tested": true,
+          "topics": [
+            "random",
+            "advice",
+            "fun"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "JokeAPI",
+          "base_url": "https://v2.jokeapi.dev",
+          "description": "Programming and general jokes (safe mode available)",
+          "auth": "none",
+          "rate_limit": "120 req/min",
+          "https": true,
+          "quality_score": 0.68,
+          "tested": true,
+          "topics": [
+            "humor",
+            "jokes",
+            "entertainment"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        },
+        {
+          "name": "Bored API",
+          "base_url": "https://www.boredapi.com/api",
+          "description": "Activity suggestions when bored",
+          "auth": "none",
+          "rate_limit": "Unlimited",
+          "https": true,
+          "quality_score": 0.7,
+          "tested": false,
+          "topics": [
+            "activities",
+            "suggestions",
+            "fun"
+          ],
+          "probe_verdict": "NO_DATA",
+          "probe_topic": "climate change",
+          "unavailable_reason": "reachable but returned no usable data for a generic query"
+        },
+        {
+          "name": "Useless Facts",
+          "base_url": "https://uselessfacts.jsph.pl",
+          "description": "Random interesting facts",
+          "auth": "none",
+          "rate_limit": "Reasonable use",
+          "https": true,
+          "quality_score": 0.72,
+          "tested": true,
+          "topics": [
+            "facts",
+            "trivia",
+            "fun"
+          ],
+          "probe_verdict": "WORKS",
+          "probe_topic": "climate change"
+        }
+      ]
+    }
+  }
+}

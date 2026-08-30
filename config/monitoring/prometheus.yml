@@ -1,0 +1,80 @@
+# Prometheus Configuration for Drift Monitoring System
+# Scrapes metrics from all drift monitoring agents
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'torin-drift-monitoring'
+    environment: 'production'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Rules for alerting
+rule_files:
+  - 'alerts.yml'
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          component: 'prometheus'
+
+  # NATS JetStream monitoring
+  - job_name: 'nats'
+    static_configs:
+      - targets: ['nats:8222']
+        labels:
+          component: 'message-bus'
+    metrics_path: '/metrics'
+
+  # Drift Validator Agents
+  - job_name: 'validator-agents'
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+          - 'validator-1:8080'
+          - 'validator-2:8080'
+          - 'validator-3:8080'
+        labels:
+          component: 'validator'
+          agent_type: 'drift-validator'
+    metrics_path: '/metrics'
+    
+  # Drift Coordinator Agent
+  - job_name: 'coordinator-agent'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['coordinator:8081']
+        labels:
+          component: 'coordinator'
+          agent_type: 'drift-coordinator'
+    metrics_path: '/metrics'
+
+  # Drift Sanitizer Agent
+  - job_name: 'sanitizer-agent'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['sanitizer:8082']
+        labels:
+          component: 'sanitizer'
+          agent_type: 'drift-sanitizer'
+    metrics_path: '/metrics'
+
+  # Docker Engine metrics (if available)
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+        labels:
+          component: 'docker-engine'
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    # Only scrape if Docker metrics are enabled
+    # Enable with: dockerd --metrics-addr=0.0.0.0:9323

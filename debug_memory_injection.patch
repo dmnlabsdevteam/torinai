@@ -1,0 +1,39 @@
+--- a/core/agents/autonomous/general_purpose_executor.py
++++ b/core/agents/autonomous/general_purpose_executor.py
+@@ -319,17 +319,35 @@ class GeneralPurposeExecutor:
+
+                     # Format memories for context injection
+                     from datetime import datetime
+                     memory_summaries = []
++
++                    print(f"\n{'='*80}", flush=True)
++                    print(f"[MEMORY INJECTION DEBUG] Injecting {len(unique_memories[:5])} memories:", flush=True)
++                    print(f"{'='*80}", flush=True)
++
+                     for mem in unique_memories[:5]:  # Limit to top 5 to save tokens
+                         # created_at is a float timestamp, convert to datetime for formatting
+                         timestamp_str = datetime.fromtimestamp(mem.created_at).strftime('%Y-%m-%d')
+                         memory_summaries.append(
+                             f"- [{timestamp_str}] {mem.content[:300]}"
+                         )
++
++                        # DEBUG: Show FULL memory content
++                        print(f"\nMemory {mem.memory_id}:", flush=True)
++                        print(f"  Date: {timestamp_str}", flush=True)
++                        print(f"  Content length: {len(mem.content)} chars", flush=True)
++                        print(f"  Tags: {getattr(mem, 'tags', 'N/A')}", flush=True)
++                        print(f"  FULL CONTENT:", flush=True)
++                        print(f"{mem.content}", flush=True)
++                        print(f"{'-'*80}", flush=True)
+
+                     previous_context = "\n\nPREVIOUS RELEVANT WORK:\n" + "\n".join(memory_summaries)
++
++                    total_mem_chars = sum(len(mem.content) for mem in unique_memories[:5])
++                    est_mem_tokens = sum(len(mem.content.split()) for mem in unique_memories[:5])
++                    print(f"\n[MEMORY INJECTION SUMMARY]", flush=True)
++                    print(f"  Total memory content: {total_mem_chars:,} chars (~{est_mem_tokens:,} tokens)", flush=True)
++                    print(f"{'='*80}\n", flush=True)
++
+                     logger.info(f"Injected {len(memory_summaries)} memories into context")
+                 else:
+                     logger.info("No previous memories found for this task")

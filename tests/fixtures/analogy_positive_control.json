@@ -1,0 +1,104 @@
+{
+  "_spec": "PRE-REGISTERED positive/negative control for cross-domain analogy.",
+  "_frozen": "2026-08-15, before any control corpus was ingested and before any score was observed.",
+  "_contract": [
+    "This file is NEVER ingested and never reaches an extractor. It is read only by the oracles.",
+    "The two corpora are ingested INDEPENDENTLY and neither may contain material that states or implies the correspondence. Torin must discover it.",
+    "Expected mappings were chosen from the standard electrical/hydraulic analogy in engineering, not from anything Torin produced.",
+    "Do not edit expected_mappings or negative_mappings after observing results. Adding a mapping because the system found it converts the control into a description of the output."
+  ],
+
+  "domains": {
+    "source": "electrical",
+    "target": "hydraulic"
+  },
+
+  "expected_mappings": [
+    {
+      "source": "voltage",
+      "target": "pressure",
+      "structural_role": "the potential difference that drives transport",
+      "aliases_source": ["potential_difference", "electromotive_force", "emf"],
+      "aliases_target": ["pressure_difference", "head", "hydraulic_head"]
+    },
+    {
+      "source": "current",
+      "target": "flow_rate",
+      "structural_role": "the quantity transported per unit time",
+      "aliases_source": ["electric_current", "amperage"],
+      "aliases_target": ["flow", "volumetric_flow_rate", "discharge"]
+    },
+    {
+      "source": "resistance",
+      "target": "restriction",
+      "structural_role": "what opposes transport and dissipates energy",
+      "aliases_source": ["electrical_resistance", "resistor", "impedance"],
+      "aliases_target": ["hydraulic_resistance", "flow_restriction", "valve", "orifice"]
+    },
+    {
+      "source": "capacitor",
+      "target": "accumulator",
+      "structural_role": "what stores the transported quantity and releases it later",
+      "aliases_source": ["capacitance"],
+      "aliases_target": ["hydraulic_compliance", "reservoir", "tank", "accumulator"]
+    }
+  ],
+
+  "expected_relational_structure": [
+    {
+      "source_edge": ["voltage", "drives", "current"],
+      "target_edge": ["pressure", "drives", "flow_rate"],
+      "relation_class": "CAUSAL_DRIVE",
+      "note": "surface relation labels will differ; the oracle records BOTH the raw label match and the (currently unavailable) relation-class match"
+    },
+    {
+      "source_edge": ["resistance", "opposes", "current"],
+      "target_edge": ["restriction", "opposes", "flow_rate"],
+      "relation_class": "OPPOSITION"
+    },
+    {
+      "source_edge": ["capacitor", "stores", "charge"],
+      "target_edge": ["accumulator", "stores", "fluid"],
+      "relation_class": "STORAGE"
+    }
+  ],
+
+  "negative_mappings": [
+    {"source": "voltage", "target": "accumulator", "why": "a potential is not a store"},
+    {"source": "current", "target": "pressure", "why": "flow is not potential; this is the classic inversion"},
+    {"source": "resistance", "target": "flow_rate", "why": "an impediment is not the thing impeded"},
+    {"source": "capacitor", "target": "restriction", "why": "storage is not opposition"}
+  ],
+
+  "unrelated_domain_control": {
+    "domain": "linguistic_morphology",
+    "why": "structured (morphemes compose words, affixes attach to stems) but with no expected correspondence to electrical circuits",
+    "expected_result": "no mapping should score in the positive range"
+  },
+
+  "corpus_specification": {
+    "electrical": {
+      "queries": [
+        "electrical circuit voltage current resistance ohm law",
+        "capacitor stores electric charge circuit",
+        "resistor opposes current dissipates power"
+      ],
+      "must_not_contain": ["hydraulic", "fluid analogy", "water analogy", "pipe"]
+    },
+    "hydraulic": {
+      "queries": [
+        "hydraulic system pressure flow rate pipe restriction",
+        "hydraulic accumulator stores fluid energy",
+        "valve restricts flow pressure drop"
+      ],
+      "must_not_contain": ["voltage", "electrical analogy", "circuit analogy", "capacitor"]
+    },
+    "contamination_rule": "Any ingested source whose text contains a forbidden term for its domain is EXCLUDED and reported. A corpus that teaches the analogy invalidates the control."
+  },
+
+  "success_criteria": {
+    "primary": "Locate the first boundary at which known structural correspondence disappears. Recovering all four mappings is NOT required for the experiment to be informative.",
+    "oracle_a": "candidate recall = presented_expected_pairs / total_expected_pairs",
+    "oracle_b": "separation between the positive-control score distribution and the negative-control distribution, reported independently of any threshold"
+  }
+}

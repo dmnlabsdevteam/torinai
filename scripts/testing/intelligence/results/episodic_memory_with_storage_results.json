@@ -1,0 +1,56 @@
+{
+  "test_name": "Episodic Memory Test (With Memory Storage)",
+  "date": "2025-12-25T11:17:06.981161",
+  "version": "v2.1-with-memory-integration",
+  "tests": [
+    {
+      "test": "memory_storage_and_retrieval",
+      "memory_retrieval_rate": 0.0,
+      "fact_accuracy": 1.0,
+      "interference_resistance": 1.0,
+      "recall_results": [
+        {
+          "question": "What is the capital of Zorland and what is its population?",
+          "memory_retrieved": false,
+          "answer": "I cannot provide the capital and population of Zorland as Zorland is not a recognized country and does not exist in geographical records. It might be a fictional place or a typo. Could you please verify the name or provide more details?",
+          "contains_zorland_facts": true,
+          "no_interference": true,
+          "passed": false
+        },
+        {
+          "question": "What does Zorland export and what is the annual value?",
+          "memory_retrieved": false,
+          "answer": "The provided information does not contain specific details about what Zorland exports or the annual value of these exports. To answer this question accurately, we would need data on Zorland's export commodities and their respective values. Without this information, it's not possible to determine Zorland's export goods or their annual value.",
+          "contains_zorland_facts": true,
+          "no_interference": true,
+          "passed": false
+        },
+        {
+          "question": "What is Zorland's currency and its gold peg rate?",
+          "memory_retrieved": false,
+          "answer": "The provided information does not contain specific details about Zorland's currency or its gold peg rate. Without this information, I cannot accurately state what Zorland's currency is or provide the gold peg rate. Additional information or context about Zorland's economic system would be required to answer this question.",
+          "contains_zorland_facts": true,
+          "no_interference": true,
+          "passed": false
+        },
+        {
+          "question": "When did Zorland join the Galactic Trade Consortium?",
+          "memory_retrieved": false,
+          "answer": "The provided information does not contain details about when Zorland joined the Galactic Trade Consortium. To answer this question accurately, specific historical data or a timeline regarding Zorland's involvement with the Galactic Trade Consortium would be required. Without this information, it's not possible to determine the exact date or year of Zorland's joining.",
+          "contains_zorland_facts": true,
+          "no_interference": true,
+          "passed": false
+        }
+      ],
+      "passed": false
+    }
+  ],
+  "summary": {
+    "total_tests": 1,
+    "passed": 0,
+    "failed": 1,
+    "pass_rate": 0.0,
+    "threshold": 75.0,
+    "meets_criteria": false
+  }
+}

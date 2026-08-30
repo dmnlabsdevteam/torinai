@@ -1,0 +1,5607 @@
+{
+  "benchmark": "EDU-10",
+  "title": "Active Learning Under Stochastic and Partial Observation",
+  "recorded_at": "2026-08-19T20:40:58.970197+00:00",
+  "passed": true,
+  "conditions_count": 8,
+  "hypotheses": 256,
+  "seeds": 30,
+  "criterion_posterior_mass": 0.95,
+  "truth": {
+    "requires": [
+      "AUTHORISED",
+      "AVAILABLE",
+      "LOCATED",
+      "POWERED",
+      "ROUTE"
+    ],
+    "forbids": [
+      "LOCKED"
+    ]
+  },
+  "invariants": {
+    "decisive_trap": {
+      "mass_before_failure": 0.0089,
+      "mass_after_failure": 0.0063,
+      "mass_after_recovery": 0.0071,
+      "uniform_prior_mass": 0.003906,
+      "still_above_prior": true,
+      "recovers_on_next_success": true,
+      "survived": true,
+      "reliability_counts": "Beta(6.0, 2.0)",
+      "reliability": 0.7045
+    },
+    "systematic_contradiction": {
+      "mass_before": 0.003906,
+      "mass_after": 0.00436,
+      "belief_in_forbidden_polarity": 0.5581,
+      "moved_toward_forbidden": true
+    },
+    "unknown_is_inert": {
+      "posterior_unchanged": true,
+      "reliability_unchanged": true,
+      "counted_separately": true
+    }
+  },
+  "results": {
+    "A_deterministic": {
+      "trials": 30,
+      "reached_criterion": 30,
+      "reached_rate": 1.0,
+      "median_observations": 25,
+      "p95_observations": 25,
+      "map_is_truth_rate": 1.0,
+      "false_refutation_total": 0,
+      "mean_reliability_estimate": 0.8908,
+      "mean_brier_score": 0.0027,
+      "mean_expected_calibration_error": 0.0508,
+      "mean_oracle_probability_error": 0.0508,
+      "mean_map_reliability": 0.9,
+      "refutation_opportunities": 0,
+      "misleading_successes": 0,
+      "mean_held_out_accuracy": 1.0,
+      "total_replications": 480,
+      "deliberate_replications": 207,
+      "restart_preserved_all": true
+    },
+    "B_stochastic": {
+      "trials": 30,
+      "reached_criterion": 30,
+      "reached_rate": 1.0,
+      "median_observations": 32,
+      "p95_observations": 44,
+      "map_is_truth_rate": 1.0,
+      "false_refutation_total": 0,
+      "mean_reliability_estimate": 0.8256,
+      "mean_brier_score": 0.0322,
+      "mean_expected_calibration_error": 0.0296,
+      "mean_oracle_probability_error": 0.0387,
+      "mean_map_reliability": 0.8357,
+      "refutation_opportunities": 30,
+      "misleading_successes": 18,
+      "mean_held_out_accuracy": 0.9684,
+      "total_replications": 745,
+      "deliberate_replications": 299,
+      "restart_preserved_all": true
+    },
+    "C_partial": {
+      "trials": 30,
+      "reached_criterion": 30,
+      "reached_rate": 1.0,
+      "median_observations": 36,
+      "p95_observations": 50,
+      "map_is_truth_rate": 1.0,
+      "false_refutation_total": 0,
+      "mean_reliability_estimate": 0.8337,
+      "mean_brier_score": 0.0329,
+      "mean_expected_calibration_error": 0.0306,
+      "mean_oracle_probability_error": 0.0408,
+      "mean_map_reliability": 0.8438,
+      "refutation_opportunities": 27,
+      "misleading_successes": 19,
+      "mean_held_out_accuracy": 0.9678,
+      "total_replications": 845,
+      "deliberate_replications": 337,
+      "restart_preserved_all": true
+    }
+  },
+  "per_trial": {
+    "A_deterministic": [
+      {
+        "seed": 0,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0029,
+        "expected_calibration_error": 0.0524,
+        "oracle_probability_error": 0.0524,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 1,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0506,
+        "oracle_probability_error": 0.0506,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 2,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.957,
+        "map_is_truth": true,
+        "map_mass": 0.957,
+        "reliability_estimate": 0.8912,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.0488,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0025,
+        "expected_calibration_error": 0.0496,
+        "oracle_probability_error": 0.0496,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 3,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0028,
+        "expected_calibration_error": 0.0515,
+        "oracle_probability_error": 0.0515,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0196,
+            "reliability": 0.393
+          }
+        ]
+      },
+      {
+        "seed": 4,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0024,
+        "expected_calibration_error": 0.0494,
+        "oracle_probability_error": 0.0494,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 5,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0031,
+        "expected_calibration_error": 0.0537,
+        "oracle_probability_error": 0.0537,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 6,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0505,
+        "oracle_probability_error": 0.0505,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 7,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0505,
+        "oracle_probability_error": 0.0505,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 8,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0028,
+        "expected_calibration_error": 0.0514,
+        "oracle_probability_error": 0.0514,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 9,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0025,
+        "expected_calibration_error": 0.0497,
+        "oracle_probability_error": 0.0497,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 10,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0029,
+        "expected_calibration_error": 0.0525,
+        "oracle_probability_error": 0.0525,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 11,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.957,
+        "map_is_truth": true,
+        "map_mass": 0.957,
+        "reliability_estimate": 0.8912,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.0488,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0028,
+        "expected_calibration_error": 0.0519,
+        "oracle_probability_error": 0.0519,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 12,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0508,
+        "oracle_probability_error": 0.0508,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 13,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0028,
+        "expected_calibration_error": 0.0514,
+        "oracle_probability_error": 0.0514,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 14,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0025,
+        "expected_calibration_error": 0.0495,
+        "oracle_probability_error": 0.0495,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0196,
+            "reliability": 0.393
+          }
+        ]
+      },
+      {
+        "seed": 15,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0506,
+        "oracle_probability_error": 0.0506,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 16,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0028,
+        "expected_calibration_error": 0.0518,
+        "oracle_probability_error": 0.0518,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 17,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.957,
+        "map_is_truth": true,
+        "map_mass": 0.957,
+        "reliability_estimate": 0.8912,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.0488,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0508,
+        "oracle_probability_error": 0.0508,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 18,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0028,
+        "expected_calibration_error": 0.0517,
+        "oracle_probability_error": 0.0517,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 19,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0504,
+        "oracle_probability_error": 0.0504,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0196,
+            "reliability": 0.393
+          }
+        ]
+      },
+      {
+        "seed": 20,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0025,
+        "expected_calibration_error": 0.0497,
+        "oracle_probability_error": 0.0497,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 21,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0027,
+        "expected_calibration_error": 0.051,
+        "oracle_probability_error": 0.051,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 22,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0025,
+        "expected_calibration_error": 0.0498,
+        "oracle_probability_error": 0.0498,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 23,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0025,
+        "expected_calibration_error": 0.0496,
+        "oracle_probability_error": 0.0496,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 24,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0507,
+        "oracle_probability_error": 0.0507,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 25,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.957,
+        "map_is_truth": true,
+        "map_mass": 0.957,
+        "reliability_estimate": 0.8912,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.0488,
+        "replications": 16,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0508,
+        "oracle_probability_error": 0.0508,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 26,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0508,
+        "oracle_probability_error": 0.0508,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 27,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0504,
+        "oracle_probability_error": 0.0504,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 28,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0508,
+        "oracle_probability_error": 0.0508,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 29,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0026,
+        "expected_calibration_error": 0.0508,
+        "oracle_probability_error": 0.0508,
+        "held_out_accuracy": 1.0,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      }
+    ],
+    "B_stochastic": [
+      {
+        "seed": 0,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 20,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0351,
+        "expected_calibration_error": 0.0529,
+        "oracle_probability_error": 0.0622,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 1,
+        "observations": 39,
+        "reached_criterion_at": 39,
+        "final_mass_on_truth": 0.9559,
+        "map_is_truth": true,
+        "map_mass": 0.9559,
+        "reliability_estimate": 0.7399,
+        "map_reliability": 0.75,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0317,
+        "replications": 30,
+        "deliberate_replications": 21,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0332,
+        "expected_calibration_error": 0.0058,
+        "oracle_probability_error": 0.0148,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 2,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.957,
+        "map_is_truth": true,
+        "map_mass": 0.957,
+        "reliability_estimate": 0.8912,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.0488,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0324,
+        "expected_calibration_error": 0.0162,
+        "oracle_probability_error": 0.0296,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 3,
+        "observations": 42,
+        "reached_criterion_at": 42,
+        "final_mass_on_truth": 0.9563,
+        "map_is_truth": true,
+        "map_mass": 0.9563,
+        "reliability_estimate": 0.7762,
+        "map_reliability": 0.7857,
+        "map_firing_trials": 11.0,
+        "leak_estimate": 0.0603,
+        "replications": 33,
+        "deliberate_replications": 10,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0438,
+        "expected_calibration_error": 0.0349,
+        "oracle_probability_error": 0.0438,
+        "held_out_accuracy": 0.95,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0043,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0068,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0032,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 4,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 12,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0323,
+        "expected_calibration_error": 0.0058,
+        "oracle_probability_error": 0.0191,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0049,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0061,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 5,
+        "observations": 54,
+        "reached_criterion_at": 54,
+        "final_mass_on_truth": 0.9504,
+        "map_is_truth": true,
+        "map_mass": 0.9504,
+        "reliability_estimate": 0.7799,
+        "map_reliability": 0.7895,
+        "map_firing_trials": 16.0,
+        "leak_estimate": 0.1232,
+        "replications": 45,
+        "deliberate_replications": 11,
+        "false_refutations": 0,
+        "refutation_opportunities": 3,
+        "misleading_successes": 4,
+        "unknown_observations": 0,
+        "brier_score": 0.0415,
+        "expected_calibration_error": 0.0936,
+        "oracle_probability_error": 0.1042,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0074,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 6,
+        "observations": 36,
+        "reached_criterion_at": 36,
+        "final_mass_on_truth": 0.9522,
+        "map_is_truth": true,
+        "map_mass": 0.9522,
+        "reliability_estimate": 0.821,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0688,
+        "replications": 27,
+        "deliberate_replications": 11,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0205,
+        "expected_calibration_error": 0.0577,
+        "oracle_probability_error": 0.0504,
+        "held_out_accuracy": 0.9833,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0035,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0051,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0068,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0091,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 7,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0325,
+        "expected_calibration_error": 0.0172,
+        "oracle_probability_error": 0.0292,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 8,
+        "observations": 39,
+        "reached_criterion_at": 39,
+        "final_mass_on_truth": 0.9513,
+        "map_is_truth": true,
+        "map_mass": 0.9513,
+        "reliability_estimate": 0.8353,
+        "map_reliability": 0.8462,
+        "map_firing_trials": 10.0,
+        "leak_estimate": 0.0948,
+        "replications": 30,
+        "deliberate_replications": 9,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 2,
+        "unknown_observations": 0,
+        "brier_score": 0.0369,
+        "expected_calibration_error": 0.0661,
+        "oracle_probability_error": 0.0768,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 9,
+        "observations": 44,
+        "reached_criterion_at": 44,
+        "final_mass_on_truth": 0.9539,
+        "map_is_truth": true,
+        "map_mass": 0.9539,
+        "reliability_estimate": 0.8034,
+        "map_reliability": 0.8125,
+        "map_firing_trials": 13.0,
+        "leak_estimate": 0.0891,
+        "replications": 35,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 2,
+        "unknown_observations": 0,
+        "brier_score": 0.0354,
+        "expected_calibration_error": 0.0565,
+        "oracle_probability_error": 0.0698,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0035,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0051,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0068,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0091,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 10,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9543,
+        "map_is_truth": true,
+        "map_mass": 0.9543,
+        "reliability_estimate": 0.8075,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 15,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0334,
+        "expected_calibration_error": 0.0108,
+        "oracle_probability_error": 0.0215,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 11,
+        "observations": 36,
+        "reached_criterion_at": 36,
+        "final_mass_on_truth": 0.9532,
+        "map_is_truth": true,
+        "map_mass": 0.9532,
+        "reliability_estimate": 0.8215,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0683,
+        "replications": 27,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0347,
+        "expected_calibration_error": 0.0415,
+        "oracle_probability_error": 0.0509,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 12,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0323,
+        "expected_calibration_error": 0.0061,
+        "oracle_probability_error": 0.0194,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 13,
+        "observations": 36,
+        "reached_criterion_at": 36,
+        "final_mass_on_truth": 0.9522,
+        "map_is_truth": true,
+        "map_mass": 0.9522,
+        "reliability_estimate": 0.821,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0688,
+        "replications": 27,
+        "deliberate_replications": 11,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0338,
+        "expected_calibration_error": 0.0374,
+        "oracle_probability_error": 0.0494,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 14,
+        "observations": 47,
+        "reached_criterion_at": 47,
+        "final_mass_on_truth": 0.9512,
+        "map_is_truth": true,
+        "map_mass": 0.9512,
+        "reliability_estimate": 0.7224,
+        "map_reliability": 0.7333,
+        "map_firing_trials": 12.0,
+        "leak_estimate": 0.055,
+        "replications": 38,
+        "deliberate_replications": 9,
+        "false_refutations": 0,
+        "refutation_opportunities": 3,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0338,
+        "expected_calibration_error": 0.0254,
+        "oracle_probability_error": 0.0374,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0196,
+            "reliability": 0.393
+          }
+        ]
+      },
+      {
+        "seed": 15,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 20,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0351,
+        "expected_calibration_error": 0.0528,
+        "oracle_probability_error": 0.0648,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 16,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.018,
+        "expected_calibration_error": 0.0278,
+        "oracle_probability_error": 0.0218,
+        "held_out_accuracy": 0.9833,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 17,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 20,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0351,
+        "expected_calibration_error": 0.0527,
+        "oracle_probability_error": 0.0647,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 18,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 20,
+        "deliberate_replications": 9,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.035,
+        "expected_calibration_error": 0.0526,
+        "oracle_probability_error": 0.0633,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 19,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 12,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0174,
+        "expected_calibration_error": 0.0249,
+        "oracle_probability_error": 0.0202,
+        "held_out_accuracy": 0.9833,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0196,
+            "reliability": 0.393
+          }
+        ]
+      },
+      {
+        "seed": 20,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 14,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0328,
+        "expected_calibration_error": 0.0085,
+        "oracle_probability_error": 0.0205,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 21,
+        "observations": 42,
+        "reached_criterion_at": 42,
+        "final_mass_on_truth": 0.9549,
+        "map_is_truth": true,
+        "map_mass": 0.9549,
+        "reliability_estimate": 0.7754,
+        "map_reliability": 0.7857,
+        "map_firing_trials": 11.0,
+        "leak_estimate": 0.061,
+        "replications": 33,
+        "deliberate_replications": 12,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0345,
+        "expected_calibration_error": 0.0337,
+        "oracle_probability_error": 0.0444,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0111,
+            "reliability": 0.686
+          }
+        ]
+      },
+      {
+        "seed": 22,
+        "observations": 39,
+        "reached_criterion_at": 39,
+        "final_mass_on_truth": 0.9563,
+        "map_is_truth": true,
+        "map_mass": 0.9563,
+        "reliability_estimate": 0.7403,
+        "map_reliability": 0.75,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0313,
+        "replications": 30,
+        "deliberate_replications": 15,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0334,
+        "expected_calibration_error": 0.0062,
+        "oracle_probability_error": 0.0144,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 23,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 12,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0322,
+        "expected_calibration_error": 0.0059,
+        "oracle_probability_error": 0.0192,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0026,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0031,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0039,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0049,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0061,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 24,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0326,
+        "expected_calibration_error": 0.0173,
+        "oracle_probability_error": 0.0293,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 25,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.957,
+        "map_is_truth": true,
+        "map_mass": 0.957,
+        "reliability_estimate": 0.8912,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.0488,
+        "replications": 16,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0326,
+        "expected_calibration_error": 0.0175,
+        "oracle_probability_error": 0.0295,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 26,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 14,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0329,
+        "expected_calibration_error": 0.0084,
+        "oracle_probability_error": 0.0204,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 27,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 23,
+        "deliberate_replications": 14,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0329,
+        "expected_calibration_error": 0.0082,
+        "oracle_probability_error": 0.0202,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 28,
+        "observations": 32,
+        "reached_criterion_at": 32,
+        "final_mass_on_truth": 0.9548,
+        "map_is_truth": true,
+        "map_mass": 0.9548,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0383,
+        "replications": 23,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0175,
+        "expected_calibration_error": 0.0249,
+        "oracle_probability_error": 0.0203,
+        "held_out_accuracy": 0.9833,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 29,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0327,
+        "expected_calibration_error": 0.0175,
+        "oracle_probability_error": 0.0295,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      }
+    ],
+    "C_partial": [
+      {
+        "seed": 0,
+        "observations": 30,
+        "reached_criterion_at": 30,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 21,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 1,
+        "brier_score": 0.0213,
+        "expected_calibration_error": 0.0696,
+        "oracle_probability_error": 0.0623,
+        "held_out_accuracy": 0.9833,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 1,
+        "observations": 37,
+        "reached_criterion_at": 37,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 28,
+        "deliberate_replications": 18,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 5,
+        "brier_score": 0.0329,
+        "expected_calibration_error": 0.0087,
+        "oracle_probability_error": 0.0207,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          }
+        ]
+      },
+      {
+        "seed": 2,
+        "observations": 28,
+        "reached_criterion_at": 28,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 19,
+        "deliberate_replications": 9,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 3,
+        "brier_score": 0.0326,
+        "expected_calibration_error": 0.0172,
+        "oracle_probability_error": 0.0292,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          }
+        ]
+      },
+      {
+        "seed": 3,
+        "observations": 45,
+        "reached_criterion_at": 45,
+        "final_mass_on_truth": 0.9522,
+        "map_is_truth": true,
+        "map_mass": 0.9522,
+        "reliability_estimate": 0.821,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0688,
+        "replications": 36,
+        "deliberate_replications": 13,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 1,
+        "unknown_observations": 9,
+        "brier_score": 0.0341,
+        "expected_calibration_error": 0.0379,
+        "oracle_probability_error": 0.0499,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "unknown",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0035,
+            "reliability": 0.631
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0051,
+            "reliability": 0.681
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0068,
+            "reliability": 0.645
+          }
+        ]
+      },
+      {
+        "seed": 4,
+        "observations": 47,
+        "reached_criterion_at": 47,
+        "final_mass_on_truth": 0.9568,
+        "map_is_truth": true,
+        "map_mass": 0.9568,
+        "reliability_estimate": 0.7589,
+        "map_reliability": 0.7692,
+        "map_firing_trials": 10.0,
+        "leak_estimate": 0.0562,
+        "replications": 38,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 1,
+        "unknown_observations": 3,
+        "brier_score": 0.0327,
+        "expected_calibration_error": 0.023,
+        "oracle_probability_error": 0.0364,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0049,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0061,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 5,
+        "observations": 52,
+        "reached_criterion_at": 52,
+        "final_mass_on_truth": 0.9588,
+        "map_is_truth": true,
+        "map_mass": 0.9588,
+        "reliability_estimate": 0.8154,
+        "map_reliability": 0.8235,
+        "map_firing_trials": 14.0,
+        "leak_estimate": 0.1123,
+        "replications": 43,
+        "deliberate_replications": 11,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 3,
+        "unknown_observations": 5,
+        "brier_score": 0.0386,
+        "expected_calibration_error": 0.0795,
+        "oracle_probability_error": 0.0928,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0074,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 6,
+        "observations": 39,
+        "reached_criterion_at": 39,
+        "final_mass_on_truth": 0.9522,
+        "map_is_truth": true,
+        "map_mass": 0.9522,
+        "reliability_estimate": 0.821,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0688,
+        "replications": 30,
+        "deliberate_replications": 11,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 1,
+        "unknown_observations": 3,
+        "brier_score": 0.0343,
+        "expected_calibration_error": 0.0393,
+        "oracle_probability_error": 0.0499,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0035,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0051,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0068,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0091,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 7,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 20,
+        "deliberate_replications": 11,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 4,
+        "brier_score": 0.0326,
+        "expected_calibration_error": 0.0171,
+        "oracle_probability_error": 0.0291,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 6,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          }
+        ]
+      },
+      {
+        "seed": 8,
+        "observations": 30,
+        "reached_criterion_at": 30,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 21,
+        "deliberate_replications": 10,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 1,
+        "brier_score": 0.0349,
+        "expected_calibration_error": 0.0526,
+        "oracle_probability_error": 0.0633,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 9,
+        "observations": 50,
+        "reached_criterion_at": 50,
+        "final_mass_on_truth": 0.9563,
+        "map_is_truth": true,
+        "map_mass": 0.9563,
+        "reliability_estimate": 0.7762,
+        "map_reliability": 0.7857,
+        "map_firing_trials": 11.0,
+        "leak_estimate": 0.0603,
+        "replications": 41,
+        "deliberate_replications": 10,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 1,
+        "unknown_observations": 8,
+        "brier_score": 0.033,
+        "expected_calibration_error": 0.0275,
+        "oracle_probability_error": 0.0408,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0035,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0035,
+            "reliability": 0.631
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0051,
+            "reliability": 0.681
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0068,
+            "reliability": 0.645
+          }
+        ]
+      },
+      {
+        "seed": 10,
+        "observations": 34,
+        "reached_criterion_at": 34,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 25,
+        "deliberate_replications": 12,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 5,
+        "brier_score": 0.0351,
+        "expected_calibration_error": 0.0527,
+        "oracle_probability_error": 0.0634,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 11,
+        "observations": 47,
+        "reached_criterion_at": 47,
+        "final_mass_on_truth": 0.9555,
+        "map_is_truth": true,
+        "map_mass": 0.9555,
+        "reliability_estimate": 0.7754,
+        "map_reliability": 0.7857,
+        "map_firing_trials": 11.0,
+        "leak_estimate": 0.061,
+        "replications": 38,
+        "deliberate_replications": 17,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 1,
+        "unknown_observations": 5,
+        "brier_score": 0.0346,
+        "expected_calibration_error": 0.0334,
+        "oracle_probability_error": 0.0441,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 12,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 20,
+        "deliberate_replications": 9,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 4,
+        "brier_score": 0.0325,
+        "expected_calibration_error": 0.0167,
+        "oracle_probability_error": 0.03,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 13,
+        "observations": 36,
+        "reached_criterion_at": 36,
+        "final_mass_on_truth": 0.9522,
+        "map_is_truth": true,
+        "map_mass": 0.9522,
+        "reliability_estimate": 0.821,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0688,
+        "replications": 27,
+        "deliberate_replications": 11,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0338,
+        "expected_calibration_error": 0.0374,
+        "oracle_probability_error": 0.0494,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 14,
+        "observations": 47,
+        "reached_criterion_at": 47,
+        "final_mass_on_truth": 0.9549,
+        "map_is_truth": true,
+        "map_mass": 0.9549,
+        "reliability_estimate": 0.7754,
+        "map_reliability": 0.7857,
+        "map_firing_trials": 11.0,
+        "leak_estimate": 0.061,
+        "replications": 38,
+        "deliberate_replications": 9,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 1,
+        "unknown_observations": 5,
+        "brier_score": 0.0336,
+        "expected_calibration_error": 0.0307,
+        "oracle_probability_error": 0.0427,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0196,
+            "reliability": 0.393
+          }
+        ]
+      },
+      {
+        "seed": 15,
+        "observations": 30,
+        "reached_criterion_at": 30,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 21,
+        "deliberate_replications": 10,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 5,
+        "brier_score": 0.0326,
+        "expected_calibration_error": 0.0174,
+        "oracle_probability_error": 0.0294,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0039,
+            "reliability": 0.667
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 3,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          }
+        ]
+      },
+      {
+        "seed": 16,
+        "observations": 48,
+        "reached_criterion_at": 48,
+        "final_mass_on_truth": 0.9508,
+        "map_is_truth": true,
+        "map_mass": 0.9508,
+        "reliability_estimate": 0.7582,
+        "map_reliability": 0.7692,
+        "map_firing_trials": 10.0,
+        "leak_estimate": 0.0571,
+        "replications": 39,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 1,
+        "unknown_observations": 5,
+        "brier_score": 0.0348,
+        "expected_calibration_error": 0.0309,
+        "oracle_probability_error": 0.0415,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 17,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 20,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.0351,
+        "expected_calibration_error": 0.0527,
+        "oracle_probability_error": 0.0647,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 18,
+        "observations": 29,
+        "reached_criterion_at": 29,
+        "final_mass_on_truth": 0.9611,
+        "map_is_truth": true,
+        "map_mass": 0.9611,
+        "reliability_estimate": 0.8994,
+        "map_reliability": 0.9091,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0852,
+        "replications": 20,
+        "deliberate_replications": 9,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 1,
+        "unknown_observations": 0,
+        "brier_score": 0.035,
+        "expected_calibration_error": 0.0526,
+        "oracle_probability_error": 0.0633,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 19,
+        "observations": 27,
+        "reached_criterion_at": 27,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 18,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 2,
+        "brier_score": 0.0327,
+        "expected_calibration_error": 0.0171,
+        "oracle_probability_error": 0.0291,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0196,
+            "reliability": 0.393
+          }
+        ]
+      },
+      {
+        "seed": 20,
+        "observations": 35,
+        "reached_criterion_at": 35,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 26,
+        "deliberate_replications": 15,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 3,
+        "brier_score": 0.0335,
+        "expected_calibration_error": 0.011,
+        "oracle_probability_error": 0.0217,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 21,
+        "observations": 40,
+        "reached_criterion_at": 40,
+        "final_mass_on_truth": 0.9532,
+        "map_is_truth": true,
+        "map_mass": 0.9532,
+        "reliability_estimate": 0.8215,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0683,
+        "replications": 31,
+        "deliberate_replications": 13,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 1,
+        "unknown_observations": 4,
+        "brier_score": 0.0199,
+        "expected_calibration_error": 0.0558,
+        "oracle_probability_error": 0.0498,
+        "held_out_accuracy": 0.9833,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0111,
+            "reliability": 0.686
+          }
+        ]
+      },
+      {
+        "seed": 22,
+        "observations": 49,
+        "reached_criterion_at": 49,
+        "final_mass_on_truth": 0.9514,
+        "map_is_truth": true,
+        "map_mass": 0.9514,
+        "reliability_estimate": 0.6821,
+        "map_reliability": 0.6923,
+        "map_firing_trials": 10.0,
+        "leak_estimate": 0.0278,
+        "replications": 40,
+        "deliberate_replications": 23,
+        "false_refutations": 0,
+        "refutation_opportunities": 3,
+        "misleading_successes": 0,
+        "unknown_observations": 4,
+        "brier_score": 0.0339,
+        "expected_calibration_error": 0.0111,
+        "oracle_probability_error": 0.0115,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 23,
+        "observations": 37,
+        "reached_criterion_at": 37,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 28,
+        "deliberate_replications": 17,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 5,
+        "brier_score": 0.0323,
+        "expected_calibration_error": 0.0059,
+        "oracle_probability_error": 0.0192,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0026,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0026,
+            "reliability": 0.611
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0031,
+            "reliability": 0.56
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0039,
+            "reliability": 0.512
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0049,
+            "reliability": 0.469
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0061,
+            "reliability": 0.429
+          }
+        ]
+      },
+      {
+        "seed": 24,
+        "observations": 33,
+        "reached_criterion_at": 33,
+        "final_mass_on_truth": 0.9605,
+        "map_is_truth": true,
+        "map_mass": 0.9605,
+        "reliability_estimate": 0.8247,
+        "map_reliability": 0.8333,
+        "map_firing_trials": 9.0,
+        "leak_estimate": 0.0397,
+        "replications": 24,
+        "deliberate_replications": 6,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 1,
+        "brier_score": 0.0327,
+        "expected_calibration_error": 0.009,
+        "oracle_probability_error": 0.021,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "success",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 25,
+        "observations": 28,
+        "reached_criterion_at": 28,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 19,
+        "deliberate_replications": 8,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 3,
+        "brier_score": 0.0327,
+        "expected_calibration_error": 0.0175,
+        "oracle_probability_error": 0.0295,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0123,
+            "reliability": 0.469
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0157,
+            "reliability": 0.429
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 26,
+        "observations": 54,
+        "reached_criterion_at": 54,
+        "final_mass_on_truth": 0.951,
+        "map_is_truth": true,
+        "map_mass": 0.951,
+        "reliability_estimate": 0.7905,
+        "map_reliability": 0.8,
+        "map_firing_trials": 12.0,
+        "leak_estimate": 0.0869,
+        "replications": 45,
+        "deliberate_replications": 12,
+        "false_refutations": 0,
+        "refutation_opportunities": 2,
+        "misleading_successes": 2,
+        "unknown_observations": 10,
+        "brier_score": 0.0363,
+        "expected_calibration_error": 0.0583,
+        "oracle_probability_error": 0.069,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "success",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 4,
+            "outcome": "unknown",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.719
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0193,
+            "reliability": 0.681
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0308,
+            "reliability": 0.645
+          }
+        ]
+      },
+      {
+        "seed": 27,
+        "observations": 37,
+        "reached_criterion_at": 37,
+        "final_mass_on_truth": 0.9552,
+        "map_is_truth": true,
+        "map_mass": 0.9552,
+        "reliability_estimate": 0.8079,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 28,
+        "deliberate_replications": 17,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 5,
+        "brier_score": 0.0329,
+        "expected_calibration_error": 0.0081,
+        "oracle_probability_error": 0.0201,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "failure",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.611
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.007,
+            "reliability": 0.56
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0094,
+            "reliability": 0.512
+          },
+          {
+            "n": 4,
+            "outcome": "success",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0101,
+            "reliability": 0.512
+          }
+        ]
+      },
+      {
+        "seed": 28,
+        "observations": 34,
+        "reached_criterion_at": 34,
+        "final_mass_on_truth": 0.9543,
+        "map_is_truth": true,
+        "map_mass": 0.9543,
+        "reliability_estimate": 0.8075,
+        "map_reliability": 0.8182,
+        "map_firing_trials": 8.0,
+        "leak_estimate": 0.0386,
+        "replications": 25,
+        "deliberate_replications": 15,
+        "false_refutations": 0,
+        "refutation_opportunities": 1,
+        "misleading_successes": 0,
+        "unknown_observations": 2,
+        "brier_score": 0.0329,
+        "expected_calibration_error": 0.0084,
+        "oracle_probability_error": 0.0204,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "success",
+            "mass_on_truth": 0.0479,
+            "reliability": 0.609
+          }
+        ]
+      },
+      {
+        "seed": 29,
+        "observations": 25,
+        "reached_criterion_at": 25,
+        "final_mass_on_truth": 0.961,
+        "map_is_truth": true,
+        "map_mass": 0.961,
+        "reliability_estimate": 0.8907,
+        "map_reliability": 0.9,
+        "map_firing_trials": 7.0,
+        "leak_estimate": 0.049,
+        "replications": 16,
+        "deliberate_replications": 7,
+        "false_refutations": 0,
+        "refutation_opportunities": 0,
+        "misleading_successes": 0,
+        "unknown_observations": 0,
+        "brier_score": 0.0327,
+        "expected_calibration_error": 0.0175,
+        "oracle_probability_error": 0.0295,
+        "held_out_accuracy": 0.9667,
+        "restart_preserves_belief": true,
+        "trace": [
+          {
+            "n": 1,
+            "outcome": "success",
+            "mass_on_truth": 0.0052,
+            "reliability": 0.722
+          },
+          {
+            "n": 2,
+            "outcome": "failure",
+            "mass_on_truth": 0.0078,
+            "reliability": 0.675
+          },
+          {
+            "n": 3,
+            "outcome": "failure",
+            "mass_on_truth": 0.0117,
+            "reliability": 0.631
+          },
+          {
+            "n": 4,
+            "outcome": "failure",
+            "mass_on_truth": 0.0172,
+            "reliability": 0.589
+          },
+          {
+            "n": 5,
+            "outcome": "failure",
+            "mass_on_truth": 0.0248,
+            "reliability": 0.55
+          },
+          {
+            "n": 6,
+            "outcome": "failure",
+            "mass_on_truth": 0.0346,
+            "reliability": 0.512
+          }
+        ]
+      }
+    ]
+  },
+  "frozen_claim": "Across deterministic, stochastic, and partially observable conditions, Torin recovered the true polarized causal structure in every evaluated seed while maintaining zero false structural refutations. Stochasticity increased median evidence requirements from 25 to 32 observations, and partial observation to 36, while hypothesis-specific reliability posteriors captured action uncertainty independently of structural truth. Active learning remained model-free throughout. Thirty deliberately misleading stochastic failures and eighteen misleading leak successes were insufficient to corrupt the true structural hypothesis."
+}

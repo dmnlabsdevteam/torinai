@@ -1,0 +1,99 @@
+# DOCKER BUILD EXCLUSIONS
+# =======================
+# Exclude large files and development artifacts from Docker builds
+
+# Large Model Files - Exclude large model directories, but keep Python code
+core/models/fish-speech/
+core/models/whisper/
+core/models/Qwen/
+core/models/Qwen2.5-VL-7B-Instruct-reasoning-lora-vision-vllm/
+core/models/llama3-8b-instruct/
+core/models/llama-3.1-8b-gguf/
+core/models/llama-3.1-70b-gguf/
+*.gguf
+third_party/llama.cpp/models/
+
+# Development Files
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.env.local
+.env.development
+.env.test
+
+# Documentation and Build Artifacts
+*.md
+README*
+docs/
+*.log
+*.logs
+logs/
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Virtual Environments (we build our own)
+.venv/
+venv/
+env/
+
+# Test Files and Databases (mount separately)
+test_*/
+*.db-shm
+*.db-wal
+# Note: databases/ directory is mounted as volume in microservices
+
+# iOS Build Artifacts
+TorinAI-iOS/
+*.xcodeproj/
+*.xcworkspace/
+
+# Third Party (mount separately if needed)
+third_party/llama.cpp/models/
+third_party/llama.cpp/build/
+
+# Deployment and Scripts (not needed in containers - except scripts/migration)
+deployments/
+# scripts/ - COMMENTED OUT: Need scripts/migration for EncryptedR2Client
+*.sh
+
+# Website (separate deployment)
+dmnlabs-website/
+
+# Runtime data (mounted as volumes)
+runtime/
+# data/ - Need to include data/system Python modules
+# databases/ - Need to include databases Python modules if any
+
+# Large binary files (duplicates removed - see top of file)
+security_master.log
+
+# iOS and Other Platform Builds
+TorinAI-iOS/
+*.xcodeproj/
+*.xcworkspace/
+
+# Node/NPM artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Deployment artifacts
+deployments/production/
+*.pid
+torin.pid
+
+# Backup and temporary files
+.backup/
+*.backup
+*.bak

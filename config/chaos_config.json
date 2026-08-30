@@ -1,0 +1,177 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "schema_version": "1.0.0",
+  "enabled": true,
+  "default_environment": "dev",
+  "safety_controls": {
+    "pre_flight_checks_enabled": true,
+    "slo_monitoring_enabled": true,
+    "auto_rollback_enabled": true,
+    "circuit_breakers_enabled": true,
+    "max_concurrent_experiments": 3,
+    "max_blast_radius_dev": 100,
+    "max_blast_radius_staging": 100,
+    "max_blast_radius_production": 50
+  },
+  "slo_thresholds": {
+    "latency_p95_ms": 500.0,
+    "latency_p99_ms": 1000.0,
+    "error_rate": 0.01,
+    "cpu_percent": 80.0,
+    "memory_percent": 85.0,
+    "disk_percent": 90.0
+  },
+  "circuit_breaker": {
+    "failure_threshold": 5,
+    "timeout_seconds": 60,
+    "half_open_max_calls": 3
+  },
+  "progressive_rollout": {
+    "enabled": true,
+    "stages": [
+      {
+        "name": "canary",
+        "blast_radius": 1,
+        "duration_minutes": 5,
+        "slo_check_interval_seconds": 10
+      },
+      {
+        "name": "gradual_10",
+        "blast_radius": 10,
+        "duration_minutes": 10,
+        "slo_check_interval_seconds": 10
+      },
+      {
+        "name": "gradual_50",
+        "blast_radius": 50,
+        "duration_minutes": 15,
+        "slo_check_interval_seconds": 10
+      },
+      {
+        "name": "full",
+        "blast_radius": 100,
+        "duration_minutes": 30,
+        "slo_check_interval_seconds": 10
+      }
+    ]
+  },
+  "observability": {
+    "metrics_collection_interval_seconds": 5,
+    "metrics_retention_days": 30,
+    "enable_real_time_streaming": true,
+    "enable_mysql_logging": true
+  },
+  "target_systems": {
+    "learning_system": {
+      "enabled": true,
+      "components": [
+        "continuous_learning_pipeline",
+        "safe_upgrade_deployer",
+        "governance_pattern_learner"
+      ],
+      "max_blast_radius": 50
+    },
+    "security_system": {
+      "enabled": true,
+      "components": [
+        "cloudflare_waf",
+        "malware_sandbox",
+        "threat_intelligence"
+      ],
+      "max_blast_radius": 30
+    },
+    "reasoning_system": {
+      "enabled": true,
+      "components": [
+        "hypothesis_testing",
+        "bayesian_uncertainty",
+        "abstract_reasoning_engine"
+      ],
+      "max_blast_radius": 50
+    },
+    "autonomous_agents": {
+      "enabled": true,
+      "components": [
+        "autonomous_coordinator",
+        "intrinsic_motivation",
+        "planning_engine",
+        "directive_system",
+        "governance_queue",
+        "execution_controller",
+        "experience_evaluator",
+        "runtime_governance",
+        "task_queue"
+      ],
+      "max_blast_radius": 50
+    },
+    "domain_system": {
+      "enabled": true,
+      "components": [
+        "cross_domain_reasoner",
+        "universal_ontology",
+        "domain_registry"
+      ],
+      "max_blast_radius": 50
+    },
+    "memory_system": {
+      "enabled": true,
+      "components": [
+        "memory_storage_mysql",
+        "r2_storage",
+        "memory_agent"
+      ],
+      "max_blast_radius": 30
+    },
+    "tool_system": {
+      "enabled": true,
+      "components": [
+        "tool_registry",
+        "database_tools",
+        "ai_ml_tools"
+      ],
+      "max_blast_radius": 50
+    },
+    "intelligence_system": {
+      "enabled": true,
+      "components": [
+        "nlp_processor",
+        "predictive_system",
+        "prediction_cache",
+        "model_inference"
+      ],
+      "max_blast_radius": 40
+    },
+    "monitoring_system": {
+      "enabled": true,
+      "components": [
+        "prometheus_exporter",
+        "resource_monitor",
+        "metric_collector",
+        "metric_aggregator"
+      ],
+      "max_blast_radius": 20
+    },
+    "services_system": {
+      "enabled": true,
+      "components": [
+        "unified_llm",
+        "backup_scheduler",
+        "adapter_manager",
+        "lumen_vision"
+      ],
+      "max_blast_radius": 40
+    }
+  },
+  "experiment_defaults": {
+    "auto_rollback_on_slo_violation": true,
+    "hypothesis_validation_enabled": true,
+    "metrics_collection_enabled": true,
+    "event_logging_enabled": true
+  },
+  "governance_integration": {
+    "enabled": true,
+    "require_approval_for_production": true,
+    "require_approval_for_critical_systems": true,
+    "auto_approve_dev_environment": true
+  }
+}

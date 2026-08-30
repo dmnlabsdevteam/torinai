@@ -1,0 +1,224 @@
+{
+  "label": "pre_kite",
+  "frozen_at": "2026-08-17T19:43:19.976340+00:00",
+  "total_rows": 3204,
+  "model": {
+    "policy": "normal",
+    "attempts": 0,
+    "blocked": 0,
+    "executed": 0,
+    "by_class": {
+      "llm": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "vlm": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "embedding": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "reranker": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "classifier": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      },
+      "encoder": {
+        "attempts": 0,
+        "blocked": 0,
+        "executed": 0,
+        "sites": {}
+      }
+    }
+  },
+  "substrate": {
+    "memory": {
+      "memory_hot.memory_hot": {
+        "present": true,
+        "count": 560,
+        "digest": "ee1a3384e3072216ab66f343cfea0611"
+      },
+      "memory_cold.memory_cold": {
+        "present": true,
+        "count": 150,
+        "digest": "28406f7eb667464f72fa22dfc6034dd7"
+      }
+    },
+    "concepts": {
+      "unified.concepts": {
+        "present": true,
+        "count": 90,
+        "digest": "e80b9db12c52bfd8beb78a99e8d970f0"
+      },
+      "unified.concept_relations": {
+        "present": true,
+        "count": 195,
+        "digest": "3a9d6c175b253c5701785c8915e5c1f0"
+      },
+      "unified.concept_evidence": {
+        "present": true,
+        "count": 115,
+        "digest": "e760109003dbe782d14318426ed26e61"
+      },
+      "unified.concept_aliases": {
+        "present": true,
+        "count": 109,
+        "digest": "3604419b230cd98be8ba1f5a935668b3"
+      },
+      "unified.concept_domains": {
+        "present": true,
+        "count": 90,
+        "digest": "90f0fbcad6f22d81fd1146530a4733d0"
+      },
+      "unified.concept_mappings": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "domains": {
+      "unified.domains": {
+        "present": true,
+        "count": 15,
+        "digest": "748c4eb9c4520d21cd7268b7d7081057"
+      },
+      "unified.domain_mappings": {
+        "present": true,
+        "count": 68,
+        "digest": "3076cdc907c019cfe8bd660ab5e613c1"
+      },
+      "unified.knowledge_transfers": {
+        "present": true,
+        "count": 5,
+        "digest": "3b3f572bd84dd8eebac956af0c0148de"
+      }
+    },
+    "beliefs": {
+      "unified.beliefs": {
+        "present": true,
+        "count": 11,
+        "digest": "128b26411d5cdcdec47333a8e8914e5d"
+      },
+      "unified.hypotheses": {
+        "present": true,
+        "count": 40,
+        "digest": "99e9db435cedec2f7601c12c4e1a9be9"
+      },
+      "unified.evidence": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "unified.claims": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "learned_rules": {
+      "unified.learned_rules": {
+        "present": false
+      }
+    },
+    "procedural": {
+      "unified.meta_learning_strategies": {
+        "present": true,
+        "count": 13,
+        "digest": "4305a7e6549f13818b69227d558b27e2"
+      },
+      "unified.meta_learning_tasks": {
+        "present": true,
+        "count": 7,
+        "digest": "b0532e9e01cbffc1d84c70e817c065c8"
+      },
+      "unified.tool_usage_history": {
+        "present": true,
+        "count": 1,
+        "digest": "7bc30adda81bbf71372d4e43e17e2edb"
+      }
+    },
+    "outcomes": {
+      "unified.task_execution_history": {
+        "present": true,
+        "count": 75,
+        "digest": "965d9fb1e4a12314733235344b675f36"
+      },
+      "unified.meta_decision_records": {
+        "present": true,
+        "count": 1232,
+        "digest": "adbfb6dc3a9f0496fd899f5b8eb3ee5c"
+      },
+      "unified.improvement_cycles": {
+        "present": true,
+        "count": 11,
+        "digest": "1a24298839c8c9bc69b6599f6a8bd839"
+      },
+      "unified.tool_error_events": {
+        "present": true,
+        "count": 417,
+        "digest": "28449a5983fd1aad8fcbf693d51ebea0"
+      }
+    },
+    "competence": {
+      "unified.capability_tracking": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "unified.capability_benchmark_results": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "unified.capability_baseline_freezes": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "episodic": {
+      "unified.thinking_states": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "unified.reasoning_chains": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "unified.analogies": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    },
+    "working_state": {
+      "unified.goals": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      },
+      "unified.plans": {
+        "present": true,
+        "count": 0,
+        "digest": "d41d8cd98f00b204e9800998ecf8427e"
+      }
+    }
+  }
+}

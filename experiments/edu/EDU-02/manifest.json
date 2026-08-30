@@ -1,0 +1,87 @@
+{
+  "benchmark": "EDU-02",
+  "title": "Autonomous Runtime Knowledge Refutation",
+  "recorded_at": "2026-08-19T15:14:40.093747+00:00",
+  "initial_state": "learned rule R1, independently validated on held-out evidence, operational",
+  "intervention": "no corrective teaching; Torin autonomously planned and acted in an environment exposing an omitted precondition (AT(X,A))",
+  "observation": "externally observed filesystem state contradicted R1's predicted effects",
+  "attribution": "RULE_EVIDENCE",
+  "epistemic_transition": "VALIDATED -> REFUTED",
+  "behavioral_consequence": "R1 removed from executable_rules; cannot generate another operator",
+  "durability": "transition and originating observation persist in unified.rule_authority_events",
+  "neural_assistance": "zero model inference",
+  "rule": {
+    "rule_id": "rule_dccaff4cba0f",
+    "domain_id": "kite17",
+    "rule_kind": "move",
+    "rendered_formula": "MOVE(?X0, ?X2, ?X1) \u2227 OPEN(?X1) \u2227 PATH(?X2, ?X1) \u2192 AT(?X0, ?X1) \u2296 AT(?X0, ?X2)",
+    "epistemic_status": "refuted",
+    "induction_method": "plotkin_lgg_minimal",
+    "positive_root_count": 2,
+    "negative_root_count": 3
+  },
+  "evidence_ledger": [
+    {
+      "root_evidence_id": "mv_d1",
+      "evidence_role": "induction_positive",
+      "supports": true
+    },
+    {
+      "root_evidence_id": "mv_d2",
+      "evidence_role": "induction_positive",
+      "supports": true
+    },
+    {
+      "root_evidence_id": "mv_no_OPEN",
+      "evidence_role": "induction_negative",
+      "supports": false
+    },
+    {
+      "root_evidence_id": "mv_no_PATH",
+      "evidence_role": "induction_negative",
+      "supports": false
+    },
+    {
+      "root_evidence_id": "mv_no_ACTION",
+      "evidence_role": "induction_negative",
+      "supports": false
+    },
+    {
+      "root_evidence_id": "mv_h1",
+      "evidence_role": "validation_positive",
+      "supports": true
+    },
+    {
+      "root_evidence_id": "mv_h2",
+      "evidence_role": "validation_positive",
+      "supports": true
+    },
+    {
+      "root_evidence_id": "edu02_1787151946",
+      "evidence_role": "runtime_contradiction",
+      "supports": false
+    }
+  ],
+  "authority_events": [
+    {
+      "event_id": "rac_a0216fc1910e",
+      "old_status": "candidate",
+      "new_status": "validated",
+      "lost_authority": false,
+      "cause": "validation",
+      "observation_id": null,
+      "detail": "confirmed by 2 independent observation(s)",
+      "occurred_at": "2026-08-19T04:13:55.652830+00:00"
+    },
+    {
+      "event_id": "rac_31d36ed91c46",
+      "old_status": "validated",
+      "new_status": "refuted",
+      "lost_authority": true,
+      "cause": "runtime_contradiction",
+      "observation_id": "edu02_1787151946",
+      "detail": "refuted by runtime observation edu02_1787151946: executed MOVE(z, LAB, VAULT); predicted AT(z,VAULT); world shows AT(z,HALL)",
+      "occurred_at": "2026-08-19T15:05:46.849247+00:00"
+    }
+  ]
+}

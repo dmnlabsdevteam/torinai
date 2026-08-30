@@ -1,0 +1,93 @@
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+INFO:core.r2_storage:✓ Loaded credentials from /Users/stefan/Dominion Labs/TorinAI/.env.production
+INFO:core.memory.storage.mysql_storage:💾 Initializing Memory Database (MySQL) at localhost:3306
+INFO:core.memory.storage.mysql_storage:📝 Ensuring hot and cold databases exist...
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Can't create database 'torinai_thinking_hot'; database exists
+  await self._query(query)
+INFO:core.memory.storage.mysql_storage:✅ Hot database 'torinai_thinking_hot' ready
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Can't create database 'torinai_memory_cold'; database exists
+  await self._query(query)
+INFO:core.memory.storage.mysql_storage:✅ Cold database 'torinai_memory_cold' ready
+INFO:core.memory.storage.mysql_storage:✅ MySQL connection pools created
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'memory_hot' already exists
+  await self._query(query)
+INFO:core.memory.storage.mysql_storage:✅ Hot memory schema created in torinai_unified
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'memory_cold' already exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'archival_log' already exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'r2_backup_log' already exists
+  await self._query(query)
+INFO:core.memory.storage.mysql_storage:✅ Cold memory schema created in torinai_memory_cold
+INFO:core.memory.storage.mysql_storage:✅ Memory Database (MySQL) initialized successfully
+INFO:core.agents.memory_agent:✅ MySQL memory database initialized (hot/cold tiers)
+INFO:core.database.logging_database:📝 Initializing MySQL-based logging at localhost:3306/torinai_unified
+INFO:core.database.logging_database:🔄 Log queue worker started
+INFO:core.database.logging_database:✅ MySQL logging initialized with queue-based worker
+INFO:core.agents.memory_agent:✅ Logging database initialized
+INFO:core.memory.utils.embedding_service.EmbeddingService:Loading embedding model: all-MiniLM-L6-v2
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+INFO:core.memory.utils.embedding_service.EmbeddingService:✅ Embedding model loaded in 1.46s
+INFO:core.memory.utils.embedding_service.EmbeddingService:   Model: all-MiniLM-L6-v2
+INFO:core.memory.utils.embedding_service.EmbeddingService:   Dimensions: 384
+INFO:core.memory.utils.embedding_service.EmbeddingService:   Device: cpu
+INFO:core.agents.memory_agent:✅ Embedding service initialized
+INFO:core.agents.memory_agent:✅ Memory injector initialized
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/boto3/compat.py:84: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+INFO:core.r2_storage:R2 Client initialized with endpoint: https://4594b2ad74aa15ff87f308d85c67c7a6.r2.cloudflarestorage.com
+INFO:core.memory.storage.r2_storage:R2MemoryBackend initialized (Short-term: torinai-short-term-memory, Long-term: torinai-system-data)
+INFO:core.agents.memory_agent:✅ R2 memory backend initialized
+INFO:core.agents.memory_agent:✅ Centralized Memory Manager initialization complete
+INFO:core.health.system_watchdog:🐕 System watchdog started - preventing kernel panics
+INFO:core.database.logging_database:📝 Initializing MySQL-based logging at localhost:3306/torinai_unified
+INFO:core.database.logging_database:🔄 Log queue worker started
+INFO:core.database.logging_database:✅ MySQL logging initialized with queue-based worker
+INFO:core.database.logging_database:📝 Initializing MySQL-based logging at localhost:3306/torinai_unified
+INFO:core.database.logging_database:🔄 Log queue worker started
+INFO:core.database.logging_database:✅ MySQL logging initialized with queue-based worker
+INFO:core.learning.unified_learning_system:✅ Logging database initialized for learning activity tracking
+INFO:core.governance.unified_governance_trigger_system:Loaded governance triggers config version 1.0.0
+INFO:core.governance.unified_governance_trigger_system:Initialized UnifiedGovernanceTriggerSystem with 8 triggers
+INFO:core.agents.memory_agent:🛡️ Governance evaluation for hot/cold tier threshold change: triggered=True
+ERROR:core.agents.memory_agent:❌ BLOCKED: Memory deletion attempt without proper capability: memory_id=test_memory_123
+ERROR:core.agents.memory_agent:❌ BLOCKED: Batch memory deletion attempt without proper capability: count=3
+INFO:core.agents.memory_agent:✅ Memory test_memory_456 deleted by human admin (operator: admin_user_123)
+ERROR:core.agents.memory_agent:❌ BLOCKED: Memory deletion attempt without proper capability: memory_id=test_memory_789
+INFO:core.governance.unified_governance_trigger_system:Loaded governance triggers config version 1.0.0
+INFO:core.governance.unified_governance_trigger_system:Initialized UnifiedGovernanceTriggerSystem with 8 triggers
+INFO:core.agents.memory_agent:🛡️ Governance evaluation for indexing parameter change: triggered=False
+INFO:core.governance.unified_governance_trigger_system:Loaded governance triggers config version 1.0.0
+INFO:core.governance.unified_governance_trigger_system:Initialized UnifiedGovernanceTriggerSystem with 8 triggers
+INFO:core.agents.memory_agent:🛡️ Governance evaluation for visibility parameter change: triggered=False
+INFO:core.governance.unified_governance_trigger_system:Loaded governance triggers config version 1.0.0
+INFO:core.governance.unified_governance_trigger_system:Initialized UnifiedGovernanceTriggerSystem with 8 triggers
+INFO:core.health.system_watchdog:🛡️ Governance evaluation for resource limit change: triggered=False
+ERROR:core.health.system_watchdog:❌ Resource validation failed: Requested 47.0GB exceeds usable capacity 46.0GB
+INFO:core.governance.unified_governance_trigger_system:Loaded governance triggers config version 1.0.0
+INFO:core.governance.unified_governance_trigger_system:Initialized UnifiedGovernanceTriggerSystem with 8 triggers
+INFO:core.learning.unified_learning_system:🛡️ Governance evaluation for model weight update: triggered=True
+WARNING:core.learning.unified_learning_system:⚠️ Approval signature missing required fields
+ERROR:core.learning.unified_learning_system:❌ REJECTED: AI judge votes not allowed for learning parameters
+Test test_1_9_index_ranking_changes_trigger_governance failed: 
+Test test_1_10_shadow_suppression_detection failed: 
+
+================================================================================
+GOVERNANCE PHASE 3 TEST RESULTS
+================================================================================
+Total: 35 tests
+Passed: 12
+Failed: 2
+Skipped: 21
+Pass Rate: 85.7%
+================================================================================
+INFO:core.database.logging_database:🛑 Shutting down logging database...
+INFO:core.database.logging_database:✅ Log queue drained
+INFO:core.database.logging_database:✅ Logging database shutdown complete
+INFO:core.database.logging_database:🛑 Shutting down logging database...
+INFO:core.database.logging_database:✅ Log queue drained
+INFO:core.database.logging_database:✅ Logging database shutdown complete
+INFO:core.database.logging_database:🛑 Shutting down logging database...
+INFO:core.database.logging_database:✅ Log queue drained
+INFO:core.database.logging_database:✅ Logging database shutdown complete

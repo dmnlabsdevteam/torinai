@@ -1,0 +1,229 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+# Environment files with credentials - NEVER COMMIT!
+.env
+.env.*
+.env.production
+!.env.example
+!.env.template
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# Project-specific ignores
+logs/*.log
+logs/*.pid
+*.log
+.DS_Store
+Thumbs.db
+
+# macOS metadata files
+._*
+.!*
+
+# Large model files
+models/
+*.bin
+*.gguf
+*.safetensors
+
+# LanceDB data
+data/lancedb/
+lancedb/
+
+# Temporary files
+*.tmp
+*.temp
+execution_workspace/
+
+# Node.js (for vscode-extension)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Security files (optional - you might want to keep some of these)
+# security/*.key
+# security/*.pem
+
+# Conda/Python environments
+conda-env/
+.conda/.env
+
+# ===== Added 2026-08-29: gaps that let the venv/secrets/build get committed =====
+# The project virtualenv is named venv_torin (the generic `venv/` above missed it)
+venv_torin/
+# CPython source + tarball used to build the venv — never source-control these
+Python-3.11.4/
+Python-3.11.4.tgz
+# SECRETS — must never be committed
+.encryption_key
+*.key
+*.pem
+# Shell history / session state captured under the sandbox shell
+.torinshell/
+# Database dumps (data + potentially sensitive)
+backups/
+*.dump
+*.sql.gz
+# Bulky vendored / third-party trees
+third_party/
+wasmtime/
+alphafold/
+# Large corpora / papers (add specific files explicitly if any are needed)
+research_papers/
+data/training/
+
+# Deployment/self-improvement artifacts (bulky, regenerated)
+data/deployment_backups/
+
+# Vendored guides / papers and convergence checkpoint dumps
+*.pdf
+data/convergence_checkpoints/
+
+# Runtime artifacts / regenerated data — source only in git
+data/
+logs/
+test_output/
+tmp/
+runtime/
+pyenv/
+archive/
+*.gz
+
+# Secret-bearing config files (use env vars / secret manager instead)
+core/reasoning/apikey.json
+**/apikey.json
+config/active_defense_config.json
+*credentials*.json
+*secret*.json

@@ -1,0 +1,37 @@
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/transformers/utils/hub.py:110: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+WARNING:root:Neural-symbolic reasoning not available: No module named 'core.memory.unified_memory_system'
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Can't create database 'torinai_thinking_hot'; database exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Can't create database 'torinai_memory_cold'; database exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'memory_hot' already exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'memory_cold' already exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'archival_log' already exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/aiomysql/cursors.py:239: Warning: Table 'r2_backup_log' already exists
+  await self._query(query)
+/Users/stefan/Library/Python/3.9/lib/python/site-packages/boto3/compat.py:84: PythonDeprecationWarning: Boto3 will no longer support Python 3.9 starting April 29, 2026. To continue receiving service updates, bug fixes, and security updates please upgrade to Python 3.10 or later. More information can be found here: https://aws.amazon.com/blogs/developer/python-support-policy-updates-for-aws-sdks-and-tools/
+  warnings.warn(warning, PythonDeprecationWarning)
+ERROR:core.agents.memory_agent:❌ BLOCKED: Memory deletion attempt without proper capability: memory_id=test_memory_123
+ERROR:core.agents.memory_agent:❌ BLOCKED: Batch memory deletion attempt without proper capability: count=3
+ERROR:core.agents.memory_agent:❌ BLOCKED: Memory deletion attempt without proper capability: memory_id=test_memory_789
+ERROR:core.health.system_watchdog:❌ Resource validation failed: Requested 47.0GB exceeds usable capacity 46.0GB
+WARNING:core.learning.unified_learning_system:⚠️ Approval signature missing required fields
+ERROR:core.learning.unified_learning_system:❌ REJECTED: AI judge votes not allowed for learning parameters
+Test test_1_1_memory_architecture_change_triggers_governance failed: Governance should be triggered
+Test test_1_9_index_ranking_changes_trigger_governance failed: 
+Test test_1_10_shadow_suppression_detection failed: 
+Test test_3_1_model_weight_change_triggers_critical failed: 
+
+================================================================================
+GOVERNANCE PHASE 3 TEST RESULTS
+================================================================================
+Total: 35 tests
+Passed: 10
+Failed: 4
+Skipped: 21
+Pass Rate: 71.4%
+================================================================================

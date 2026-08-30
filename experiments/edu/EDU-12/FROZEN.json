@@ -1,0 +1,49 @@
+{
+  "freeze_id": "EDU-12_S0_ADMISSIBLE_11",
+  "frozen_at": "2026-08-20T21:18:35.766479+00:00",
+  "architecture_fingerprint": "e42fda0206e490a051ca1c9eaf4f267fa218cdc31720c94c49f2623a85155c09",
+  "substrate_files": 286,
+  "baseline": "manifest.json (first admissible S0)",
+  "rule": "During the frozen educational phase, failures may repair the EXPERIMENT but may not expand Torin's cognitive implementation.",
+  "may_be_repaired": [
+    "an exam that leaks an answer",
+    "a harness that bypasses the production ingress",
+    "a metric that cannot report failure",
+    "a database or process state that does not reset"
+  ],
+  "may_not_be_repaired": [
+    "Torin cannot learn percentages",
+    "Torin cannot synthesise programs",
+    "Torin cannot parse a legitimate held-out construction",
+    "Torin cannot transfer a concept"
+  ],
+  "why": "Repairing a cognitive capability mid-experiment destroys the distinction between 'Torin learned' and 'we upgraded Torin while teaching it'. A capability Torin cannot acquire through education IS the result.",
+  "supersedes": {
+    "freeze_id": "EDU-12_S0_ADMISSIBLE_10",
+    "fingerprint": "625d955a2912e993eff53728ce0a5e122cf89244c2d3fa4eaac8776c20ee16dd",
+    "record": "FROZEN_10_SUPERSEDED.json"
+  },
+  "why_refrozen": "Reading. The deterministic formalizer was six regular expressions and `Formalization.requires_model` existed to measure the substrate-native share 'as the deterministic extractor grows' -- which it could only do when a person wrote a seventh pattern. A reading is a program over a sequence, so it can be derived instead.",
+  "change": {
+    "what": "Three repairs and one wiring. `IOExample.expected` compared only the FIRST term of an answer, so a procedure producing a STRUCTURE scored correct with the subject right and the object wrong. `Procedure.extended` could only APPEND, so a procedure needing a guard checked BEFORE an existing one was unreachable -- found or missed according to the order the examples happened to be listed in; synthesis now explores every priority. And `core/semantics/reading_registry.py` plus `DerivedReadingFormalizer` put derived readings into the formalizer chain, after the tested patterns and before any model.",
+    "effect": "EDU-13: eight instruction rules learned from demonstrations in a sentence machine, then ONE derived procedure of six guarded rules covering two constructions -- affirmative and negated -- from five sentence/meaning pairs. 7/7 on held-out sentences where every content word is new. Four procedures fit the evidence and agree on every held-out sentence. Zero model calls.",
+    "unlocked": "Coverage of natural language grows by EVIDENCE rather than by authorship, and stays measurable because a derived reading needs no model either: `vault holds gold` has no copula, the six patterns decline it as goal and premise alike, and a derived reading formalizes it as `vault_gold` with requires_model=False.",
+    "measured_limits": [
+      "SEARCH COST: 42k candidates at five rules and one construction, 251k at six rules and two. About 6x per rule, so one procedure reaches roughly seven or eight rules and then needs dispatch",
+      "WORD CLASS IS SUPPLIED: a six-word lexicon marks copulas, determiners and the negator. Which class matters, where, in what order and what to do about it is derived; the classes themselves are not",
+      "SINGLE-TOKEN CONSTITUENTS: the machine binds one word per register, so a multi-word subject cannot be represented at all"
+    ]
+  },
+  "verification": {
+    "suite": "1076 passed, 3 skipped, 1 failed (this guard, before re-freezing)",
+    "reading": "experiments/edu/EDU-13/reading.py \u2014 PASS, 7/7 held-out, 0 model calls",
+    "wiring": "tests/test_derived_reading.py \u2014 5 oracles, including that the tested patterns still win where they apply and an empty registry claims nothing",
+    "chains": {
+      "arithmetic": "plan_found / guaranteed / TAKE_TOTAL -> TAKE_COUNT -> DIVIDE",
+      "file": "plan_found / conditional / READ -> PARSE_NUMBER -> MULTIPLY -> WRITE",
+      "lookup": "plan_found / conditional / LOOKUP -> COMPARE -> BRANCH"
+    },
+    "execution": "planned before the value existed; four steps confirmed against the world; output.dat holds 34; a restart between steps 2 and 3 carries JSON only; 0 model calls",
+    "rederivation": "instruction set 9/9 rule_learned; MAXIMUM SUM LENGTH derived, EXCEEDING underdetermined into 2 procedures that agree; 5/5 at lengths 5,7,11,20,50 each; MEAN composed and guaranteed; 0 model attempts, 0 executed"
+  }
+}
