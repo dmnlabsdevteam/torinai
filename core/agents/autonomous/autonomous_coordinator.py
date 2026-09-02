@@ -150,6 +150,12 @@ class SelfEventType(Enum):
     #: deferred job (an agent's findings, a self-serve lookup) is passed back to
     #: the substrate to reconcile, without it blocking on each.
     JOB_COMPLETED = "job_completed"
+    #: A watched security-critical file changed on disk — a critical source file,
+    #: config/governance_triggers.json, .env, or a requirements file. Emitted by
+    #: the filesystem integrity watcher so the change-sensitive security audit runs
+    #: NOW instead of waiting out the 120s poll. Payload: {path}. The periodic
+    #: audit tier stays as the backstop for anything the watcher misses.
+    INTEGRITY_REAUDIT = "integrity_reaudit"
 
 
 @dataclass
@@ -323,6 +329,13 @@ class AutonomousCoordinator:
         self._motivation_dirty: bool = False
         self._motivation_refresh_task: Optional[asyncio.Task] = None
 
+        # Filesystem integrity watcher (watchdog). Watches the security-critical
+        # files so a write fires an INTEGRITY_REAUDIT self-event immediately,
+        # instead of waiting out the 120s security-audit poll (which stays as the
+        # backstop). None until started; watchdog is optional — absence degrades
+        # to the periodic audit, honestly logged.
+        self._integrity_observer: Optional[Any] = None
+
         # Register completion callback for security remediation tasks
         # This creates the CLOSURE hook: Detection → Remediation → Verification → Closure
         self.register_completion_callback(
@@ -388,6 +401,14 @@ class AutonomousCoordinator:
         # stays as a backstop. This is a step toward taking motivation off the poll.
         self.on(SelfEventType.COMPETENCE_CHANGED, self._react_competence_changed,
                 name="motivation_refresh", mode="deferred", priority=20)
+
+        # SECURITY — a change to a security-critical file re-audits NOW. The
+        # filesystem watcher emits INTEGRITY_REAUDIT on a write; this runs the
+        # same coalesced detect→remediate→reconcile audit the 120s tier runs, so
+        # tampering is caught in seconds rather than up to two minutes. Deferred,
+        # off the acting hot path.
+        self.on(SelfEventType.INTEGRITY_REAUDIT, self._react_integrity_reaudit,
+                name="integrity_reaudit", mode="deferred", priority=60)
 
         # Directive System - High-level guidance for the Singleton
         self.directive_system = DirectiveSystem()
@@ -1154,6 +1175,7 @@ class AutonomousCoordinator:
             self._register_idle_subsystems()
             self.coordination_task = asyncio.create_task(self._coordination_cycle())
             self._start_reactive_worker()
+            self._start_integrity_watcher()
             logger.info("🚀 Autonomous coordination cycle started")
         elif self.coordination_task is not None:
             logger.info("Coordination cycle already running")
@@ -1582,6 +1604,127 @@ class AutonomousCoordinator:
         provided by emit(); a failure here is logged there, never fatal.
         """
         await self.intrinsic_motivation.update_affect()
+
+    def _integrity_watched_paths(self) -> List[str]:
+        """Absolute realpaths of the security-critical files to watch — the same
+        set the file-integrity audit hashes, plus the governance rule file, .env,
+        and the requirements files. These are the files whose modification is a
+        security event."""
+        import os
+        root = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), "..", "..", ".."))
+        rel = [
+            "core/security/controller.py",
+            "core/security/security_audit_worker.py",
+            "core/governance/unified_governance_trigger_system.py",
+            "core/agents/autonomous/autonomous_coordinator.py",
+            "core/agents/autonomous/general_purpose_executor.py",
+            "core/agents/autonomous/task_queue.py",
+            "core/health/health_monitor.py",
+            "core/safety/commitment_contract_manager.py",
+            "config/governance_triggers.json",
+            ".env",
+            "requirements.txt",
+            "requirements-clean.txt",
+        ]
+        return [os.path.realpath(os.path.join(root, r)) for r in rel]
+
+    def _start_integrity_watcher(self) -> None:
+        """Start the filesystem integrity watcher (watchdog).
+
+        Watches the parent directories of the security-critical files and fires an
+        INTEGRITY_REAUDIT self-event when any of them is written — so tampering is
+        caught in seconds rather than waiting out the 120s audit poll. Honest
+        degradation: if watchdog is unavailable, the watcher is skipped with a
+        warning and the periodic audit still covers these files (no silent gap)."""
+        if self._integrity_observer is not None:
+            return
+        try:
+            from watchdog.observers import Observer
+            from watchdog.events import FileSystemEventHandler
+        except Exception as e:
+            logger.warning(
+                "🛡️ Integrity watcher disabled (watchdog unavailable: %s); the "
+                "120s periodic security audit still covers these files", e)
+            return
+        import os
+        import time as _time
+
+        loop = asyncio.get_running_loop()
+        watched = set(self._integrity_watched_paths())
+
+        def _emit(path: str):
+            return self.emit(SelfEvent(
+                SelfEventType.INTEGRITY_REAUDIT,
+                payload={"path": path}, origin="integrity_watcher"))
+
+        class _IntegrityHandler(FileSystemEventHandler):
+            """Runs in watchdog's observer THREAD — it never touches the substrate
+            directly, it schedules the emit onto the event loop thread-safely, and
+            debounces so a burst of writes collapses to one re-audit."""
+            _last_emit = 0.0
+            _debounce_s = 3.0
+
+            def _consider(self, raw_path: str) -> None:
+                try:
+                    path = os.path.realpath(raw_path)
+                except Exception:
+                    return
+                if path not in watched:
+                    return
+                now = _time.monotonic()
+                if now - self._last_emit < self._debounce_s:
+                    return
+                self._last_emit = now
+                try:
+                    asyncio.run_coroutine_threadsafe(_emit(path), loop)
+                except Exception:
+                    pass  # the observer thread must never raise
+
+            def on_modified(self, event):
+                if not event.is_directory:
+                    self._consider(event.src_path)
+
+            def on_created(self, event):
+                if not event.is_directory:
+                    self._consider(event.src_path)
+
+            def on_moved(self, event):
+                dest = getattr(event, "dest_path", None)
+                if dest and not event.is_directory:
+                    self._consider(dest)
+
+        handler = _IntegrityHandler()
+        observer = Observer()
+        dirs = sorted({os.path.dirname(p) for p in watched
+                       if os.path.isdir(os.path.dirname(p))})
+        scheduled = 0
+        for d in dirs:
+            try:
+                observer.schedule(handler, d, recursive=False)
+                scheduled += 1
+            except Exception as e:
+                logger.debug("integrity watcher could not watch %s: %s", d, e)
+        if scheduled == 0:
+            logger.warning("🛡️ Integrity watcher: no directories could be watched")
+            return
+        observer.daemon = True
+        observer.start()
+        self._integrity_observer = observer
+        logger.info("🛡️ Integrity watcher active — %d dirs, %d critical files",
+                    scheduled, len(watched))
+
+    async def _react_integrity_reaudit(self, event: SelfEvent) -> None:
+        """A security-critical file changed on disk — run the security audit NOW.
+
+        Reuses the same coalesced detect → remediate → reconcile loop the 120s
+        security tier runs (`_idle_security_work`); coalescing means a burst of
+        writes yields one audit. This closes the gap between a change and its
+        detection from up-to-120s down to seconds. Deferred, off the acting path.
+        """
+        path = (event.payload or {}).get("path")
+        logger.info("🛡️ Integrity re-audit triggered by change: %s", path)
+        await self._idle_security_work()
 
     async def _react_competence_changed(self, event: SelfEvent) -> None:
         """Deferred: a domain's competence moved, so the competence drive that
@@ -9865,6 +10008,15 @@ The substrate must realign with its constitutional responsibilities immediately.
                 await self._motivation_refresh_task
             except asyncio.CancelledError:
                 pass
+
+        # Stop the filesystem integrity watcher (watchdog observer thread)
+        if self._integrity_observer is not None:
+            try:
+                self._integrity_observer.stop()
+                self._integrity_observer.join(timeout=2)
+            except Exception as e:
+                logger.debug("integrity watcher stop error: %s", e)
+            self._integrity_observer = None
 
         # Cancel periodic performance assessment
             logger.info("✅ Periodic performance assessment stopped")
