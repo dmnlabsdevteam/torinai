@@ -1195,6 +1195,75 @@ class BayesianUncertaintySystem:
             await self.unified_db.initialize()
         return await self._write_belief_row(belief, commit=True)
 
+    async def _delete_belief_row(self, belief_id: str) -> bool:
+        """Remove a belief from unified.beliefs — used when reflection decays a
+        belief to near-neutral and drops it from memory. Without this the row
+        lived on and load_from_db would resurrect a belief the substrate had
+        deliberately let go."""
+        if not self.unified_db.initialized:
+            self.persistence_drops += 1
+            return False
+        try:
+            await self.unified_db.execute_query(
+                "DELETE FROM unified.beliefs WHERE belief_id = $1",
+                (belief_id,), commit=True)
+            return True
+        except Exception as e:
+            logger.warning("_delete_belief_row failed for %s: %s", belief_id, e)
+            return False
+
+    _VOLATILITY_DDL = """
+    CREATE TABLE IF NOT EXISTS unified.domain_volatility (
+        domain      VARCHAR PRIMARY KEY,
+        lambda      DOUBLE PRECISION NOT NULL,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    """
+
+    async def _ensure_volatility_table(self) -> None:
+        if getattr(self, "_volatility_schema_ready", False):
+            return
+        if not self.unified_db.initialized:
+            await self.unified_db.initialize()
+        await self.unified_db.execute_query(self._VOLATILITY_DDL.strip())
+        self._volatility_schema_ready = True
+
+    async def save_domain_volatility(self) -> int:
+        """Persist per-domain λ so adaptive decay rates survive a restart. Reflection
+        recomputes these from observed belief change; without persistence every
+        restart reset them to the 0.01 default and the substrate re-learned
+        volatility it already knew. Returns rows written."""
+        try:
+            await self._ensure_volatility_table()
+            written = 0
+            for domain, lam in list(self.domain_volatility.items()):
+                await self.unified_db.execute_query(
+                    "INSERT INTO unified.domain_volatility (domain, lambda, updated_at)"
+                    " VALUES ($1, $2, NOW())"
+                    " ON CONFLICT (domain) DO UPDATE SET lambda = EXCLUDED.lambda,"
+                    "   updated_at = NOW()",
+                    (domain, float(lam)), commit=True)
+                written += 1
+            return written
+        except Exception as e:
+            logger.warning("save_domain_volatility failed: %s", e)
+            return 0
+
+    async def _load_domain_volatility(self) -> int:
+        try:
+            await self._ensure_volatility_table()
+            rows = await self.unified_db.execute_query(
+                "SELECT domain, lambda FROM unified.domain_volatility",
+                fetch_all=True) or []
+            for r in rows:
+                self.domain_volatility[r["domain"]] = float(r["lambda"])
+            if rows:
+                logger.info("restored volatility for %d domain(s)", len(rows))
+            return len(rows)
+        except Exception as e:
+            logger.warning("_load_domain_volatility failed: %s", e)
+            return 0
+
     async def decay_belief(self, belief_id: str) -> Optional[BayesianBelief]:
         """Apply temporal decay to a belief WITHOUT new evidence.
 
@@ -1307,12 +1376,12 @@ class BayesianUncertaintySystem:
                 await self.unified_db.execute_query(
                     """
                     INSERT INTO unified.calibration_data
-                        (calibration_id, domain, predicted_confidence, actual_outcome, timestamp)
+                        (domain, prediction, confidence, outcome, timestamp)
                     VALUES ($1,$2,$3,$4,$5)
                     """,
                     (
-                        f"cal_{uuid.uuid4().hex[:8]}",
                         domain,
+                        f"{domain} confidence calibration",
                         predicted_confidence,
                         actual_outcome,
                         datetime.now(),
@@ -1365,6 +1434,9 @@ class BayesianUncertaintySystem:
                 except Exception as row_err:
                     logger.debug(f"load_from_db: skipping malformed row: {row_err}")
             logger.info(f"Bayesian uncertainty: loaded {loaded} belief(s) from PostgreSQL")
+            # Restore adaptive decay rates too, so reflection's volatility work
+            # survives a restart rather than resetting to the 0.01 default.
+            await self._load_domain_volatility()
         except Exception as e:
             logger.warning(f"load_from_db failed (non-fatal, starting with empty beliefs): {e}")
     
@@ -1415,8 +1487,21 @@ class BayesianUncertaintySystem:
                     beliefs_decayed += 1
 
                     # Remove belief if it decayed to near-neutral (0.45-0.55)
-                    if 0.45 <= decayed_prob <= 0.55 and belief.evidence_count < 3:
+                    # Evidence count is the two evidence lists — BayesianBelief has
+                    # no `evidence_count` attribute; reading one raised AttributeError
+                    # the moment any belief reached the neutral band, aborting the
+                    # whole decay loop and returning zeroed stats (a silent negative:
+                    # "0 decayed" actually meant "the method crashed").
+                    _evidence_count = len(belief.evidence_for) + len(belief.evidence_against)
+                    if 0.45 <= decayed_prob <= 0.55 and _evidence_count < 3:
                         del self.beliefs[belief_id]
+                        # DURABLE: the belief was dropped from memory, so drop its
+                        # row too — otherwise load_from_db resurrects it.
+                        await self._delete_belief_row(belief_id)
+                    else:
+                        # DURABLE: persist the decayed posterior so the decay
+                        # survives a restart (was in-memory only).
+                        await self._write_belief_row(belief, commit=True)
 
             avg_decay = total_decay / max(beliefs_decayed, 1)
 
@@ -1447,38 +1532,52 @@ class BayesianUncertaintySystem:
             violations_found = 0
             constraints_propagated = 0
 
-            # Check for contradictions in belief graph
+            # Check for contradictions in belief graph.
+            # The relationship/belief attribute names below were WRONG — a
+            # BeliefRelationship exposes source_belief_id/target_belief_id/
+            # relation_type (not belief_id_a/belief_id_b/relationship_type) and a
+            # BayesianBelief has claim (not hypothesis) and no evidence_count. Every
+            # one of those raised AttributeError on the first relationship, so this
+            # repair pass was inert exactly when it had work to do — "0 violations"
+            # meant "the method crashed", the silent-negative this fixes.
             for rel_id, relationship in self.relationships.items():
-                belief_a = self.beliefs.get(relationship.belief_id_a)
-                belief_b = self.beliefs.get(relationship.belief_id_b)
+                belief_a = self.beliefs.get(relationship.source_belief_id)
+                belief_b = self.beliefs.get(relationship.target_belief_id)
 
                 if not belief_a or not belief_b:
                     continue
 
+                evidence_a = len(belief_a.evidence_for) + len(belief_a.evidence_against)
+                evidence_b = len(belief_b.evidence_for) + len(belief_b.evidence_against)
+
                 # Check CONTRADICTS relationship
-                if relationship.relationship_type == RelationType.CONTRADICTS:
+                if relationship.relation_type == RelationType.CONTRADICTS:
                     # If both beliefs have high confidence, that's a violation
                     if belief_a.posterior_probability > 0.7 and belief_b.posterior_probability > 0.7:
                         violations_found += 1
                         logger.warning(
-                            f"⚠️  Consistency violation: {belief_a.hypothesis} contradicts {belief_b.hypothesis}"
+                            f"⚠️  Consistency violation: {belief_a.claim} contradicts {belief_b.claim}"
                         )
 
-                        # Reduce confidence in the weaker belief
-                        if belief_a.evidence_count < belief_b.evidence_count:
+                        # Reduce confidence in the weaker belief (fewer evidence items)
+                        if evidence_a < evidence_b:
                             belief_a.posterior_probability *= 0.9
+                            await self._write_belief_row(belief_a, commit=True)
                         else:
                             belief_b.posterior_probability *= 0.9
+                            await self._write_belief_row(belief_b, commit=True)
 
                         constraints_propagated += 1
 
                 # Check IMPLIES relationship
-                elif relationship.relationship_type == RelationType.IMPLIES:
+                elif relationship.relation_type == RelationType.IMPLIES:
                     # If A is likely and A→B, then B should be likely
                     if belief_a.posterior_probability > 0.7 and belief_b.posterior_probability < 0.3:
                         # Propagate implication
                         boost = (belief_a.posterior_probability - 0.5) * relationship.strength * 0.3
                         belief_b.posterior_probability = min(1.0, belief_b.posterior_probability + boost)
+                        # DURABLE: the propagated constraint must persist too.
+                        await self._write_belief_row(belief_b, commit=True)
                         constraints_propagated += 1
 
             logger.info(f"✓ Checked {len(self.relationships)} belief relationships")
@@ -1525,6 +1624,11 @@ class BayesianUncertaintySystem:
                     self.domain_volatility[domain] = new_lambda
 
                     domains_updated += 1
+
+            # DURABLE: persist the recomputed per-domain λ so adaptive decay
+            # rates survive a restart (was in-memory only).
+            if domains_updated:
+                await self.save_domain_volatility()
 
             logger.info(f"✓ Updated volatility metrics for {domains_updated} domains")
 

@@ -7,8 +7,8 @@ Prevents concurrent llama_decode calls across multiple Llama() instances.
 The ggml-blas backend shares state across all Llama instances in a process.
 Concurrent llama_decode calls cause race conditions and SIGSEGV crashes.
 
-This module provides a single asyncio.Lock that BOTH UnifiedLLMService and 
-LightweightLLMService must acquire before calling any Llama inference.
+This module provides a single asyncio.Lock that UnifiedLLMService must acquire
+before calling any Llama inference.
 """
 
 import asyncio

@@ -723,7 +723,7 @@ class AbductiveReasoningStrategy(ReasoningStrategy):
     @property
     def parser(self):
         if self._parser is None:
-            from core.agents.logical.logical_integration import LogicalFormulaParser
+            from core.reasoning.logical_integration import LogicalFormulaParser
             self._parser = LogicalFormulaParser()
         return self._parser
 
@@ -3086,3 +3086,17 @@ def create_abstract_reasoning_engine(config: Optional[Dict[str, Any]] = None) ->
 
     logger.info(f"Created AbstractReasoningEngine with config: {config}")
     return engine
+
+
+_abstract_reasoning_engine: Optional[AbstractReasoningEngine] = None
+
+
+def get_abstract_reasoning_engine() -> AbstractReasoningEngine:
+    """The shared AbstractReasoningEngine. ONE instance so its per-kind stats
+    ACCUMULATE (a fresh engine per reason() call reset them every time, which is
+    why they read as empty and were never health-probed). The reasoning authority
+    and the health monitor both reach this."""
+    global _abstract_reasoning_engine
+    if _abstract_reasoning_engine is None:
+        _abstract_reasoning_engine = create_abstract_reasoning_engine()
+    return _abstract_reasoning_engine

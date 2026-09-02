@@ -6,8 +6,8 @@
       "override_triggers": {},
       "enabled": true,
       "rollout_stage": 2,
-      "last_updated": "2026-08-27T13:48:56.327460",
-      "updated_by": "system"
+      "last_updated": "2026-09-02T10:38:19.372899",
+      "updated_by": "autonomous_coordinator_startup"
     },
     "MEMORY_OPERATIONS": {
       "category": "MEMORY_OPERATIONS",
@@ -15,8 +15,8 @@
       "override_triggers": {},
       "enabled": true,
       "rollout_stage": 2,
-      "last_updated": "2026-08-27T13:48:56.327462",
-      "updated_by": "system"
+      "last_updated": "2026-09-02T10:38:19.373243",
+      "updated_by": "autonomous_coordinator_startup"
     },
     "RESOURCE_ALLOCATION": {
       "category": "RESOURCE_ALLOCATION",
@@ -24,17 +24,17 @@
       "override_triggers": {},
       "enabled": true,
       "rollout_stage": 2,
-      "last_updated": "2026-08-27T13:48:56.327463",
-      "updated_by": "system"
+      "last_updated": "2026-09-02T10:38:19.373448",
+      "updated_by": "autonomous_coordinator_startup"
     },
     "LEARNING_PARAMETERS": {
       "category": "LEARNING_PARAMETERS",
-      "enforcement_mode": "LOG_ONLY",
+      "enforcement_mode": "RECOMMEND_GOVERNANCE",
       "override_triggers": {},
-      "enabled": false,
-      "rollout_stage": 3,
-      "last_updated": "2026-08-27T13:48:56.327589",
-      "updated_by": "test_system"
+      "enabled": true,
+      "rollout_stage": 2,
+      "last_updated": "2026-09-02T10:38:19.373628",
+      "updated_by": "autonomous_coordinator_startup"
     },
     "CONFIGURATION_CHANGES": {
       "category": "CONFIGURATION_CHANGES",
@@ -44,8 +44,8 @@
       },
       "enabled": true,
       "rollout_stage": 2,
-      "last_updated": "2026-08-27T13:48:56.327466",
-      "updated_by": "system"
+      "last_updated": "2026-09-02T10:38:19.374497",
+      "updated_by": "autonomous_coordinator_startup"
     },
     "EXTERNAL_INTEGRATIONS": {
       "category": "EXTERNAL_INTEGRATIONS",
@@ -53,8 +53,8 @@
       "override_triggers": {},
       "enabled": true,
       "rollout_stage": 2,
-      "last_updated": "2026-08-27T13:48:56.327467",
-      "updated_by": "system"
+      "last_updated": "2026-09-02T10:38:19.373987",
+      "updated_by": "autonomous_coordinator_startup"
     },
     "TASK_CREATION": {
       "category": "TASK_CREATION",
@@ -62,8 +62,8 @@
       "override_triggers": {},
       "enabled": true,
       "rollout_stage": 2,
-      "last_updated": "2026-08-27T13:48:56.327469",
-      "updated_by": "system"
+      "last_updated": "2026-09-02T10:38:19.374154",
+      "updated_by": "autonomous_coordinator_startup"
     },
     "CURIOSITY_EXPLORATION": {
       "category": "CURIOSITY_EXPLORATION",
@@ -71,10 +71,10 @@
       "override_triggers": {},
       "enabled": true,
       "rollout_stage": 2,
-      "last_updated": "2026-08-27T13:48:56.327470",
-      "updated_by": "system"
+      "last_updated": "2026-09-02T10:38:19.374320",
+      "updated_by": "autonomous_coordinator_startup"
     }
   },
   "rollback_events": [],
-  "last_saved": "2026-08-27T13:48:56.327591"
+  "last_saved": "2026-09-02T10:38:19.374536"
 }

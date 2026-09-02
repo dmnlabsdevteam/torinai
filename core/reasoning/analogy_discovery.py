@@ -537,19 +537,28 @@ class AnalogyDiscovery:
         concept1: Concept,
         concept2: Concept
     ) -> float:
-        """Calculate structural similarity between concepts"""
-        # Compare attributes
-        attr_overlap = await self._attribute_overlap(concept1.attributes, concept2.attributes)
-        if not attr_overlap:
-            return 0.0
+        """Structural similarity over RELATIONSHIPS, refined by attributes.
 
-        # Compare relationships
-        rel_overlap = await self._relationship_overlap(concept1.relationships, concept2.relationships)
+        Concepts in the store carry their relational structure -- (relation_type,
+        target) pairs -- and usually NO attribute list, so structure is the SHAPE
+        of a concept's relations: which relation TYPES it participates in, the
+        cross-domain-invariant signal. The old code returned 0.0 whenever
+        attributes did not overlap, and since the store populates relationships
+        (not attributes), that made every structural score 0 and no analogy could
+        ever be found. Attributes now only REFINE the score, and only when both
+        concepts actually have them.
+        """
+        rel_overlap = await self._relationship_overlap(
+            concept1.relationships, concept2.relationships)
 
-        # Weighted combination
-        similarity = attr_overlap * 0.5 + rel_overlap * 0.5
+        if concept1.attributes and concept2.attributes:
+            attr_overlap = await self._attribute_overlap(
+                concept1.attributes, concept2.attributes)
+            return attr_overlap * 0.5 + rel_overlap * 0.5
 
-        return similarity
+        # No attributes to compare (the common case): structure IS the relation
+        # shape.
+        return rel_overlap
 
     async def _functional_similarity(
         self,
@@ -944,6 +953,18 @@ class AnalogyDiscovery:
                 commit=True,
             )
 
+            # Persist each concept mapping to unified.concept_mappings too. The
+            # analogy row keeps a JSON summary, but the mappings are first-class
+            # cross-domain correspondences other reasoning reads by concept; this
+            # method existed and was simply never called, so concept_mappings
+            # stayed empty while analogies filled.
+            for _m in (analogy.mappings or []):
+                try:
+                    await self._persist_mapping(_m, analogy.analogy_id)
+                except Exception as _me:
+                    logger.info("mapping persist skipped for %s: %s",
+                                analogy.analogy_id, _me)
+
             return True
 
         except Exception as e:
@@ -961,17 +982,33 @@ class AnalogyDiscovery:
             if not self.db:
                 return False
 
+            # The table schema is (mapping_id PK, source_concept, target_concept,
+            # mapping_type, structural_similarity, functional_similarity,
+            # confidence). The old INSERT wrote columns (analogy_id, mappings)
+            # that do not exist, so every write failed silently and
+            # concept_mappings stayed empty. mapping_id is the concept pair.
+            src = getattr(mapping.source, "name", str(mapping.source))
+            tgt = getattr(mapping.target, "name", str(mapping.target))
+            mapping_id = f"{src}:{tgt}"
+            mtype = getattr(mapping.mapping_type, "value", str(mapping.mapping_type))
             await self.db.execute_query(
                 """
                 INSERT INTO unified.concept_mappings (
-                    analogy_id, mappings, confidence, created_at
+                    mapping_id, source_concept, target_concept, mapping_type,
+                    structural_similarity, functional_similarity, confidence,
+                    created_at
                 )
-                VALUES ($1, $2, $3, NOW())
+                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+                ON CONFLICT (mapping_id) DO UPDATE SET
+                    confidence = EXCLUDED.confidence,
+                    structural_similarity = EXCLUDED.structural_similarity,
+                    functional_similarity = EXCLUDED.functional_similarity
                 """,
                 params=(
-                    analogy_id,
-                    str(mapping.mappings),
-                    mapping.confidence
+                    mapping_id, src, tgt, mtype,
+                    float(mapping.structural_similarity),
+                    float(mapping.functional_similarity),
+                    float(mapping.confidence),
                 ),
                 commit=True,
             )

@@ -94,17 +94,17 @@ class AnalyzeResearchPaperTool(Tool):
 
     async def execute(self, paper_text: str, analysis_depth: str = "standard") -> ToolResult:
         try:
-            from core.services.unified_llm import get_llm_service
-
-            # Check if paper_text is a file path
-            paper_path = Path(paper_text)
-            if paper_path.exists() and paper_path.is_file():
-                with open(paper_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    text = f.read()
-            else:
-                text = paper_text
-
-            llm = get_llm_service()
+            # Accept either a file path or the paper text itself. A long text
+            # is not a path: Path.exists() raises "File name too long" rather
+            # than returning False, so guard the probe.
+            text = paper_text
+            try:
+                paper_path = Path(paper_text)
+                if paper_path.exists() and paper_path.is_file():
+                    with open(paper_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        text = f.read()
+            except OSError:
+                pass
 
             # Extract sections using patterns
             sections = {
@@ -116,35 +116,20 @@ class AnalyzeResearchPaperTool(Tool):
                 'conclusion': self._extract_section(text, ['conclusion', 'conclusions'])
             }
 
-            # Use LLM for deep analysis
-            analysis_prompt = f"""Analyze this research paper in depth:
-
-Paper Text (first 8000 chars):
-{text[:8000]}
-
-Extracted Sections:
-Abstract: {sections['abstract'][:500] if sections['abstract'] else 'Not found'}
-Methods: {sections['methods'][:500] if sections['methods'] else 'Not found'}
-Results: {sections['results'][:500] if sections['results'] else 'Not found'}
-
-Provide analysis:
-1. **Research Question**: What is the main research question or hypothesis?
-2. **Methodology**: What methods/techniques were used?
-3. **Key Findings**: What are the main results?
-4. **Contributions**: What are the novel contributions?
-5. **Limitations**: What limitations are mentioned?
-6. **Future Work**: What future research is suggested?
-7. **Datasets**: What datasets or experimental setup was used?
-8. **Metrics**: What evaluation metrics were used?
-
-Be specific and cite evidence from the text."""
-
-            analysis_result = await llm.generate(
-                prompt=analysis_prompt,
-                agent_type="analysis",
-                max_tokens=2048
-            )
-            analysis = analysis_result.get('content', '') if isinstance(analysis_result, dict) else str(analysis_result)
+            # Model-free structural analysis: surface the paper's OWN sentences
+            # that answer each analytical dimension, rather than an LLM prose
+            # summary. Each field is evidence lifted directly from the text.
+            analysis = {
+                'research_question': self._lead(sections['abstract'] or sections['introduction']),
+                'methodology': self._lead(sections['methods']),
+                'key_findings': self._lead(sections['results']),
+                'discussion': self._lead(sections['discussion']),
+                'conclusion': self._lead(sections['conclusion']),
+                'datasets': self._find_sentences(text, ['dataset', 'corpus', 'benchmark', 'data set']),
+                'metrics': self._find_sentences(text, ['accuracy', 'f1', 'precision', 'recall', 'bleu', 'auc', 'rmse', 'error rate']),
+                'limitations': self._find_sentences(text, ['limitation', 'we do not', 'cannot', 'fails to', 'does not']),
+                'future_work': self._find_sentences(text, ['future work', 'future research', 'we plan', 'we leave']),
+            }
 
             # Extract references count
             refs = len(re.findall(r'\[\d+\]|\(\d{4}\)', text))
@@ -161,6 +146,7 @@ Be specific and cite evidence from the text."""
                     },
                     'metadata': {
                         'analysis_depth': analysis_depth,
+                        'method': 'structural_extraction',
                         'timestamp': datetime.now().isoformat()
                     }
                 },
@@ -170,6 +156,29 @@ Be specific and cite evidence from the text."""
         except Exception as e:
             logger.error(f"Paper analysis failed: {e}")
             return ToolResult(success=False, output=None, error=str(e), tool_name=self.name)
+
+    @staticmethod
+    def _lead(section_text: Optional[str], max_sentences: int = 2) -> Optional[str]:
+        """First few sentences of a section — its topic statement, verbatim."""
+        if not section_text:
+            return None
+        sentences = re.split(r'(?<=[.!?])\s+', section_text.strip())
+        lead = ' '.join(s for s in sentences[:max_sentences] if s).strip()
+        return lead or None
+
+    @staticmethod
+    def _find_sentences(text: str, keywords: List[str], limit: int = 3) -> List[str]:
+        """Sentences that mention any keyword — evidence lifted from the paper."""
+        found: List[str] = []
+        for sentence in re.split(r'(?<=[.!?])\s+', text):
+            low = sentence.lower()
+            if any(k in low for k in keywords):
+                cleaned = ' '.join(sentence.split())
+                if cleaned and cleaned not in found:
+                    found.append(cleaned[:300])
+            if len(found) >= limit:
+                break
+        return found
 
     def _extract_section(self, text: str, keywords: List[str]) -> Optional[str]:
         """Extract section based on keywords"""
@@ -401,46 +410,73 @@ class SynthesizeLiteratureTool(Tool):
     async def execute(self, papers: List[str], research_question: str,
                      synthesis_type: str = "thematic") -> ToolResult:
         try:
-            from core.services.unified_llm import get_llm_service
+            if not papers:
+                return ToolResult(success=False, output=None,
+                                  error="no papers to synthesize", tool_name=self.name)
 
-            llm = get_llm_service()
+            # Model-free synthesis over the substrate's local embeddings.
+            # Themes = clusters of papers that embed close together; relevance =
+            # each paper's cosine similarity to the research question; outliers =
+            # papers distant from every other (candidate gaps / contradictions).
+            from core.memory.utils.embedding_service import get_embedding_service
+            import numpy as np
 
-            # Prepare papers summary
-            papers_text = "\n\n".join([f"Paper {i+1}:\n{p[:2000]}" for i, p in enumerate(papers)])
+            service = get_embedding_service()
+            vectors = [service.generate_embedding(p[:4000]) for p in papers]
+            if any(v is None for v in vectors):
+                return ToolResult(success=False, output=None,
+                                  error="synthesis unavailable: local embedding model not loaded",
+                                  tool_name=self.name)
 
-            synthesis_prompt = f"""Conduct a {synthesis_type} literature review synthesis:
+            mat = np.asarray(vectors, dtype=float)
+            norms = np.linalg.norm(mat, axis=1, keepdims=True)
+            unit = mat / np.clip(norms, 1e-12, None)
+            sim = unit @ unit.T  # pairwise cosine
 
-Research Question: {research_question}
+            # Relevance of each paper to the research question.
+            q = service.generate_embedding(research_question)
+            relevance = []
+            if q is not None:
+                qv = np.asarray(q, dtype=float)
+                qv = qv / max(float(np.linalg.norm(qv)), 1e-12)
+                scores = unit @ qv
+                relevance = sorted(
+                    ({'paper': i + 1, 'relevance': round(float(scores[i]), 4)} for i in range(len(papers))),
+                    key=lambda r: r['relevance'], reverse=True
+                )
 
-Papers to Synthesize:
-{papers_text}
+            # Greedy thematic clustering: group papers whose cosine >= threshold.
+            threshold = 0.45
+            unassigned = set(range(len(papers)))
+            themes = []
+            while unassigned:
+                seed = max(unassigned, key=lambda i: float(sim[i][list(unassigned)].mean()))
+                members = sorted(j for j in unassigned if float(sim[seed][j]) >= threshold)
+                if seed not in members:
+                    members.append(seed)
+                for j in members:
+                    unassigned.discard(j)
+                terms = self._shared_terms([papers[j] for j in members])
+                themes.append({'papers': [j + 1 for j in members], 'shared_terms': terms})
 
-Provide a comprehensive synthesis including:
-1. **Overview**: Brief overview of the research landscape
-2. **Key Themes**: Major themes/patterns across papers
-3. **Methodological Approaches**: Common and divergent methodologies
-4. **Main Findings**: Synthesized findings organized by theme
-5. **Gaps**: Identified research gaps
-6. **Contradictions**: Any contradictory findings
-7. **Future Directions**: Suggested future research directions
-8. **Summary Table**: Comparison of key aspects across papers
-
-Use academic writing style with proper transitions and citations (refer to papers by number)."""
-
-            synthesis_result = await llm.generate(
-                prompt=synthesis_prompt,
-                agent_type="research",
-                max_tokens=3072
-            )
-            synthesis = synthesis_result.get('content', '') if isinstance(synthesis_result, dict) else str(synthesis_result)
+            # Outliers: papers whose best similarity to any OTHER paper is low.
+            outliers = []
+            for i in range(len(papers)):
+                others = [float(sim[i][j]) for j in range(len(papers)) if j != i]
+                if others and max(others) < threshold:
+                    outliers.append(i + 1)
 
             return ToolResult(
                 success=True,
                 output={
-                    'synthesis': synthesis,
                     'research_question': research_question,
                     'synthesis_type': synthesis_type,
                     'papers_count': len(papers),
+                    'themes': themes,
+                    'relevance_ranking': relevance,
+                    'outliers': outliers,
+                    'method': 'embedding_clustering',
+                    'model': service.model_name,
                     'timestamp': datetime.now().isoformat()
                 },
                 tool_name=self.name
@@ -449,6 +485,28 @@ Use academic writing style with proper transitions and citations (refer to paper
         except Exception as e:
             logger.error(f"Literature synthesis failed: {e}")
             return ToolResult(success=False, output=None, error=str(e), tool_name=self.name)
+
+    @staticmethod
+    def _shared_terms(texts: List[str], top: int = 8) -> List[str]:
+        """Salient terms shared across a cluster: content words frequent in most members."""
+        import re as _re
+        from collections import Counter
+        stop = {
+            'the', 'and', 'for', 'that', 'with', 'this', 'from', 'are', 'was', 'were',
+            'our', 'can', 'has', 'have', 'not', 'but', 'which', 'these', 'they', 'their',
+            'using', 'used', 'use', 'based', 'also', 'such', 'more', 'than', 'been', 'may',
+            'we', 'is', 'of', 'in', 'to', 'a', 'an', 'on', 'as', 'by', 'be', 'it', 'or',
+        }
+        per_doc = []
+        for t in texts:
+            words = {w for w in _re.findall(r'[a-z]{3,}', t.lower()) if w not in stop}
+            per_doc.append(words)
+        counts = Counter()
+        for words in per_doc:
+            counts.update(words)
+        need = max(1, (len(texts) + 1) // 2)  # appears in at least half the members
+        shared = [w for w, c in counts.most_common() if c >= need]
+        return shared[:top]
 
 
 class ExtractPaperMetadataTool(Tool):

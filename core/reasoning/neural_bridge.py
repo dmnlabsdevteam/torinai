@@ -336,7 +336,7 @@ class PassthroughFormalizer(IFormalizer):
     ) -> Formalization:
         # Imported lazily: logical_integration imports this package inside its
         # own functions, so a module-level import here would risk a cycle.
-        from core.agents.logical.logical_integration import LogicalFormulaParser
+        from core.reasoning.logical_integration import LogicalFormulaParser
 
         parser = LogicalFormulaParser()
 
@@ -809,12 +809,397 @@ class NeuralSymbolicBridge:
         print(f"Confidence: {result.confidence}")
     """
 
+    #: DECLARED PRIOR difficulty per kind of thinking — used only until the
+    #: bridge has MEASURED enough real reason() calls of that kind (see
+    #: `reasoning_difficulty`). It is a starting belief, not a fact: a wide
+    #: hypothesis search (abductive/causal/counterfactual) is assumed harder,
+    #: entailment easier — but measurement replaces the assumption.
+    _DECLARED_DIFFICULTY: Dict[str, float] = {
+        "abductive": 2.5, "causal": 2.5, "counterfactual": 2.5,
+        "inductive": 1.5, "probabilistic": 1.5, "analogical": 1.5,
+        "deductive": 1.0, "logical": 1.0, "temporal": 1.0, "spatial": 1.0, "fuzzy": 1.0,
+        "quantum": 2.0, "quantum_superposition": 2.0, "quantum_entanglement": 2.0,
+        "quantum_interference": 2.0, "quantum_parallelism": 2.0,
+    }
+    _DEFAULT_DIFFICULTY = 1.5
+    #: Real runs of a kind needed before measurement is trusted over the prior.
+    _DIFFICULTY_MIN_RUNS = 5
+    #: Difficulty is clamped here so one slow outlier can't unbound it.
+    _DIFFICULTY_MIN, _DIFFICULTY_MAX = 1.0, 4.0
+
+    @staticmethod
+    def _kind_key(k: Any) -> str:
+        return str(getattr(k, "value", k) or "").strip().lower()
+
+    def _kind_cell(self, key: str) -> Dict[str, float]:
+        """The per-kind stats cell, with all four fields present. `runs` +
+        `total_latency` are the COST signal (difficulty); `attempts` +
+        `successes` are the QUALITY signal (which kinds settle queries). One cell,
+        one table — cost and quality are both behaviour of the same kind."""
+        cell = self._reasoning_telemetry.setdefault(
+            key, {"runs": 0, "total_latency": 0.0, "attempts": 0, "successes": 0})
+        cell.setdefault("attempts", 0)
+        cell.setdefault("successes", 0)
+        return cell
+
+    def record_reasoning(self, kinds: Any, latency_s: float) -> None:
+        """Ground reasoning difficulty in BEHAVIOUR: every real reason() call
+        reports how long it took, per kind it exercised. This is what makes
+        `reasoning_difficulty` measured rather than declared."""
+        if latency_s <= 0:
+            return
+        one = kinds if isinstance(kinds, (list, tuple, set)) else [kinds]
+        for k in one:
+            key = self._kind_key(k)
+            if not key:
+                continue
+            cell = self._kind_cell(key)
+            cell["runs"] += 1
+            cell["total_latency"] += float(latency_s)
+            self._telemetry_dirty = True
+
+    #: Attempts a kind needs before its measured success rate is trusted.
+    _QUALITY_MIN_ATTEMPTS = 5
+    #: Neutral prior success rate before enough data (0.5 = no evidence either way).
+    _QUALITY_PRIOR = 0.5
+
+    def record_reasoning_outcome(self, attempted_kinds: Any, winning_kind: Any) -> None:
+        """Record which kinds were CONSIDERED for a query and which one SETTLED it.
+        Every considered kind gets an attempt; the winner gets a success. This is
+        the QUALITY signal — how often a kind, once in contention, is the one that
+        actually answers — owned by the reasoning authority, symmetric to the
+        latency/difficulty signal. `winning_kind` None means nothing settled."""
+        attempted = (attempted_kinds if isinstance(attempted_kinds, (list, tuple, set))
+                     else [attempted_kinds])
+        win = self._kind_key(winning_kind) if winning_kind is not None else None
+        for k in attempted:
+            key = self._kind_key(k)
+            if not key:
+                continue
+            cell = self._kind_cell(key)
+            cell["attempts"] += 1
+            if win is not None and key == win:
+                cell["successes"] += 1
+            self._telemetry_dirty = True
+
+    def reasoning_quality(self, reasoning_type: Any) -> float:
+        """Measured success rate of a reasoning kind — how often, when considered,
+        it settled the query. `_QUALITY_PRIOR` (neutral) until it has
+        `_QUALITY_MIN_ATTEMPTS` attempts. Used to PREFER kinds that work."""
+        cell = self._reasoning_telemetry.get(self._kind_key(reasoning_type))
+        if not cell or cell.get("attempts", 0) < self._QUALITY_MIN_ATTEMPTS:
+            return self._QUALITY_PRIOR
+        return cell["successes"] / cell["attempts"]
+
+    def reasoning_difficulty(self, reasoning_type: Any) -> float:
+        """How hard this kind of thinking is, MEASURED — the reasoning authority's
+        grounded signal (B). Once a kind has >= _DIFFICULTY_MIN_RUNS real reason()
+        calls, its difficulty is its average latency normalised against the
+        FASTEST measured kind (so "harder" means "empirically slower here"),
+        clamped. Before that, the declared prior stands. Consumers (the agent
+        allowance, the queue's timeout) read THIS, not a hardcoded table."""
+        key = str(getattr(reasoning_type, "value", reasoning_type) or "").strip().lower()
+        prior = self._DECLARED_DIFFICULTY.get(key, self._DEFAULT_DIFFICULTY)
+        cell = self._reasoning_telemetry.get(key)
+        if not cell or cell["runs"] < self._DIFFICULTY_MIN_RUNS:
+            return prior
+        # Baseline = the fastest kind that also has enough data; that kind is 1.0.
+        measured = {k: v["total_latency"] / v["runs"]
+                    for k, v in self._reasoning_telemetry.items()
+                    if v["runs"] >= self._DIFFICULTY_MIN_RUNS and v["total_latency"] > 0}
+        if not measured:
+            return prior
+        baseline = min(measured.values())
+        if baseline <= 0:
+            return prior
+        ratio = (cell["total_latency"] / cell["runs"]) / baseline
+        return max(self._DIFFICULTY_MIN, min(self._DIFFICULTY_MAX, ratio))
+
+    def agent_allowance(self, reasoning_type: Any) -> int:
+        """How many agents-of-self a kind warrants in parallel — DERIVED from the
+        (now measured) difficulty: harder/costlier thinking earns more parallel
+        copies. The factory ASKS this; the reasoning authority owns it, and it is
+        grounded in behaviour, not a fixed table. No flat cap."""
+        difficulty = self.reasoning_difficulty(reasoning_type)
+        # difficulty 1.0 -> 2 agents, 2.0 -> 4, 2.5 -> 5, clamped [2, 6].
+        return max(2, min(6, round(2.0 * difficulty)))
+
+    # ── Telemetry persistence (measured difficulty survives restart) ─────────
+
+    _TELEMETRY_DDL = """
+    CREATE TABLE IF NOT EXISTS unified.reasoning_telemetry (
+        kind          VARCHAR PRIMARY KEY,
+        runs          INTEGER NOT NULL,
+        total_latency DOUBLE PRECISION NOT NULL,
+        attempts      INTEGER NOT NULL DEFAULT 0,
+        successes     INTEGER NOT NULL DEFAULT 0,
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    ALTER TABLE unified.reasoning_telemetry ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE unified.reasoning_telemetry ADD COLUMN IF NOT EXISTS successes INTEGER NOT NULL DEFAULT 0;
+    """
+
+    def _telemetry_db_handle(self):
+        if self._telemetry_db is None:
+            from core.database import get_database_manager
+            self._telemetry_db = get_database_manager()
+        return self._telemetry_db
+
+    async def _ensure_telemetry_schema(self):
+        if self._telemetry_schema_ready:
+            return
+        db = self._telemetry_db_handle()
+        if not getattr(db, "initialized", False):
+            await db.initialize()
+        await db.execute_query(self._TELEMETRY_DDL.strip())
+        self._telemetry_schema_ready = True
+
+    async def load_telemetry(self) -> int:
+        """Reload measured per-kind behaviour from the durable store on boot.
+        Returns how many kinds were loaded. A DB error is surfaced (logged) and
+        leaves the in-memory telemetry empty — the prior then stands, which is
+        the honest cold-start, not a fabricated measurement."""
+        try:
+            await self._ensure_telemetry_schema()
+            rows = await self._telemetry_db_handle().execute_query(
+                "SELECT kind, runs, total_latency, attempts, successes"
+                " FROM unified.reasoning_telemetry",
+                fetch_all=True,
+            ) or []
+            for r in rows:
+                self._reasoning_telemetry[r["kind"]] = {
+                    "runs": int(r["runs"]),
+                    "total_latency": float(r["total_latency"]),
+                    "attempts": int(r["attempts"] or 0),
+                    "successes": int(r["successes"] or 0),
+                }
+            self._telemetry_dirty = False
+            if rows:
+                logger.info("reasoning telemetry restored: %d kinds", len(rows))
+            return len(rows)
+        except Exception as e:
+            logger.error("reasoning telemetry load failed: %s", e)
+            return 0
+
+    async def flush_telemetry(self) -> int:
+        """Persist the current per-kind aggregate (upsert one row per kind).
+        No-op when nothing changed since the last flush. Returns rows written.
+        Scheduled through the queue authority — the reasoning authority owns the
+        flush, the queue authority owns the cadence (nothing schedules outside
+        it)."""
+        if not self._telemetry_dirty:
+            return 0
+        try:
+            await self._ensure_telemetry_schema()
+            snapshot = {k: dict(v) for k, v in self._reasoning_telemetry.items()}
+            db = self._telemetry_db_handle()
+            for kind, cell in snapshot.items():
+                await db.execute_query(
+                    "INSERT INTO unified.reasoning_telemetry"
+                    " (kind, runs, total_latency, attempts, successes, updated_at)"
+                    " VALUES ($1, $2, $3, $4, $5, NOW())"
+                    " ON CONFLICT (kind) DO UPDATE SET"
+                    "   runs = EXCLUDED.runs,"
+                    "   total_latency = EXCLUDED.total_latency,"
+                    "   attempts = EXCLUDED.attempts,"
+                    "   successes = EXCLUDED.successes,"
+                    "   updated_at = NOW()",
+                    (kind, int(cell["runs"]), float(cell["total_latency"]),
+                     int(cell.get("attempts", 0)), int(cell.get("successes", 0))),
+                    commit=True,
+                )
+            self._telemetry_dirty = False
+            return len(snapshot)
+        except Exception as e:
+            logger.error("reasoning telemetry flush failed: %s", e)
+            return 0
+
+    async def _flush_reasoning_persistence(self) -> int:
+        """Scheduled flush of ALL the authority's durable reasoning metrics:
+        per-kind telemetry (difficulty + quality) and the coarse mode-mix
+        statistics. One scheduled job, the queue authority owns the cadence."""
+        n = await self.flush_telemetry()
+        n += await self.flush_statistics()
+        return n
+
+    # ── Abstraction + reflection: the authority's, driven on demand/events ────
+
+    async def abstract_over_memories(self, memory_dicts: List[Dict[str, Any]]) -> Dict[str, int]:
+        """Form abstractions (schemas → beliefs) from a batch of memories. This
+        is the reasoning the memory agent USED to do itself; it now asks the
+        authority. Returns process_memories' counts. Raises if the subsystem is
+        not owned yet (a wiring defect, surfaced — never a silent no-op)."""
+        if self.abstraction is None:
+            raise RuntimeError(
+                "reasoning authority has no abstraction subsystem; "
+                "bridge.initialize() must run before abstraction is requested")
+        if not memory_dicts:
+            return {}
+        return await self.abstraction.process_memories(memory_dicts)
+
+    async def reflect(self) -> Dict[str, Any]:
+        """Reflect over the belief graph — decay, contradiction/implication
+        consistency, domain volatility — and decay stale schemas. This is
+        belief-graph HYGIENE, owned by the reasoning authority (was the memory
+        agent's `reflect_on_beliefs`). Each step is isolated so one failure does
+        not abort the rest; the report says what actually ran."""
+        report: Dict[str, Any] = {"decayed": None, "consistency": None,
+                                   "volatility": None, "schema_decay": None,
+                                   "errors": []}
+        if self.beliefs is None:
+            raise RuntimeError(
+                "reasoning authority has no belief subsystem; bridge.initialize()"
+                " must run before reflection is requested")
+        for step, call in (
+            ("decayed", self.beliefs.apply_temporal_decay_to_all_beliefs),
+            ("consistency", self.beliefs.check_belief_consistency),
+            ("volatility", self.beliefs.update_domain_volatility_metrics),
+        ):
+            try:
+                r = call()
+                report[step] = await r if asyncio.iscoroutine(r) else r
+            except Exception as e:
+                report["errors"].append(f"{step}: {e}")
+                logger.error("reflect step %s failed: %s", step, e)
+        if self.abstraction is not None:
+            try:
+                r = self.abstraction.apply_schema_decay()
+                report["schema_decay"] = await r if asyncio.iscoroutine(r) else r
+            except Exception as e:
+                report["errors"].append(f"schema_decay: {e}")
+                logger.error("reflect schema_decay failed: %s", e)
+        return report
+
+    # ── Epistemic + hypothesis services — routed THROUGH the authority ────────
+    # These were standalone, uncalled surfaces (EpistemicEngine.assess_uncertainty
+    # / apply_reasoning_output, the hypothesis system). The reasoning authority is
+    # the ONE entry point, so callers reach them here rather than each importing a
+    # different reasoning subsystem directly.
+
+    async def assess_uncertainty(self, request: "ReasoningRequest") -> Dict[str, Any]:
+        """How unsettled the substrate's OWN knowledge is about this query
+        (belief-graph entropy over the unstable regions). The authority consults
+        the epistemic engine; used to annotate reasoning results."""
+        try:
+            from core.reasoning.epistemic_engine import get_epistemic_engine
+            return await get_epistemic_engine().assess_uncertainty(request)
+        except Exception as e:
+            logger.debug("uncertainty assessment unavailable: %s", e)
+            return {"uncertainty": None, "confidence": None, "basis": str(e)}
+
+    async def apply_reasoning_output(self, outputs: Dict[str, Any]) -> int:
+        """Fold structured reasoning conclusions ({hypotheses, belief_updates})
+        into the belief graph via the epistemic engine. Returns how many real
+        epistemic mutations resulted (0 = nothing changed). The one place the
+        substrate turns its reasoning into durable belief."""
+        if not outputs or not (outputs.get("hypotheses") or outputs.get("belief_updates")):
+            return 0
+        try:
+            from core.reasoning.epistemic_engine import get_epistemic_engine
+            mutations = await get_epistemic_engine().apply_reasoning_output(outputs)
+            return len(mutations)
+        except Exception as e:
+            logger.warning("apply_reasoning_output failed: %s", e)
+            return 0
+
+    @staticmethod
+    def _coerce_predictions(value: Any, *, field: str) -> List[str]:
+        """Normalize a predictions/alternatives argument to a list of non-empty
+        STRINGS — the shape the hypothesis system requires (it calls .lower() on
+        each). A structured item (dict) is flattened to text rather than silently
+        breaking downstream; a bare string is wrapped. A shape that CANNOT be a
+        list of predictions RAISES — a caller error is surfaced, never swallowed
+        to a silent no-hypothesis (the false-negative this replaces)."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            value = [value]
+        if not isinstance(value, (list, tuple, set)):
+            raise ValueError(
+                f"{field} must be a list of strings (or None); got "
+                f"{type(value).__name__}")
+        out: List[str] = []
+        for item in value:
+            if isinstance(item, str):
+                text = item.strip()
+            elif isinstance(item, dict):
+                # Flatten a structured prediction into readable text; prefer an
+                # explicit text field, else join key=value pairs.
+                for key in ("text", "prediction", "claim", "statement"):
+                    if isinstance(item.get(key), str) and item[key].strip():
+                        text = item[key].strip()
+                        break
+                else:
+                    text = ", ".join(f"{k}={v}" for k, v in item.items()).strip()
+            else:
+                text = str(item).strip()
+            if text:
+                out.append(text)
+        return out
+
+    async def generate_hypothesis(self, *, claim: str, domain: str = "general",
+                                  predictions: Optional[List[Any]] = None,
+                                  alternatives: Optional[List[Any]] = None) -> Optional[str]:
+        """Generate a falsifiable hypothesis through the authority. The hypothesis
+        subsystem creates + persists it (and seeds a belief); the authority is the
+        single entry so callers (intrinsic motivation) don't reach the hypothesis
+        system directly. Returns the hypothesis id, or None.
+
+        `claim` must be a non-empty string; `predictions`/`alternatives` are
+        VALIDATED and COERCED to lists of strings here — a caller error raises
+        (surfaced), a structured prediction is flattened (not dropped). Only a
+        genuine SUBSYSTEM failure returns None."""
+        if not claim or not str(claim).strip():
+            raise ValueError("generate_hypothesis requires a non-empty claim")
+        preds = self._coerce_predictions(predictions, field="predictions")
+        alts = self._coerce_predictions(alternatives, field="alternatives")
+        try:
+            from core.reasoning.hypothesis_testing import get_hypothesis_system
+            hs = get_hypothesis_system()
+            if not getattr(hs, "db", None):
+                await hs.initialize()
+            h = await hs.generate_hypothesis(
+                claim=str(claim).strip(), domain=domain,
+                predictions=preds, alternatives=alts)
+            return getattr(h, "hypothesis_id", None) if h is not None else None
+        except Exception as e:
+            logger.warning("generate_hypothesis subsystem failure: %s", e)
+            return None
+
+    async def observe_tool_result(self, tool_name: str, parameters: Dict[str, Any],
+                                  output: Any, success: bool) -> int:
+        """Fold what a tool OBSERVED into the belief graph via the epistemic
+        engine — the substrate learning about its own capabilities from
+        experience. Routed through the authority so the executor's post-tool seam
+        reaches the epistemic engine here, not directly. The resulting belief
+        changes surface (or resolve) unstable regions, which drive the epistemic
+        exploration loop. Returns the number of epistemic mutations."""
+        try:
+            from core.reasoning.epistemic_engine import get_epistemic_engine
+            muts = await get_epistemic_engine().observe_tool_result(
+                tool_name, parameters, output, success)
+            return len(muts)
+        except Exception as e:
+            logger.debug("observe_tool_result routing failed: %s", e)
+            return 0
+
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
         self.initialized = False
 
         # Memory agent for persisting reasoning traces
         self.memory_agent = None
+
+        # ── Owned reasoning subsystems ───────────────────────────────────────
+        # These are REASONING, so the reasoning authority owns them — not the
+        # memory agent (which used to construct and drive them, the
+        # duplicate-authority defect). Constructed in initialize(); the module
+        # singletons are published to the authority's instances so existing
+        # consumers keep resolving. The memory agent now ASKS the bridge
+        # (abstract_over_memories / reflect) instead of running its own.
+        self.beliefs = None            # BayesianUncertaintySystem (belief graph)
+        self.abstraction = None        # AbstractionPipeline (schema formation)
+        self.abstract_engine = None    # AbstractReasoningEngine (abstract inference)
 
 
         # Statistics
@@ -828,6 +1213,18 @@ class NeuralSymbolicBridge:
             'cross_domain_requests': 0,
             'average_confidence': 0.0,
         }
+
+        #: Measured per-kind reasoning behaviour (B): {kind: {runs, total_latency}}.
+        #: Populated by record_reasoning on every real reason() call; read by
+        #: reasoning_difficulty. Loaded from unified.reasoning_telemetry on
+        #: initialize and flushed back periodically, so measured difficulty
+        #: survives a restart instead of falling back to the prior every boot.
+        self._reasoning_telemetry: Dict[str, Dict[str, float]] = {}
+        #: Set when telemetry changed since the last flush — the periodic flush
+        #: skips a DB write when nothing moved.
+        self._telemetry_dirty = False
+        self._telemetry_db = None
+        self._telemetry_schema_ready = False
 
         logger.info("NeuralBridge initialized")
 
@@ -847,6 +1244,46 @@ class NeuralSymbolicBridge:
                 logger.warning(f"MemoryAgent not available: {e}")
                 self.memory_agent = None
 
+            # ── Own the abstraction / belief / abstract-reasoning subsystems ──
+            # The reasoning authority constructs and holds these. They are the
+            # same process-wide singletons other subsystems reach through
+            # get_uncertainty_system() / get_hierarchical_abstraction(), so
+            # ownership here does not strand any consumer — it just makes the
+            # authority the owner and driver instead of the memory agent.
+            try:
+                from core.reasoning.bayesian_uncertainty import get_uncertainty_system
+                self.beliefs = get_uncertainty_system()
+                try:
+                    await self.beliefs.load_from_db()
+                except Exception as _be:
+                    logger.warning("belief load_from_db skipped: %s", _be)
+
+                from core.reasoning.hierarchical_abstraction import (
+                    initialize_abstraction_pipeline)
+                # process_memories takes memory dicts, but the pipeline still
+                # needs a memory handle for its store; hand it the same
+                # memory_agent the authority uses. Idempotent — if the memory
+                # agent already constructed it, this returns that instance.
+                self.abstraction = initialize_abstraction_pipeline(
+                    memory_agent=self.memory_agent,
+                    uncertainty_system=self.beliefs)
+                # Rehydrate induced schemas so abstraction structure survives a
+                # restart (it used to live only in RAM).
+                try:
+                    await self.abstraction.load_schemas_from_db()
+                except Exception as _se:
+                    logger.warning("schema rehydrate skipped: %s", _se)
+
+                from core.reasoning.abstract_reasoning_engine import (
+                    get_abstract_reasoning_engine)
+                # The SHARED engine (singleton) so its per-kind stats accumulate
+                # and the health monitor can probe the same instance.
+                self.abstract_engine = get_abstract_reasoning_engine()
+                logger.info("✓ Reasoning authority owns abstraction + belief + "
+                            "abstract-reasoning subsystems")
+            except Exception as e:
+                logger.error("reasoning subsystem ownership wiring failed: %s", e)
+
             # Derive the subject-object reading from its teacher pairs and put
             # it in the registry -- an explicit, once-per-process step (idempotent,
             # cached), NOT a side effect of formalizing, so an empty registry
@@ -859,6 +1296,24 @@ class NeuralSymbolicBridge:
                     logger.warning("derived reading not registered: %s", why)
             except Exception as e:
                 logger.warning("derived reading registration skipped: %s", e)
+
+            # Restore measured reasoning difficulty from the durable store, and
+            # register its periodic flush on the queue authority (cadence lives
+            # there; the flush logic lives here). Difficulty then survives a
+            # restart instead of resetting to the declared prior every boot.
+            try:
+                # Restore BOTH the per-kind telemetry (latency + quality) and the
+                # coarse mode-mix statistics, so measured difficulty, measured
+                # quality, and the request mix all survive a restart.
+                await self.load_telemetry()
+                await self.load_statistics()
+                from core.agents.autonomous.queue_authority import get_queue_authority
+                interval = float(self.config.get("telemetry_flush_interval_s", 300.0))
+                get_queue_authority().schedule_recurring(
+                    "reasoning_telemetry_flush", self._flush_reasoning_persistence,
+                    interval, priority="low")
+            except Exception as e:
+                logger.warning("reasoning persistence not wired: %s", e)
 
             self.initialized = True
             logger.info("✓ Neural Bridge ready")
@@ -888,12 +1343,12 @@ class NeuralSymbolicBridge:
                                non-answers.
 
             cached_memories is None
-                               a standalone call. Inside the executor's agent
-                               loop the whole conversation is captured once at
-                               task end by _capture_semantic_task_memory();
-                               storing each iteration would pay for embeddings
-                               and a pgvector search per turn to write records
-                               the filter mostly declines anyway.
+                               a standalone call. A completed task's outcome is
+                               captured once at task end by the memory agent
+                               (memory_agent.capture_task_outcome); storing each
+                               iteration would pay for embeddings and a pgvector
+                               search per turn to write records the filter mostly
+                               declines anyway.
         """
         self._update_stats(request, result)
 
@@ -903,6 +1358,55 @@ class NeuralSymbolicBridge:
         return result
 
     async def reason(self, request: ReasoningRequest) -> ReasoningResult:
+        """Perform neural-symbolic reasoning, and TIME it per kind (B).
+
+        Thin timing wrapper over `_reason_impl`: every real reasoning call records
+        how long it took against the kinds it exercised, so `reasoning_difficulty`
+        is grounded in behaviour rather than a declared table. Recording never
+        affects the answer and never raises into the caller."""
+        import time as _time
+        _t0 = _time.monotonic()
+        result = await self._reason_impl(request)
+        try:
+            kinds = list(request.kinds or [])
+            if not kinds and result is not None:
+                meta = getattr(result, "metadata", {}) or {}
+                kk = meta.get("kinds") or meta.get("kind")
+                if kk:
+                    kinds = list(kk) if isinstance(kk, (list, tuple)) else [kk]
+            if kinds:
+                self.record_reasoning(kinds, _time.monotonic() - _t0)
+        except Exception as _e:
+            logger.debug("reasoning telemetry not recorded: %s", _e)
+        # FORMAL ARGUMENTATION runs here as a fallacy check on the settled answer
+        # — the live home for the argumentation engine (previously reachable only
+        # via a test-only HYBRID mode). Honest ANNOTATION: it flags a detected
+        # fallacy in metadata and never changes the answer or its confidence.
+        try:
+            if result is not None and getattr(result, "answer", None):
+                fallacy = await self._check_argument_fallacies(result.answer, request)
+                if fallacy:
+                    md = result.metadata if isinstance(result.metadata, dict) else {}
+                    md["fallacy_warning"] = fallacy
+                    result.metadata = md
+        except Exception as _fe:
+            logger.debug("fallacy check skipped: %s", _fe)
+        # EPISTEMIC uncertainty: annotate the result with how unsettled the
+        # substrate's OWN knowledge is about this query (belief-graph entropy).
+        # The epistemic engine, routed through the authority — a reading, not a
+        # change to the answer.
+        try:
+            if result is not None:
+                unc = await self.assess_uncertainty(request)
+                if unc.get("uncertainty") is not None:
+                    md = result.metadata if isinstance(result.metadata, dict) else {}
+                    md["epistemic_uncertainty"] = unc["uncertainty"]
+                    result.metadata = md
+        except Exception as _ue:
+            logger.debug("uncertainty annotation skipped: %s", _ue)
+        return result
+
+    async def _reason_impl(self, request: ReasoningRequest) -> ReasoningResult:
         """
         Perform neural-symbolic reasoning
 
@@ -1178,54 +1682,11 @@ class NeuralSymbolicBridge:
         from core.learning.llm_teacher import teacher_reachable
         return teacher_reachable()
 
-    async def _verify_candidate(
-        self,
-        candidate: str,
-        request: ReasoningRequest
-    ) -> Dict[str, Any]:
-        """Check a model-proposed answer against the substrate.
-
-        Returns the solver's confidence when the claim could be formalized and
-        proved from the request context, and the unverified placeholder when it
-        could not. Only deterministic formalizers are used, so scoring a
-        candidate never costs another model call.
-        """
-        try:
-            formalization = await self._get_deterministic_formalizer().formalize(
-                candidate, request.context
-            )
-            if not formalization.succeeded:
-                return {"verified": False, "confidence": UNVERIFIED_CONFIDENCE}
-
-            from core.reasoning.advanced_proof_engine import (
-                LogicType,
-                Theorem,
-                get_proof_engine,
-            )
-
-            proof = await get_proof_engine().prove_theorem(
-                Theorem(
-                    theorem_id=f"candidate_{uuid.uuid4().hex[:8]}",
-                    statement=formalization.statement,
-                    premises=list(formalization.premises),
-                    logic_type=LogicType.PROPOSITIONAL,
-                ),
-                timeout=self.SYMBOLIC_PROOF_TIMEOUT,
-            )
-
-            if proof.proved:
-                return {"verified": True, "confidence": proof.confidence}
-
-            # Formalized but not entailed: the claim is not supported by the
-            # context. That is weaker than merely unverified.
-            if not proof.error:
-                return {"verified": False, "confidence": 0.0}
-
-            return {"verified": False, "confidence": UNVERIFIED_CONFIDENCE}
-
-        except Exception as e:
-            logger.debug(f"Candidate verification failed: {e}")
-            return {"verified": False, "confidence": UNVERIFIED_CONFIDENCE}
+    # NOTE: `_verify_candidate` was removed (2026-09-01). It verified a
+    # MODEL-proposed answer by formalizing + proving it from context — but the
+    # bridge is model-free by construction (`_neural_reasoning` is learned
+    # inference, no model is consulted), so there are no model proposals to
+    # verify. It was a model-era vestige with zero callers, not a capability.
 
     async def _check_argument_fallacies(
         self,
@@ -1308,52 +1769,6 @@ class NeuralSymbolicBridge:
             "conclusion in a checkable form, for example 'X is Y', "
             "'All P are Q', 'No P is Q', or 'if X is P then X is Q'."
         )
-
-    async def _check_temporal_consistency(
-        self,
-        temporal_engine: Any,
-        answer: str,
-        request: ReasoningRequest,
-    ) -> Optional[str]:
-        """Check temporal claims with the temporal engine.
-
-        Returns a violation string, or None when consistent or when the claim
-        could not be represented. Inability to check is not a violation.
-        """
-        try:
-            from core.reasoning.temporal_reasoning import TimePoint
-
-            statements = [str(c) for c in (request.context or [])] + [answer]
-            propositions = []
-            for statement in statements:
-                text = statement.strip()
-                if not text:
-                    continue
-                propositions.append(
-                    temporal_engine.create_proposition(text[:200], TimePoint.PRESENT)
-                )
-
-            if len(propositions) < 2:
-                return None
-
-            # A proposition and its explicit negation cannot both hold at the
-            # same time point.
-            claims = {}
-            for proposition in propositions:
-                key = proposition.statement.lower().replace("not ", "").strip()
-                negated = "not " in proposition.statement.lower()
-                if key in claims and claims[key] != negated:
-                    return (
-                        f"Temporal inconsistency: contradictory claims about "
-                        f"{key[:60]!r} at the same time point"
-                    )
-                claims[key] = negated
-
-            return None
-
-        except Exception as e:
-            logger.debug(f"Temporal consistency check unavailable: {e}")
-            return None
 
     async def _check_formal_constraints(
         self,
@@ -1466,7 +1881,7 @@ class NeuralSymbolicBridge:
         ratio genuinely has no rule in this language, and inventing one would
         be the most tempting fabrication available here.
         """
-        from core.learning.learning_authority import get_learning_authority
+        from core.learning.unified_learning_system import get_learning_authority
 
         route = ["sequence_reading", "learning_authority", "rule_induction"]
         result, next_value = get_learning_authority().induce_sequence_rule(sequence.terms)
@@ -1540,6 +1955,66 @@ class NeuralSymbolicBridge:
                 "route": list(route),
             })
 
+    async def _answer_over_concept_graph(
+        self, request: ReasoningRequest
+    ) -> Optional[ReasoningResult]:
+        """Answer a relational query from the learned concept graph. Reads the
+        query into a typed (subject, relation, object) triple and answers it via
+        the typed relation algebra (`concept_graph_reasoning.answer_over_graph`).
+        Returns None when the query is not a relational triple, the relation is
+        untyped, or the answer is UNKNOWN — none of which is a failure, just not
+        this path. This is how the reasoning authority reaches the concept graph
+        (it had no live caller before)."""
+        try:
+            from core.semantics.derived_reader import read_typed
+            from core.reasoning.concept_graph_reasoning import answer_over_graph
+            from core.reasoning.relation_algebra import TRUE, FALSE, UNKNOWN
+        except Exception as e:
+            logger.debug("concept-graph deps unavailable: %s", e)
+            return None
+        # Read the query into a TYPED (subject, relation, object). read_typed
+        # declines (None) when the sentence is not a relational reading, and sets
+        # needs_construction when it could not bind the construction — both are
+        # honest "not this path", not failures.
+        tr = read_typed(request.query)
+        if tr is None or tr.needs_construction is not None or tr.relation is None:
+            return None
+        subj, obj = tr.subject, tr.obj
+        relation = getattr(tr.relation, "relation", None)  # TypedRelation → SemanticRelation
+        if relation is None:
+            return None  # untyped relation licenses no inference
+        try:
+            from core.database import get_database_manager
+            db = get_database_manager()
+            if not getattr(db, "initialized", False):
+                await db.initialize()
+            ans = await answer_over_graph(db, subj, relation, obj)
+        except Exception as e:
+            logger.debug("concept-graph query failed: %s", e)
+            return None
+        if ans.verdict == UNKNOWN:
+            return None  # never told, not derivable — honest fall-through
+        yes = ans.verdict == TRUE
+        steps = [f"concept graph: {subj} -{relation.value}-> {obj} is "
+                 f"{ans.verdict} ({ans.basis})"]
+        if getattr(ans, "derivation", None) is not None:
+            steps.append(str(ans.derivation))
+        return ReasoningResult(
+            answer=f"{'Yes' if yes else 'No'}: {subj} {relation.value} {obj}",
+            confidence=0.95 if ans.basis == "observed" else 0.85,
+            reasoning_steps=steps,
+            mode_used=ReasoningMode.CROSS_DOMAIN,
+            metadata={
+                "verified": True,
+                "formalized": True,
+                KEY_SUBSTRATE_FORMALIZED: True,
+                "reason": REASON_DERIVED_BY_KIND,
+                "model_required": False,
+                "model_available": self._model_available(),
+                "route": ["substrate", "concept_graph", ans.verdict],
+            },
+        )
+
     async def _substrate_solvers(
         self,
         request: ReasoningRequest
@@ -1567,6 +2042,16 @@ class NeuralSymbolicBridge:
         sequence = read_sequence(request.query)
         if sequence is not None:
             return self._extend_sequence(sequence)
+
+        # RELATIONAL LOOKUP over the LEARNED concept graph. If the query reads as
+        # a typed subject–relation–object triple and the graph OBSERVES or
+        # DERIVES it (typed relation algebra, not naive reachability), that is a
+        # substrate answer over stored knowledge — precise and model-free. UNKNOWN
+        # falls through honestly (the substrate was never told and can't derive
+        # it). The bridge decides this path by the query's own shape.
+        graph_answer = await self._answer_over_concept_graph(request)
+        if graph_answer is not None:
+            return graph_answer
 
         try:
             formalization = await self._get_deterministic_formalizer().formalize(
@@ -1957,7 +2442,6 @@ class NeuralSymbolicBridge:
             create_abstract_reasoning_engine)
 
         max_iterations = 3
-        is_temporal = ReasoningType.TEMPORAL in kinds_of_thinking_for(request.query)
 
         uncertainty_sys = None
         try:
@@ -1966,13 +2450,10 @@ class NeuralSymbolicBridge:
         except Exception as e:
             logger.debug(f"Bayesian uncertainty not available: {e}")
 
-        temporal_engine = None
-        if is_temporal:
-            try:
-                from core.reasoning.temporal_reasoning import get_temporal_system
-                temporal_engine = get_temporal_system()
-            except Exception as e:
-                logger.debug(f"Temporal reasoning not available: {e}")
+        # NOTE: the reason()-side temporal-consistency check was removed. Temporal
+        # reasoning is live where it belongs — the executor's planner
+        # (plan_for_state_goal) and the TEMPORAL kind strategy — not re-checked
+        # here in a mode nothing but tests reaches.
 
         # PROPOSE: derive candidates once; the engine is deterministic, so
         # revision walks down these by confidence rather than re-deriving.
@@ -2004,10 +2485,6 @@ class NeuralSymbolicBridge:
             v = await self._check_formal_constraints(answer, request)
             if v:
                 violations.append(v)
-            if temporal_engine and is_temporal:
-                v = await self._check_temporal_consistency(temporal_engine, answer, request)
-                if v:
-                    violations.append(v)
             v = await self._check_argument_fallacies(answer, request)
             if v:
                 violations.append(v)
@@ -2399,6 +2876,29 @@ class NeuralSymbolicBridge:
         )
         return context
 
+    def _schemas_bearing_on(self, query: str) -> List[str]:
+        """Learned schemas (condition→outcome priors the abstraction pipeline
+        induced) whose terms overlap the query — genuine prior knowledge. Used to
+        surface abstraction in the LIVE reasoning result. Empty if none match or
+        the pipeline is not owned yet (honest, no filler)."""
+        pipeline = self.abstraction
+        if pipeline is None or not getattr(pipeline, "active_schemas", None):
+            return []
+        def _text(d):
+            if isinstance(d, dict):
+                return " ".join(f"{k} {v}" for k, v in d.items()).lower()
+            return str(d or "").lower()
+        q_terms = {t for t in str(query).lower().split() if len(t) > 2}
+        scored = []
+        for schema in pipeline.active_schemas.values():
+            cond, outcome = _text(schema.condition), _text(schema.outcome)
+            overlap = len(q_terms & set((cond + " " + outcome).split()))
+            if overlap:
+                prob = getattr(schema, "probability", 0.0)
+                scored.append((overlap, prob, f"schema: {cond} → {outcome} (p={prob:.2f})"))
+        scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        return [s[2] for s in scored[:3]]
+
     async def _reason_by_kind(
         self, request: ReasoningRequest
     ) -> Optional[ReasoningResult]:
@@ -2430,10 +2930,21 @@ class NeuralSymbolicBridge:
                  or list(kinds_of_thinking_for(request.query))
                  or list(CLASSICAL_REASONING_TYPES))
 
+        # PREFER kinds that have SETTLED queries before: order by measured quality
+        # so historically-successful kinds are considered first. Cold kinds keep
+        # the neutral prior, so this only reorders once there is evidence — it
+        # never drops a kind, just biases the order. (The quality signal is the
+        # reasoning authority's, symmetric to reasoning_difficulty.)
+        kinds.sort(key=lambda k: self.reasoning_quality(k), reverse=True)
+
         context = self._build_reasoning_context(request, kinds)
 
         try:
-            engine = create_abstract_reasoning_engine()
+            # Use the authority's PERSISTENT engine so its per-kind stats
+            # accumulate (a fresh engine per call reset them every time, which is
+            # why they were always near-empty). Fall back to a new one only if the
+            # authority has not constructed it yet.
+            engine = self.abstract_engine or create_abstract_reasoning_engine()
             result = await engine.reason(context)
         except Exception as error:
             logger.warning("kind-based reasoning failed: %s: %s",
@@ -2445,6 +2956,8 @@ class NeuralSymbolicBridge:
         if not derived:
             logger.info("no kind of thinking settled this (tried %s)",
                         ", ".join(k.value for k in kinds[:6]))
+            # QUALITY: every considered kind was attempted; none settled it.
+            self.record_reasoning_outcome(kinds, None)
             return None
 
         # RELEVANCE. A kind can derive a SOUND conclusion about an OFF-TOPIC
@@ -2458,124 +2971,63 @@ class NeuralSymbolicBridge:
         if not on_topic:
             logger.info("kinds derived only off-topic conclusions for %r",
                         request.query)
+            self.record_reasoning_outcome(kinds, None)
             return None
 
+        # Among the on-topic conclusions, PREFER the one from the kind with the
+        # higher measured success rate, breaking ties by confidence — so the
+        # answer comes from the kind that has EARNED trust here, not just the
+        # first the engine happened to list. (Quality-weighted selection.)
+        on_topic.sort(
+            key=lambda c: (self.reasoning_quality(c.reasoning_type),
+                           getattr(c, "confidence", 0.0)),
+            reverse=True)
         best = on_topic[0]
         logger.info("settled by %s reasoning at %.2f",
                     best.reasoning_type.value, best.confidence)
+        # QUALITY: record which considered kind actually settled it.
+        self.record_reasoning_outcome(kinds, best.reasoning_type)
+        steps = list(best.reasoning_steps or ())
+        meta = {
+            # THE CREDIT-ASSIGNMENT CONTRACT. Every result must carry these
+            # five, so a verdict and an inability are told apart by metadata
+            # rather than by confidence -- both can be low.
+            "verified": True,
+            "formalized": False,   # derived, not propositionally formalized
+            "reason": REASON_DERIVED_BY_KIND,
+            "model_required": False,
+            "model_available": self._model_available(),
+
+            "kind": best.reasoning_type.value,
+            "kinds_considered": [k.value for k in kinds],
+            "conclusions": len(derived),
+            KEY_SUBSTRATE_FORMALIZED: False,
+            "route": ["substrate", "kinds_of_thinking",
+                      best.reasoning_type.value],
+        }
+        # Surface learned schemas that bear on the query — the abstraction
+        # pipeline's induced priors, brought into the LIVE reasoning result (this
+        # is the router-reached path; the old _abstract_reasoning was not).
+        schemas = self._schemas_bearing_on(request.query)
+        if schemas:
+            steps = steps + schemas
+            meta["abstractions"] = schemas
         return ReasoningResult(
             answer=best.statement,
             confidence=best.confidence,
-            reasoning_steps=list(best.reasoning_steps or ()),
+            reasoning_steps=steps,
             mode_used=ReasoningMode.ABSTRACT,
-            metadata={
-                # THE CREDIT-ASSIGNMENT CONTRACT. Every result must carry these
-                # five, so a verdict and an inability are told apart by metadata
-                # rather than by confidence -- both can be low.
-                "verified": True,
-                "formalized": False,   # derived, not propositionally formalized
-                "reason": REASON_DERIVED_BY_KIND,
-                "model_required": False,
-                "model_available": self._model_available(),
-
-                "kind": best.reasoning_type.value,
-                "kinds_considered": [k.value for k in kinds],
-                "conclusions": len(derived),
-                KEY_SUBSTRATE_FORMALIZED: False,
-                "route": ["substrate", "kinds_of_thinking",
-                          best.reasoning_type.value],
-            },
+            metadata=meta,
         )
 
-    async def _abstract_reasoning(self, request: ReasoningRequest) -> ReasoningResult:
-        """Route through AbstractReasoningEngine + analogy discovery + hierarchical abstraction."""
-        logger.info("Using abstract reasoning (AbstractReasoningEngine + analogy + abstraction)")
-
-        try:
-            from core.reasoning.abstract_reasoning_engine import (
-                create_abstract_reasoning_engine,
-                ReasoningContext,
-                ReasoningType,
-            )
-
-            engine = create_abstract_reasoning_engine()
-
-            context = ReasoningContext(
-                context_id="neural_bridge_abstract",
-                domain="autonomous_system",
-                problem_type="abstract_reasoning",
-                facts=[request.query],
-                allowed_reasoning_types=[
-                    ReasoningType.DEDUCTIVE,
-                    ReasoningType.INDUCTIVE,
-                    ReasoningType.ANALOGICAL,
-                ],
-                max_inference_depth=5,
-                confidence_threshold=request.confidence_threshold or 0.7,
-            )
-
-            result = await engine.reason(context)
-
-            if not result or not result.conclusions:
-                return ReasoningResult(
-                    answer="No high-confidence abstract conclusions found.",
-                    confidence=0.0,
-                    reasoning_steps=["AbstractReasoningEngine returned no conclusions"],
-                    mode_used=ReasoningMode.ABSTRACT,
-                )
-
-            best = result.conclusions[0]
-            steps = best.reasoning_steps or ["Abstract reasoning applied"]
-            
-            # Phase 1: Enhance with analogy discovery
-            analogies = []
-            try:
-                from core.reasoning.analogy_discovery import get_analogy_discovery
-                analogy_engine = get_analogy_discovery()
-                logger.info("🔗 Attempting analogy discovery")
-                # Note: Placeholder - full integration requires domain extraction
-                analogies = ["Analogy discovery engine available"]
-            except Exception as e:
-                logger.debug(f"Analogy discovery not available: {e}")
-            
-            # Phase 1: Enhance with hierarchical abstraction
-            abstractions = []
-            try:
-                from core.reasoning.hierarchical_abstraction import get_hierarchical_abstraction
-                abstraction_engine = get_hierarchical_abstraction()
-                logger.info("🏗️ Attempting hierarchical abstraction")
-                # Note: Placeholder - full integration requires concept extraction
-                abstractions = ["Hierarchical abstraction engine available"]
-            except Exception as e:
-                logger.debug(f"Hierarchical abstraction not available: {e}")
-            
-            metadata = {
-                "total_conclusions": result.total_inferences,
-                "overall_confidence": result.overall_confidence,
-            }
-            if analogies:
-                metadata["analogies"] = analogies
-                steps.extend(analogies)
-            if abstractions:
-                metadata["abstractions"] = abstractions
-                steps.extend(abstractions)
-
-            return ReasoningResult(
-                answer=best.statement,
-                confidence=best.confidence,
-                reasoning_steps=steps,
-                mode_used=ReasoningMode.ABSTRACT,
-                metadata=metadata,
-            )
-
-        except Exception as e:
-            logger.error(f"Abstract reasoning error: {e}")
-            return ReasoningResult(
-                answer=f"Error during abstract reasoning: {e}",
-                confidence=0.0,
-                reasoning_steps=["Abstract reasoning failed"],
-                mode_used=ReasoningMode.ABSTRACT,
-            )
+    # NOTE: the former `_abstract_reasoning` method was removed. It was DEAD —
+    # nothing in the router (`_reason_impl`) or anywhere else called it, and it
+    # carried the "engine available" placeholders. The AbstractReasoningEngine is
+    # used LIVE by `_reason_by_kind` / `_substrate_solvers` / `_cross_domain_reasoning`
+    # (each runs `engine.reason(context)`), and learned schemas are now surfaced
+    # in `_reason_by_kind` via `_schemas_bearing_on`. Keeping a second, unreached
+    # abstract path with placeholders in it would be exactly the stub the caller
+    # asked about.
 
     def _is_cross_domain_request(self, request: ReasoningRequest) -> bool:
         """True only when the caller named domains to reason ACROSS.
@@ -2844,8 +3296,74 @@ class NeuralSymbolicBridge:
         return min(score, 1.0)
 
     async def get_statistics(self) -> Dict[str, Any]:
-        """Get bridge statistics"""
-        return self.statistics.copy()
+        """Bridge statistics for the health monitor — FLAT scalars only (the probe
+        drops nested values). Includes the reasoning-QUALITY summary so the closed
+        quality loop is observable: how many kinds have earned a measured success
+        rate, and the average success rate across them."""
+        stats = dict(self.statistics)
+        measured = [c for c in self._reasoning_telemetry.values()
+                    if c.get("attempts", 0) >= self._QUALITY_MIN_ATTEMPTS]
+        stats["kinds_measured_quality"] = len(measured)
+        stats["kinds_measured_difficulty"] = sum(
+            1 for c in self._reasoning_telemetry.values()
+            if c.get("runs", 0) >= self._DIFFICULTY_MIN_RUNS)
+        stats["avg_reasoning_quality"] = (
+            sum(c["successes"] / c["attempts"] for c in measured) / len(measured)
+            if measured else 0.0)
+        stats["reasoning_kinds_tracked"] = len(self._reasoning_telemetry)
+        return stats
+
+    #: Where the bridge's coarse mode-mix statistics persist (survive restart).
+    _STATS_DDL = """
+    CREATE TABLE IF NOT EXISTS unified.reasoning_bridge_stats (
+        stat        VARCHAR PRIMARY KEY,
+        value       DOUBLE PRECISION NOT NULL,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    """
+
+    async def flush_statistics(self) -> int:
+        """Persist the bridge's mode-mix + average-confidence counters so they
+        survive a restart (they were in-memory only). Scheduled through the queue
+        authority alongside telemetry. Returns rows written."""
+        try:
+            await self._ensure_telemetry_schema()
+            db = self._telemetry_db_handle()
+            await db.execute_query(self._STATS_DDL.strip())
+            snap = {k: v for k, v in self.statistics.items()
+                    if isinstance(v, (int, float, bool))}
+            for stat, value in snap.items():
+                await db.execute_query(
+                    "INSERT INTO unified.reasoning_bridge_stats (stat, value, updated_at)"
+                    " VALUES ($1, $2, NOW())"
+                    " ON CONFLICT (stat) DO UPDATE SET value = EXCLUDED.value,"
+                    "   updated_at = NOW()",
+                    (stat, float(value)), commit=True)
+            return len(snap)
+        except Exception as e:
+            logger.error("bridge statistics flush failed: %s", e)
+            return 0
+
+    async def load_statistics(self) -> int:
+        """Restore the persisted mode-mix counters on boot."""
+        try:
+            await self._ensure_telemetry_schema()
+            db = self._telemetry_db_handle()
+            await db.execute_query(self._STATS_DDL.strip())
+            rows = await db.execute_query(
+                "SELECT stat, value FROM unified.reasoning_bridge_stats",
+                fetch_all=True) or []
+            for r in rows:
+                key = r["stat"]
+                if key in self.statistics:
+                    # keep the int-ness of counters; average_confidence is float
+                    cur = self.statistics[key]
+                    self.statistics[key] = (int(r["value"]) if isinstance(cur, int)
+                                            else float(r["value"]))
+            return len(rows)
+        except Exception as e:
+            logger.warning("bridge statistics load failed: %s", e)
+            return 0
 
 
 # Singleton instance

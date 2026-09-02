@@ -228,6 +228,94 @@ class CapabilityEvidence:
         return "moderate"
 
 
+@dataclass
+class Fitness:
+    """The substrate's model fitness RIGHT NOW — the quantity whose rate of
+    change is valence (see docs/AFFECT_ARCHITECTURE.md §2).
+
+    Each term is in [0,1] with higher = fitter, or None when it could not be
+    measured this tick. A None term is EXCLUDED from `scalar` (renormalised over
+    what was measured) and named in `unmeasured` — a missing input never reads as
+    zero fitness. `scalar` is None only when nothing at all was measurable.
+    """
+    competence: Optional[float]     # saturating fn of executable-operator count
+    coherence: Optional[float]      # 1 − mean belief entropy (belief-model settledness)
+    certainty: Optional[float]      # 1 − mean component epistemic_uncertainty
+    measured: List[str] = field(default_factory=list)
+    unmeasured: List[str] = field(default_factory=list)
+    scalar: Optional[float] = None
+    sources: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        from dataclasses import asdict
+        return asdict(self)
+
+
+@dataclass
+class CoreAffect:
+    """The substrate's felt state: valence (getting better/worse) and arousal
+    (how much is moving). Both are None when a trend cannot yet be derived — no
+    prior reading, or no fitness term measured in BOTH readings. A feeling is
+    reported only when it is grounded in a real, like-for-like change; it is
+    never fabricated from a single point or from a change in what was measured.
+    """
+    valence: Optional[float]        # signed: rising fitness (+) / falling (−), (−1,1)
+    arousal: Optional[float]        # intensity of change, [0,1]
+    delta: Optional[float]          # the like-for-like fitness change valence is of
+    measured_over: List[str] = field(default_factory=list)  # terms the delta used
+    fitness: Optional["Fitness"] = None                     # the current reading
+    note: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        from dataclasses import asdict
+        return asdict(self)
+
+
+@dataclass
+class AffectState:
+    """The substrate's affect as PERSISTENT STATE — not a reading.
+
+    This is what is rehydrated on startup and read from the substrate's runtime:
+    the current named emotion (from appraisal), why it holds (cause), how strong
+    (intensity), plus the slow mood it sits on. It is a FACT carried across
+    restarts — the substrate resumes in doubt if it went down in doubt; no new
+    appraisal is required merely because the process restarted. `version`
+    increments on each affect TRANSITION (a new appraisal changing the emotion),
+    so the state has provenance, not just a value.
+    """
+    emotion: Optional[str]        # dominant named emotion: eagerness/doubt/frustration/satisfaction
+    intensity: Optional[float]    # its magnitude, [0,1]
+    cause: Optional[str]          # attribution — why (e.g. strategy_failure)
+    valence: float                # persistent mood valence (fitness trend), decayed to read
+    arousal: float
+    baseline: float               # temperament: the trait the mood varies around
+    version: int                  # increments per affect transition — provenance
+    updated_at: Optional[str] = None
+    loaded: bool = False          # True if rehydrated from the store; False = cold start
+
+    def to_dict(self) -> Dict[str, Any]:
+        from dataclasses import asdict
+        return asdict(self)
+
+
+@dataclass
+class Mood:
+    """The substrate's persistent core affect — a slow, object-less valence×arousal
+    it carries between sessions, varying around a slowly-drifting baseline (its
+    temperament). This is the felt state that survives restart: the substrate wakes
+    in the mood it earned. `loaded` distinguishes a restored mood from an honest
+    cold-start neutral (never a fabricated prior mood)."""
+    valence: float          # slow core-affect valence, [−1,1]
+    arousal: float          # slow activation, [0,1]
+    baseline: float         # the trait level valence varies around (allostatic)
+    event_count: int        # experienced affective ticks integrated so far
+    loaded: bool = False    # True if restored from Postgres; False = cold start
+
+    def to_dict(self) -> Dict[str, Any]:
+        from dataclasses import asdict
+        return asdict(self)
+
+
 class IntrinsicMotivationSystem:
     """
     Intrinsic Motivation System
@@ -251,6 +339,32 @@ class IntrinsicMotivationSystem:
         # Motivation profile
         self.profile = MotivationProfile()
         self.weights = MotivationWeights()
+
+        # The previous fitness reading, held so valence (its RATE of change) can be
+        # computed on the next tick. None until the first reading — the substrate
+        # cannot feel a trend from a single point (docs/AFFECT_ARCHITECTURE.md §2).
+        self._last_fitness: Optional["Fitness"] = None
+
+        # Persistent CORE AFFECT (mood) — the slow, durable felt STATE. It is not
+        # driven by any loop: real events (task outcomes, competence/belief change)
+        # update it through update_affect(), and it fades toward the baseline over
+        # elapsed WALL-CLOCK time, computed lazily on read (mood()/valence()), so
+        # the mood is always current without anything polling it. Loaded from
+        # Postgres on initialize(); neutral cold-start defaults.
+        self._mood_valence: float = 0.0
+        self._mood_arousal: float = 0.0
+        self._baseline_valence: float = 0.0   # temperament: the trait mood varies around
+        self._affect_event_count: int = 0
+        self._affect_loaded: bool = False
+        # The current named affect (a FACT that persists and rehydrates as-is —
+        # the substrate resumes in this emotion on restart, no re-appraisal).
+        self._affect_emotion: Optional[str] = None
+        self._affect_intensity: Optional[float] = None
+        self._affect_cause: Optional[str] = None
+        self._affect_version: int = 0
+        #: wall-clock anchor of the last affect update; the decay-on-read measures
+        #: elapsed time from here. None until the first update (nothing to decay).
+        self._last_affect_at: Optional[datetime] = None
 
         # Database for persistence (optional - gracefully degrades)
         self.db = None
@@ -347,15 +461,6 @@ class IntrinsicMotivationSystem:
             'recent_exploration_penalty': -0.5
         }
 
-        # PLAN DIVERSITY ENFORCEMENT: Track tool sequence history
-        self._tool_sequence_history: List[List[str]] = []  # List of tool sequences per iteration
-        self._max_sequence_history = 10  # Keep last 10 iterations
-        self._tool_cooldowns: Dict[str, int] = {}  # tool_name -> iterations remaining
-        self._tool_failure_counts: Dict[str, int] = {}  # tool_name -> consecutive failures
-
-        # NON-ADAPTIVE RETRY DETECTION: Track parameter patterns
-        self._failed_parameter_patterns: Dict[str, List[Dict]] = {}  # tool_name -> failed param sets
-        self._blocked_tool_params: Dict[str, set] = {}  # tool_name -> set of blocked param signatures
 
         # Initialize dimensions
         self._initialize_dimensions()
@@ -451,6 +556,7 @@ class IntrinsicMotivationSystem:
 
             await self.load_profile()
             await self._restore_event_rewards()
+            await self._load_affect()   # restore persistent mood — wake in the mood it earned
 
             self.active = True
             logger.info("Intrinsic motivation system initialized")
@@ -1372,6 +1478,184 @@ class IntrinsicMotivationSystem:
             "active": self.active
         }
 
+    @staticmethod
+    def _allocate_drive_budget(total: int, valence: Optional[float],
+                               deficits: Dict[str, Optional[float]]) -> Dict[str, int]:
+        """Split the goal budget across the DRIVES, biased by mood.
+
+        Each drive targets a fitness dimension; its base weight is that dimension's
+        measured deficit — the substrate pursues what it most lacks. A NEGATIVE
+        mood (declining fitness) SHARPENS the split onto the worst deficit (repair
+        — fix what is breaking, weight²); a POSITIVE mood FLATTENS it (explore —
+        spread across drives, weight^½). A drive whose dimension is unmeasurable
+        gets weight 0. Allocation is largest-remainder so the budgets sum EXACTLY
+        to `total`, so the mood re-splits the DISTRIBUTION and never reduces the
+        COUNT — the death-spiral invariant, by construction."""
+        w = {k: (d if d is not None else 0.0) for k, d in deficits.items()}
+        if valence is not None and valence < -0.15:
+            w = {k: v * v for k, v in w.items()}          # repair: concentrate on worst
+        elif valence is not None and valence > 0.15:
+            w = {k: v ** 0.5 for k, v in w.items()}       # explore: flatten / spread
+        s = sum(w.values())
+        if s <= 0:                                         # no measured deficit → even
+            measurable = [k for k, d in deficits.items() if d is not None] or list(deficits)
+            w = {k: (1.0 if k in measurable else 0.0) for k in deficits}
+            s = sum(w.values()) or 1.0
+        raw = {k: total * w[k] / s for k in w}
+        base = {k: int(raw[k]) for k in raw}
+        remainder = total - sum(base.values())
+        for k in sorted(w, key=lambda x: raw[x] - base[x], reverse=True)[:max(0, remainder)]:
+            base[k] += 1
+        return base
+
+    async def _operator_confidence(self) -> Optional[float]:
+        """Mean validation strength of the executable operators — positive roots /
+        (positive + negative). Low means the substrate's operators are only weakly
+        confirmed. None when there are no executable operators (nothing yet to be
+        confident about); never fabricated."""
+        try:
+            from core.learning.rule_store import get_rule_store
+            rules = await get_rule_store().executable_rules()
+        except Exception as e:
+            logger.debug("operator confidence unreadable: %s", e)
+            return None
+        strengths = []
+        for r in rules:
+            p = getattr(r, "positive_root_count", 0) or 0
+            n = getattr(r, "negative_root_count", 0) or 0
+            if p + n > 0:
+                strengths.append(p / (p + n))
+        return (sum(strengths) / len(strengths)) if strengths else None
+
+    async def _competence_goals(self, budget: int) -> List:
+        """BUILD-COMPETENCE goals — target the learning frontier so acting gathers
+        the evidence a missing/forming operator needs. Grounded in
+        pending_signatures; empty when there is no material (honest, never an
+        invented goal).
+
+        A pending signature is one of THREE typed shapes, not one:
+          * a real operator signature (non-empty predicate) — a per-operator goal
+            to gather more evidence for that forming operator;
+          * the CONTRASTIVE sentinel ``("", 0)`` — NOT malformed: the documented
+            domain-level state (demonstration_store.CONTRASTIVE) meaning the domain
+            gained an actionless negative that sharpens EVERY operator. It is a
+            legitimate DOMAIN-level competence opportunity, so it yields a
+            domain-scoped goal, mirroring how the drain expands it across the
+            domain (learning_authority.drain_pending_induction);
+          * anything else with a blank predicate/domain — genuinely CORRUPT (a
+            demonstration must belong to a domain and, if action-ful, to a real
+            predicate). REJECTED loudly with a named reason so the bad row is
+            visible, never turned into a blank-named goal.
+        """
+        if budget <= 0:
+            return []
+        from .shared_types import Goal, Priority
+        import uuid
+        try:
+            from core.learning.demonstration_store import get_demonstration_store
+            store = get_demonstration_store()
+            pending = await store.pending_signatures(limit=budget)
+        except Exception as e:
+            logger.debug("competence goals: pending signatures unreadable: %s", e)
+            return []
+        contrastive = store.CONTRASTIVE  # the store owns what the sentinel is
+        goals = []
+        for domain, predicate, arity in pending[:budget]:
+            has_domain = isinstance(domain, str) and bool(domain.strip())
+            has_predicate = isinstance(predicate, str) and bool(predicate.strip())
+            if not has_domain:
+                # A demonstration must belong to a domain (append() enforces this);
+                # a blank domain in the queue is genuinely corrupt.
+                logger.warning(
+                    "competence goal REJECTED (CORRUPT_DOMAIN): domain=%r predicate=%r "
+                    "arity=%r — pending signature with no domain", domain, predicate, arity)
+                continue
+            if (predicate, arity) == contrastive:
+                # Domain-level contrastive evidence — a real competence opportunity,
+                # not a malformed operator. Act in the domain to gather evidence
+                # that will sharpen its operators when they are next re-induced.
+                g = Goal(
+                    id=f"competence_goal_{uuid.uuid4().hex[:8]}",
+                    description=(f"Build competence: gather evidence in domain {domain} — "
+                                f"new contrastive evidence sharpens all its operators"),
+                    priority=Priority.MEDIUM, curiosity_value=0.5, expected_novelty=0.4,
+                    expected_competence_gain=0.9, intrinsic_reward_potential=0.7,
+                )
+                g.metadata.update({"drive": "competence", "domain_id": domain,
+                                   "scope": "domain_contrastive"})
+                goals.append(g)
+                continue
+            if not has_predicate:
+                # Blank predicate that is NOT the contrastive sentinel (e.g. arity
+                # != 0): a truly malformed signature, surfaced not hidden.
+                logger.warning(
+                    "competence goal REJECTED (MALFORMED_SIGNATURE): domain=%r predicate=%r "
+                    "arity=%r — blank predicate is not the contrastive sentinel",
+                    domain, predicate, arity)
+                continue
+            g = Goal(
+                id=f"competence_goal_{uuid.uuid4().hex[:8]}",
+                description=(f"Build competence: gather evidence for operator "
+                            f"{predicate}/{arity} in domain {domain} so it can be validated"),
+                priority=Priority.MEDIUM, curiosity_value=0.5, expected_novelty=0.4,
+                expected_competence_gain=0.9, intrinsic_reward_potential=0.7,
+            )
+            g.metadata.update({"drive": "competence", "domain_id": domain,
+                               "predicate": predicate, "arity": arity})
+            goals.append(g)
+        return goals
+
+    async def _confidence_goals(self, budget: int) -> List:
+        """BUILD-CONFIDENCE goals — target executable operators that are only
+        weakly validated (few confirming roots), to re-validate them with fresh
+        evidence. Grounded in rule_store; empty when every operator is well
+        confirmed (honest).
+
+        Only ACTION-ful operators qualify: re-validation strengthens confidence
+        by ACTING to gather a fresh confirming demonstration, so an actionless
+        observation rule (rule.action is None) has nothing to act on and is
+        skipped. The operator SIGNATURE (predicate, arity) is carried so the
+        execution handler can re-induce exactly this operator, not guess it from
+        the rule id."""
+        if budget <= 0:
+            return []
+        from .shared_types import Goal, Priority
+        import uuid
+        try:
+            from core.learning.rule_store import get_rule_store
+            rules = await get_rule_store().executable_rules()
+        except Exception as e:
+            logger.debug("confidence goals: rules unreadable: %s", e)
+            return []
+        weak = sorted(rules, key=lambda r: (getattr(r, "positive_root_count", 0) or 0))
+        goals = []
+        for r in weak:
+            if len(goals) >= budget:
+                break
+            p = getattr(r, "positive_root_count", 0) or 0
+            if p >= 3:                       # already well-confirmed — not thin
+                continue
+            # The signature is the operator the handler must re-induce. An
+            # actionless rule has no operator to act on — skip it rather than
+            # emit a confidence goal that cannot be executed.
+            action = getattr(getattr(r, "rule", None), "action", None)
+            if action is None:
+                continue
+            predicate, arity = action.signature
+            dom = getattr(r, "domain_id", None) or "unattributed"
+            g = Goal(
+                id=f"confidence_goal_{uuid.uuid4().hex[:8]}",
+                description=(f"Build confidence: re-validate operator {predicate}/{arity} "
+                            f"({r.rule_id}) in domain {dom} (only {p} confirming root(s))"),
+                priority=Priority.MEDIUM, curiosity_value=0.4, expected_novelty=0.3,
+                expected_competence_gain=0.5, intrinsic_reward_potential=0.6,
+            )
+            g.metadata.update({"drive": "confidence", "domain_id": dom, "rule_id": r.rule_id,
+                               "predicate": predicate, "arity": arity,
+                               "positive_root_count": p})
+            goals.append(g)
+        return goals
+
     async def generate_curiosity_driven_goals(
         self,
         max_goals: int = 1,
@@ -1397,56 +1681,101 @@ class IntrinsicMotivationSystem:
             from .shared_types import Goal, Priority
             import uuid
 
-            # Step 1: Quantify component uncertainties
-            component_metrics = await self._quantify_component_uncertainties(system_context)
+            # MOOD MODULATION over FOUR DRIVES. Read the substrate's OWN affect +
+            # fitness (never handed in as context) and let the mood shape WHICH
+            # drive wins — the homeostatic link between feeling and motivation.
+            #   certainty  → component-uncertainty goals (curiosity)
+            #   coherence  → epistemic/belief goals      (curiosity)
+            #   competence → build-competence goals      (mastery)
+            #   confidence → validate-operator goals     (confidence)
+            # See docs/AFFECT_ARCHITECTURE.md §9.
+            fit = await self.sense_fitness()
+            affect = self.affect_state()
+            valence, arousal = affect.valence, affect.arousal
+            confidence = await self._operator_confidence()
+            deficits = {
+                "certainty":  (1.0 - fit.certainty) if fit.certainty is not None else None,
+                "coherence":  (1.0 - fit.coherence) if fit.coherence is not None else None,
+                "competence": (1.0 - fit.competence) if fit.competence is not None else None,
+                "confidence": (1.0 - confidence) if confidence is not None else None,
+            }
 
-            # Steps 2-4: metric-driven goals, only when there are uncertainty
-            # signals to drive them.
+            # AROUSAL sets INTENSITY (how many goals): high arousal (fitness moving
+            # fast / high stakes) → more; settled → fewer. Floored at 1 whenever the
+            # caller wanted any goal, so neither a calm NOR a struggling mood can
+            # take generation to zero — the floor is the death-spiral guard.
+            if max_goals >= 1:
+                effective_max = max(1, min(2 * max_goals,
+                                           int(round(max_goals * (0.5 + arousal)))))
+            else:
+                effective_max = 0
+            budgets = self._allocate_drive_budget(effective_max, valence, deficits)
+            mode = ("repair" if (valence is not None and valence < -0.15)
+                    else "explore" if (valence is not None and valence > 0.15) else "neutral")
+            logger.info("🎭 %s mood (valence=%s, arousal=%.2f) max_goals %d→%d; budgets=%s",
+                        mode, "n/a" if valence is None else round(valence, 3),
+                        arousal, max_goals, effective_max, budgets)
+
             goals = []
-            if component_metrics:
+            certainty_goals = []
+
+            # CERTAINTY drive — component-uncertainty goals.
+            component_metrics = await self._quantify_component_uncertainties(system_context)
+            if component_metrics and budgets["certainty"] > 0:
                 uncertainty_deltas = await self._calculate_uncertainty_gradients(component_metrics)
                 candidates = []
                 for component, metrics in component_metrics.items():
                     priority_score = await self._calculate_goal_priority(
-                        component=component,
-                        metrics=metrics,
-                        delta=uncertainty_deltas.get(component, 0.0)
-                    )
-                    candidates.append({
-                        'component': component,
-                        'metrics': metrics,
-                        'delta': uncertainty_deltas.get(component, 0.0),
-                        'priority_score': priority_score
-                    })
-                goals = await self._sample_goal_candidates(candidates, max_goals)
+                        component=component, metrics=metrics,
+                        delta=uncertainty_deltas.get(component, 0.0))
+                    candidates.append({'component': component, 'metrics': metrics,
+                                       'delta': uncertainty_deltas.get(component, 0.0),
+                                       'priority_score': priority_score})
+                certainty_goals = await self._sample_goal_candidates(candidates, budgets["certainty"])
+                for g in certainty_goals:
+                    g.metadata.setdefault("drive", "certainty")
+                goals.extend(certainty_goals)
 
-            # Step 5: Supplement with epistemic goals (high-entropy beliefs +
-            # stalled hypotheses), ranked by entropy from get_unstable_regions().
-            # Always attempted — unstable beliefs exist independently of whether
-            # any component is currently uncertain, so a "stable" system can
-            # still have something to resolve.
-            epistemic_budget = max(1, max_goals - len(goals))
-            epistemic_goals = await self._generate_epistemic_goals(epistemic_budget)
-            goals.extend(epistemic_goals)
+            # COMPETENCE drive — build-competence goals from the learning frontier.
+            competence_goals = await self._competence_goals(budgets["competence"])
+            goals.extend(competence_goals)
+            # CONFIDENCE drive — re-validate weakly-confirmed operators.
+            confidence_goals = await self._confidence_goals(budgets["confidence"])
+            goals.extend(confidence_goals)
+
+            # COHERENCE drive — epistemic/belief goals. Given its own budget PLUS
+            # any budget the other drives could not spend (so effort is never
+            # wasted, and a stable system can still resolve an unstable belief).
+            epistemic_budget = max(budgets["coherence"], effective_max - len(goals))
+            coherence_goals = await self._generate_epistemic_goals(epistemic_budget)
+            for g in coherence_goals:
+                g.metadata.setdefault("drive", "coherence")
+            goals.extend(coherence_goals)
+
+            # BOUNDARY COUNTS — the lifecycle of every candidate is visible, so a
+            # count that drops between stages has a named owner (no silent 5→0).
+            produced = {"certainty": len(certainty_goals),
+                        "competence": len(competence_goals),
+                        "confidence": len(confidence_goals),
+                        "coherence": len(coherence_goals)}
+            logger.info("drive budgets=%s produced=%s total=%d",
+                        budgets, produced, len(goals))
 
             # NO FALLBACK. Goals come only from real substrate signals — component
-            # uncertainties and unstable beliefs. When both are empty there is
-            # genuinely nothing to be curious about from measured state, and the
-            # honest answer is no goal this cycle — never an invented one, and
-            # never from the model.
+            # uncertainties, unstable beliefs, the competence frontier, and weakly
+            # confirmed operators. When ALL are empty there is genuinely nothing to
+            # pursue from measured state, and the honest answer is no goal this
+            # cycle — never an invented one, and never from the model.
             if not goals:
-                logger.info("No uncertainty signals and no unstable beliefs — "
-                            "no intrinsic goal this cycle")
+                logger.info("No measured drive signals this cycle — no intrinsic goal")
                 return []
-
-            n_metric = len(goals) - len(epistemic_goals)
-            logger.info(
-                f"Generated {len(goals)} goals: "
-                f"{n_metric} metric-driven, {len(epistemic_goals)} epistemic"
-            )
             return goals
 
         except Exception as e:
+            # A STRUCTURAL bug (NameError, AttributeError, a wiring fault) is NOT a
+            # legitimate "no goals" — surface it, do not let it masquerade as an
+            # empty result. Only a genuine runtime hiccup degrades to no-goal.
+            raise_if_structural(e, "generate_curiosity_driven_goals")
             logger.error(f"Error generating curiosity-driven goals: {e}", exc_info=True)
             return []
 
@@ -1652,6 +1981,331 @@ class IntrinsicMotivationSystem:
     # =========================================================================
     # UNCERTAINTY-WEIGHTED GOAL SAMPLING (ICM/RND-Inspired)
     # =========================================================================
+
+    #: Combination weights for the fitness scalar. A UNIT choice over the terms,
+    #: not a set-point; the scalar is renormalised over whatever was measured, so a
+    #: missing term never reads as zero fitness. Competence weighted slightly
+    #: higher: having operators to act with is the substrate's most direct fitness.
+    _FITNESS_WEIGHTS = {"competence": 0.4, "coherence": 0.3, "certainty": 0.3}
+
+    #: Soft scale turning an unbounded executable-operator count into a [0,1]
+    #: competence signal via tanh. NOT a threshold — a saturating unit, so more
+    #: operators always reads as more competent with diminishing marginal effect.
+    #: Valence is the DERIVATIVE of fitness, so this scale sets units, not behaviour.
+    _COMPETENCE_SCALE = 25.0
+
+    async def sense_fitness(self, system_context: Optional[Dict[str, Any]] = None) -> "Fitness":
+        """Read the substrate's model fitness NOW from the authorities that own its
+        parts — competence (operators it can execute), coherence (belief-model
+        settledness), certainty (inverse component uncertainty). Reads only; owns
+        none of them. A part that cannot be measured this tick is excluded and
+        named, never zero-filled (docs/AFFECT_ARCHITECTURE.md, Invariant 1).
+
+        `system_context` (the coordinator's goal-context) is needed for the
+        certainty term; without it certainty is honestly unmeasured.
+        """
+        import math
+        measured: List[str] = []
+        unmeasured: List[str] = []
+        sources: Dict[str, Any] = {}
+
+        # COMPETENCE — the executable operators the substrate actually has.
+        competence: Optional[float] = None
+        try:
+            from core.learning.rule_store import get_rule_store
+            rules = await get_rule_store().executable_rules()
+            n = sum(1 for r in rules
+                    if getattr(getattr(r, "rule", None), "action", None) is not None)
+            competence = math.tanh(n / self._COMPETENCE_SCALE)
+            sources["executable_operators"] = n
+            measured.append("competence")
+        except Exception as e:
+            unmeasured.append("competence")
+            logger.debug("fitness: competence unreadable: %s", e)
+
+        # COHERENCE — how settled the belief model is, from its owner (the
+        # epistemic engine), which returns None when there are no beliefs yet.
+        coherence: Optional[float] = None
+        try:
+            from core.reasoning.epistemic_engine import get_epistemic_engine
+            coherence = get_epistemic_engine().model_coherence()
+            if coherence is None:
+                unmeasured.append("coherence")
+            else:
+                sources["belief_coherence"] = round(coherence, 4)
+                measured.append("coherence")
+        except Exception as e:
+            unmeasured.append("coherence")
+            logger.debug("fitness: coherence unreadable: %s", e)
+
+        # CERTAINTY — inverse of mean component epistemic uncertainty. Needs the
+        # system context; without it, honestly unmeasured (not assumed certain).
+        certainty: Optional[float] = None
+        if system_context:
+            try:
+                comp = await self._quantify_component_uncertainties(system_context)
+                us = [m.get("epistemic_uncertainty") for m in comp.values()
+                      if isinstance(m.get("epistemic_uncertainty"), (int, float))]
+                if us:
+                    certainty = max(0.0, min(1.0, 1.0 - sum(us) / len(us)))
+                    sources["components"] = len(us)
+                    measured.append("certainty")
+                else:
+                    unmeasured.append("certainty")
+            except Exception as e:
+                unmeasured.append("certainty")
+                logger.debug("fitness: certainty unreadable: %s", e)
+        else:
+            unmeasured.append("certainty")
+
+        # SCALAR — weighted mean over MEASURED terms only, renormalised so a
+        # missing term is absent rather than a zero dragging fitness down.
+        terms = {"competence": competence, "coherence": coherence, "certainty": certainty}
+        num = sum(self._FITNESS_WEIGHTS[k] * v for k, v in terms.items() if v is not None)
+        den = sum(self._FITNESS_WEIGHTS[k] for k, v in terms.items() if v is not None)
+        scalar = (num / den) if den > 0 else None
+
+        return Fitness(
+            competence=competence, coherence=coherence, certainty=certainty,
+            measured=measured, unmeasured=unmeasured, scalar=scalar, sources=sources,
+        )
+
+    #: Sensitivity of valence to a per-tick fitness change. A UNIT (gain), not a
+    #: set-point: a fitness change of ~0.1 per tick reads as a clearly felt
+    #: valence (tanh(8·0.1) ≈ 0.66). Larger swings saturate toward ±1.
+    _VALENCE_GAIN = 8.0
+
+    @staticmethod
+    def _fitness_delta(now: "Fitness", prev: "Fitness") -> Tuple[Optional[float], List[str]]:
+        """The change in fitness between two readings, computed ONLY over the terms
+        measured in BOTH. This compares like-for-like: a term that appeared or
+        vanished between ticks changes the term SET, not fitness, and must not
+        register as a feeling. Returns (delta, terms_used); delta is None when no
+        term was measured in both."""
+        weights = IntrinsicMotivationSystem._FITNESS_WEIGHTS
+        common = [k for k in ("competence", "coherence", "certainty")
+                  if getattr(now, k) is not None and getattr(prev, k) is not None]
+        if not common:
+            return None, []
+        num = sum(weights[k] * (getattr(now, k) - getattr(prev, k)) for k in common)
+        den = sum(weights[k] for k in common)
+        return (num / den if den > 0 else None), common
+
+    @staticmethod
+    def _affect_from_appraisal(state) -> Tuple[Optional[str], Optional[float], Optional[str]]:
+        """The dominant named emotion, its intensity, and its cause — read from the
+        substrate's OWN appraisal (not from any environment context). None when the
+        situation has not been appraised, so nothing is invented."""
+        if state is None:
+            return None, None, getattr(state, "attribution", None)
+        emotions = {"eagerness": state.eagerness, "doubt": state.doubt,
+                    "frustration": state.frustration, "satisfaction": state.satisfaction}
+        measured = {k: v for k, v in emotions.items() if isinstance(v, (int, float))}
+        if not measured:
+            return None, None, state.attribution
+        emotion, intensity = max(measured.items(), key=lambda kv: kv[1])
+        return emotion, round(float(intensity), 4), state.attribution
+
+    async def update_affect(self) -> "AffectState":
+        """Fold a fitness-relevant EVENT (a task outcome) into the substrate's affect.
+
+        Reads the substrate's OWN state — its appraisal (for the named emotion and
+        cause) and its fitness (competence/coherence) for the mood valence. It is
+        NOT handed environment context, and it is NOT a loop tick: the mood decays
+        on read between events. An affect TRANSITION happens only when a new
+        appraisal actually produces an emotion; otherwise the current (possibly
+        rehydrated) emotion is retained — a restart alone does not change the
+        feeling. The resulting STATE is persisted and returned.
+        """
+        import math
+        from datetime import datetime, timezone
+        at = datetime.now(timezone.utc)
+
+        # --- the named emotion + cause, from the substrate's own appraisal ---
+        try:
+            from core.agents.autonomous.appraisal import get_appraisal_system
+            ap_state = get_appraisal_system().current_state
+        except Exception as e:
+            logger.debug("affect: appraisal unreadable: %s", e)
+            ap_state = None
+        emotion, intensity, cause = self._affect_from_appraisal(ap_state)
+        if emotion is not None:
+            # a real appraisal produced an emotion → an affect TRANSITION
+            self._affect_emotion, self._affect_intensity, self._affect_cause = emotion, intensity, cause
+            self._affect_version += 1
+        # else: retain the current emotion (rehydrated or prior) — no transition
+
+        # --- the mood valence from the fitness trend (the substrate's own state) ---
+        now = await self.sense_fitness()
+        prev = self._last_fitness
+        self._last_fitness = now
+        delta, _used = (None, [])
+        if prev is not None:
+            delta, _used = self._fitness_delta(now, prev)
+
+        self._mood_valence, self._mood_arousal = self._decayed(at)  # decay to now
+        if delta is not None:
+            v = math.tanh(self._VALENCE_GAIN * delta)
+            a_intensity = min(1.0, abs(delta) * self._VALENCE_GAIN)
+            k = self._MOOD_INTEGRATION
+            self._mood_valence += k * (v - self._mood_valence)
+            self._mood_arousal += k * (a_intensity - self._mood_arousal)
+            self._affect_event_count += 1
+            self._baseline_valence += self._BASELINE_DRIFT * (self._mood_valence - self._baseline_valence)
+        self._mood_valence = max(-1.0, min(1.0, self._mood_valence))
+        self._baseline_valence = max(-1.0, min(1.0, self._baseline_valence))
+        self._mood_arousal = max(0.0, min(1.0, self._mood_arousal))
+        self._last_affect_at = at
+        await self._persist_affect()
+        return self.affect_state()
+
+    # ── persistent mood (core affect) — STATE, decayed on read, not a loop ─────
+    #: Event-integration weights. α pulls mood toward the felt valence per EVENT;
+    #: β lets the trait follow lived mood (allostatic load). Not set-points — the
+    #: rates at which experience moves the felt state.
+    _MOOD_INTEGRATION = 0.2    # α: how far mood moves toward an event's valence
+    _BASELINE_DRIFT = 0.01     # β: how far the trait follows lived mood per event
+    #: Fade time-constants (wall-clock, seconds). Mood relaxes toward the baseline
+    #: with this half-life; arousal subsides faster. Units, not set-points — they
+    #: set how long a mood lingers, and are why affect needs no polling loop.
+    _MOOD_HALFLIFE_S = 1800.0     # ~30 min — a mood lingers
+    _AROUSAL_HALFLIFE_S = 600.0   # ~10 min — activation settles sooner
+
+    def _decayed(self, at: "datetime") -> Tuple[float, float]:
+        """The mood and arousal decayed toward baseline / rest for the wall-clock
+        elapsed since the last event. Computed lazily so the felt state is always
+        current WITHOUT any loop maintaining it. No last event → nothing to decay."""
+        if self._last_affect_at is None:
+            return self._mood_valence, self._mood_arousal
+        import math
+        dt = (at - self._last_affect_at).total_seconds()
+        if dt <= 0:
+            return self._mood_valence, self._mood_arousal
+        vf = math.exp(-dt / self._MOOD_HALFLIFE_S)
+        af = math.exp(-dt / self._AROUSAL_HALFLIFE_S)
+        v = self._baseline_valence + (self._mood_valence - self._baseline_valence) * vf
+        a = self._mood_arousal * af
+        return v, a
+
+    def mood(self) -> "Mood":
+        """The substrate's mood RIGHT NOW — the stored mood decayed to the current
+        time. Always current on read; no loop maintains it."""
+        from datetime import datetime, timezone
+        v, a = self._decayed(datetime.now(timezone.utc))
+        return Mood(valence=round(v, 4), arousal=round(a, 4),
+                    baseline=round(self._baseline_valence, 4),
+                    event_count=self._affect_event_count, loaded=self._affect_loaded)
+
+    def valence(self) -> float:
+        """The substrate's felt valence now — decayed to the current time."""
+        from datetime import datetime, timezone
+        v, _ = self._decayed(datetime.now(timezone.utc))
+        return round(v, 4)
+
+    def affect_state(self) -> "AffectState":
+        """The substrate's affect as STATE — the current named emotion (a fact that
+        rehydrated as-is), its cause and intensity, and the mood decayed to now.
+        This is what the coordinator reads from the substrate; it is never
+        reconstructed from the database or handed in as context."""
+        from datetime import datetime, timezone
+        v, a = self._decayed(datetime.now(timezone.utc))
+        return AffectState(
+            emotion=self._affect_emotion, intensity=self._affect_intensity,
+            cause=self._affect_cause, valence=round(v, 4), arousal=round(a, 4),
+            baseline=round(self._baseline_valence, 4), version=self._affect_version,
+            updated_at=(self._last_affect_at.isoformat() if self._last_affect_at else None),
+            loaded=self._affect_loaded,
+        )
+
+    async def _ensure_affect_table(self) -> None:
+        if not self.db:
+            return
+        await self.db.execute_query(
+            """
+            CREATE TABLE IF NOT EXISTS unified.affect_state (
+                id               INTEGER PRIMARY KEY DEFAULT 1,
+                emotion          TEXT,
+                intensity        DOUBLE PRECISION,
+                cause            TEXT,
+                mood_valence     DOUBLE PRECISION NOT NULL DEFAULT 0,
+                mood_arousal     DOUBLE PRECISION NOT NULL DEFAULT 0,
+                baseline_valence DOUBLE PRECISION NOT NULL DEFAULT 0,
+                version          INTEGER NOT NULL DEFAULT 0,
+                event_count      INTEGER NOT NULL DEFAULT 0,
+                updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT affect_state_singleton CHECK (id = 1)
+            )
+            """,
+            commit=True,
+        )
+        # Idempotent columns for a table created by an earlier revision.
+        for col, ddl in (("emotion", "TEXT"), ("intensity", "DOUBLE PRECISION"),
+                         ("cause", "TEXT"), ("version", "INTEGER NOT NULL DEFAULT 0")):
+            await self.db.execute_query(
+                f"ALTER TABLE unified.affect_state ADD COLUMN IF NOT EXISTS {col} {ddl}",
+                commit=True,
+            )
+
+    async def _persist_affect(self) -> None:
+        """Write the current affect STATE to Postgres so it rehydrates on restart —
+        the named emotion + cause + version, not just the mood reading."""
+        if not self.db:
+            return
+        try:
+            await self.db.execute_query(
+                """
+                INSERT INTO unified.affect_state
+                    (id, emotion, intensity, cause, mood_valence, mood_arousal,
+                     baseline_valence, version, event_count, updated_at)
+                VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, now())
+                ON CONFLICT (id) DO UPDATE SET
+                    emotion=$1, intensity=$2, cause=$3, mood_valence=$4,
+                    mood_arousal=$5, baseline_valence=$6, version=$7,
+                    event_count=$8, updated_at=now()
+                """,
+                params=(self._affect_emotion, self._affect_intensity, self._affect_cause,
+                        self._mood_valence, self._mood_arousal, self._baseline_valence,
+                        self._affect_version, self._affect_event_count),
+                commit=True,
+            )
+        except Exception as e:
+            logger.warning("affect persist failed: %s", e)
+
+    async def _load_affect(self) -> None:
+        """Restore mood + baseline from Postgres on startup. No row ⇒ honest
+        cold-start neutral (never a fabricated prior mood)."""
+        if not self.db:
+            return
+        try:
+            await self._ensure_affect_table()
+            row = await self.db.execute_query(
+                "SELECT emotion, intensity, cause, mood_valence, mood_arousal, "
+                "baseline_valence, version, event_count, updated_at "
+                "FROM unified.affect_state WHERE id=1",
+                fetch_one=True,
+            )
+            if row:
+                # rehydrate the affect STATE as a fact — the substrate resumes in
+                # this emotion; no re-appraisal happens merely because it restarted.
+                self._affect_emotion = row["emotion"]
+                self._affect_intensity = float(row["intensity"]) if row["intensity"] is not None else None
+                self._affect_cause = row["cause"]
+                self._affect_version = int(row["version"] or 0)
+                self._mood_valence = float(row["mood_valence"])
+                self._mood_arousal = float(row["mood_arousal"])
+                self._baseline_valence = float(row["baseline_valence"])
+                self._affect_event_count = int(row["event_count"])
+                # restore the decay anchor so time spent OFFLINE fades the mood too:
+                # a mood earned yesterday should read faded when the substrate wakes.
+                self._last_affect_at = row["updated_at"]
+                self._affect_loaded = True
+                logger.info("Affect rehydrated: emotion=%s cause=%s v=%d mood_valence=%.3f baseline=%.3f (n=%d)",
+                            self._affect_emotion, self._affect_cause, self._affect_version,
+                            self._mood_valence, self._baseline_valence, self._affect_event_count)
+            else:
+                logger.info("No persisted affect — cold start at neutral")
+        except Exception as e:
+            logger.warning("affect load failed, cold start: %s", e)
 
     async def _quantify_component_uncertainties(self, system_context: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
         """
@@ -2131,8 +2785,21 @@ class IntrinsicMotivationSystem:
         if not targets:
             return []
 
+        # A detected KNOWLEDGE GAP is a concrete, resolvable acquisition target
+        # produced from a real question; a high-entropy belief is a diffuse
+        # experiment target. Every crystallized domain contributes a competence
+        # belief at posterior 0.5 (maximal entropy), so beliefs are MANY and gaps
+        # are FEW -- taking a single entropy-sorted prefix would let the belief
+        # sea starve the gaps out of the budget entirely. Reserve up to half the
+        # budget for gaps (still entropy-ranked among themselves), so a detected
+        # gap is reliably pursued while beliefs keep the rest.
+        gaps = [t for t in targets if t.target_type == "knowledge_gap"]
+        others = [t for t in targets if t.target_type != "knowledge_gap"]
+        n_gap = min(len(gaps), max(1, max_goals // 2)) if gaps else 0
+        selected = gaps[:n_gap] + others[:max_goals - n_gap]
+
         goals = []
-        for target in targets[:max_goals]:
+        for target in selected:
             description = target.description
 
             # Novelty is GUIDANCE, not a veto. An unstable belief that needs
@@ -2184,227 +2851,6 @@ class IntrinsicMotivationSystem:
 
     # =========================================================================
     # PLAN DIVERSITY ENFORCEMENT & TOOL REPETITION PENALTY
-    # =========================================================================
-
-    async def track_tool_sequence(self, tools_used: List[str]):
-        """Track tool sequence for this iteration to detect repetition"""
-        # Store to database
-        await self._store_tool_sequence(tools_used)
-
-        # Also maintain in-memory cache
-        self._tool_sequence_history.append(tools_used.copy())
-
-        # Keep only last N iterations in cache
-        if len(self._tool_sequence_history) > self._max_sequence_history:
-            self._tool_sequence_history = self._tool_sequence_history[-self._max_sequence_history:]
-
-    async def detect_sequence_repetition(self, proposed_tools: List[str]) -> bool:
-        """
-        Detect if proposed tool sequence repeats recent patterns.
-
-        Returns True if sequence should be blocked.
-        """
-        # Load from database if cache is empty
-        if not self._tool_sequence_history:
-            self._tool_sequence_history = await self._get_recent_tool_sequences(limit=self._max_sequence_history)
-
-        if len(self._tool_sequence_history) < 2:
-            return False
-
-        # Check if last 2 iterations used same sequence
-        if len(self._tool_sequence_history) >= 2:
-            last_two = self._tool_sequence_history[-2:]
-            if last_two[0] == last_two[1] == proposed_tools:
-                logger.warning(f"🚫 Blocking repeated tool sequence: {proposed_tools}")
-                return True
-
-        # Check if proposed sequence matches any of last 3 iterations
-        recent = self._tool_sequence_history[-3:]
-        if proposed_tools in recent:
-            logger.warning(f"🚫 Tool sequence appeared {recent.count(proposed_tools)} times recently: {proposed_tools}")
-            return True
-
-        return False
-
-    async def apply_tool_cooldowns(self, available_tools: List[str]) -> List[str]:
-        """
-        Apply cooldown penalties to tools that failed repeatedly.
-
-        Returns filtered list of tools with cooldowns removed.
-        """
-        # Load cooldowns from database
-        self._tool_cooldowns = await self._get_all_tool_cooldowns()
-
-        # Decrement all cooldowns
-        for tool in list(self._tool_cooldowns.keys()):
-            self._tool_cooldowns[tool] -= 1
-            if self._tool_cooldowns[tool] <= 0:
-                del self._tool_cooldowns[tool]
-                await self._delete_tool_cooldown(tool)
-                logger.info(f"✓ Tool '{tool}' cooldown expired")
-            else:
-                await self._store_tool_cooldown(tool, self._tool_cooldowns[tool])
-
-        # Filter out tools on cooldown
-        filtered = [t for t in available_tools if t not in self._tool_cooldowns]
-
-        if len(filtered) < len(available_tools):
-            blocked = set(available_tools) - set(filtered)
-            logger.info(f"🔒 Tools on cooldown: {blocked}")
-
-        return filtered
-
-    async def record_tool_failure(self, tool_name: str, params: Dict[str, Any], error_message: str):
-        """
-        Record tool failure and apply cooldown if threshold reached.
-
-        After 2 consecutive failures → 3 iteration cooldown.
-        """
-        # Load failure count from database
-        failure_count = await self._get_tool_failure_count(tool_name)
-        failure_count += 1
-
-        # Store updated failure count
-        await self._store_tool_failure_count(tool_name, failure_count)
-
-        # Update in-memory cache
-        self._tool_failure_counts[tool_name] = failure_count
-
-        # Store failed parameter pattern (in-memory for now, could be DB too)
-        if tool_name not in self._failed_parameter_patterns:
-            self._failed_parameter_patterns[tool_name] = []
-
-        self._failed_parameter_patterns[tool_name].append({
-            'params': params.copy(),
-            'error': error_message,
-            'timestamp': time.time()
-        })
-
-        # Apply cooldown after 2 failures
-        if failure_count >= 2:
-            await self._store_tool_cooldown(tool_name, 3)  # 3 iteration cooldown
-            self._tool_cooldowns[tool_name] = 3
-            logger.warning(f"⚠️  Tool '{tool_name}' failed {failure_count} times → 3 iteration cooldown")
-
-            # Reset failure counter
-            await self._store_tool_failure_count(tool_name, 0)
-            self._tool_failure_counts[tool_name] = 0
-
-    async def record_tool_success(self, tool_name: str):
-        """Reset failure counter on success"""
-        # Remove from database
-        await self.db.execute_query(
-            """
-            DELETE FROM tool_tracking_state
-            WHERE tool_name = $1 AND tracking_type = 'failure_count'
-            """,
-            params=(tool_name,),
-            commit=True
-        ) if self.db else None
-
-        # Remove from cache
-        if tool_name in self._tool_failure_counts:
-            del self._tool_failure_counts[tool_name]
-
-    def detect_non_adaptive_retry(self, tool_name: str, params: Dict[str, Any]) -> bool:
-        """
-        Detect if tool call is retrying with similar parameters after schema error.
-
-        Blocks calls that:
-        1. Failed due to missing required parameters
-        2. Are being retried with empty or incomplete parameters
-
-        Returns True if retry should be blocked.
-        """
-        if tool_name not in self._failed_parameter_patterns:
-            return False
-
-        recent_failures = self._failed_parameter_patterns[tool_name]
-        if not recent_failures:
-            return False
-
-        # Check last failure
-        last_failure = recent_failures[-1]
-        last_params = last_failure['params']
-        last_error_msg = last_failure['error']
-
-        # Detect schema errors
-        schema_error_keywords = ['missing', 'required', 'parameter', 'schema', 'validation', 'field']
-        is_schema_error = any(keyword in last_error_msg.lower() for keyword in schema_error_keywords)
-
-        if not is_schema_error:
-            return False
-
-        # Extract missing field from error message
-        missing_field = self._extract_missing_field(last_error_msg)
-
-        if missing_field:
-            # Check if retry still missing the same field
-            if missing_field not in params or params.get(missing_field) in [None, {}, [], '']:
-                logger.error(f"🚫 Blocking non-adaptive retry of '{tool_name}': still missing '{missing_field}' after schema error")
-                logger.error(f"   Last error: {last_error_msg}")
-                logger.error(f"   Current params: {params}")
-                return True
-
-        # Check if parameters are identical or still incomplete
-        param_signature = self._get_param_signature(params)
-        last_param_signature = self._get_param_signature(last_params)
-
-        if param_signature == last_param_signature:
-            logger.error(f"🚫 Blocking identical retry of '{tool_name}' after schema error")
-            return True
-
-        # Check if parameters are still mostly empty
-        if self._params_mostly_empty(params):
-            logger.error(f"🚫 Blocking retry of '{tool_name}' with empty parameters after schema error")
-            return True
-
-        return False
-
-    def _extract_missing_field(self, error_message: str) -> Optional[str]:
-        """Extract missing field name from error message"""
-        import re
-
-        patterns = [
-            r"missing required parameter[:\s]+(\w+)",
-            r"parameter '(\w+)' is required",
-            r"'(\w+)' is required",
-            r"missing.*field[:\s]+(\w+)",
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, error_message.lower())
-            if match:
-                return match.group(1)
-
-        return None
-
-    def _get_param_signature(self, params: Dict[str, Any]) -> str:
-        """Generate signature for parameter set (for comparison)"""
-        import json
-        import hashlib
-
-        # Normalize params for comparison
-        normalized = {
-            k: str(type(v).__name__) if v is not None else 'None'
-            for k, v in sorted(params.items())
-        }
-
-        return hashlib.md5(json.dumps(normalized, sort_keys=True).encode()).hexdigest()
-
-    def _params_mostly_empty(self, params: Dict[str, Any]) -> bool:
-        """Check if parameters are mostly empty/default values"""
-        if not params:
-            return True
-
-        empty_values = [None, {}, [], '', 0]
-        empty_count = sum(1 for v in params.values() if v in empty_values)
-
-        # If more than 70% of params are empty
-        return (empty_count / len(params)) > 0.7
-
-    # =========================================================================
-    # DATABASE PERSISTENCE METHODS
     # =========================================================================
 
     async def _store_goal_embedding_to_db(self, goal_description: str, theme: str,
@@ -2770,271 +3216,6 @@ class IntrinsicMotivationSystem:
             logger.error(f"Failed to load metric history from DB: {e}")
             return []
 
-    async def _ensure_tool_tracking_table(self) -> None:
-        """Ensure tool_tracking_state table exists"""
-        if not self.db:
-            return
-
-        try:
-            # Table is created centrally in postgres_schemas.sql (unified.tool_tracking_state);
-            # perform a lightweight access check instead of MySQL-specific DDL.
-            await self.db.execute_query(
-                "SELECT 1 FROM tool_tracking_state LIMIT 1",
-                fetch_one=True,
-            )
-        except Exception as e:
-            logger.debug(f"Tool tracking table may already exist: {e}")
-
-    async def _store_tool_cooldown(self, tool_name: str, iterations_remaining: int) -> None:
-        """Store or update tool cooldown in database"""
-        if not self.db:
-            return
-
-        try:
-            await self._ensure_tool_tracking_table()
-
-            await self.db.execute_query(
-                """
-                INSERT INTO tool_tracking_state (
-                    tool_name,
-                    tracking_type,
-                    state_data,
-                    iteration_count
-                ) VALUES ($1, 'cooldown', $2, $3)
-                ON CONFLICT (tool_name, tracking_type) DO UPDATE SET
-                    state_data = EXCLUDED.state_data,
-                    iteration_count = EXCLUDED.iteration_count,
-                    last_updated = CURRENT_TIMESTAMP
-                """,
-                params=(
-                    tool_name,
-                    json.dumps({'iterations_remaining': iterations_remaining}),
-                    iterations_remaining,
-                ),
-                commit=True,
-            )
-
-            logger.debug(f"Stored tool cooldown in DB: {tool_name} → {iterations_remaining} iterations")
-
-        except Exception as e:
-            logger.error(f"Failed to store tool cooldown: {e}")
-
-    async def _get_tool_cooldown(self, tool_name: str) -> int:
-        """Get tool cooldown from database"""
-        if not self.db:
-            return 0
-
-        try:
-            results = await self.db.execute_query(
-                """
-                SELECT state_data
-                FROM tool_tracking_state
-                WHERE tool_name = $1 AND tracking_type = 'cooldown'
-                """,
-                params=(tool_name,),
-                fetch_all=True
-            )
-
-            if results and len(results) > 0:
-                state_data = json.loads(results[0]['state_data']) if isinstance(results[0]['state_data'], str) else results[0]['state_data']
-                return state_data.get('iterations_remaining', 0)
-
-            return 0
-
-        except Exception as e:
-            logger.error(f"Failed to get tool cooldown: {e}")
-            return 0
-
-    async def _delete_tool_cooldown(self, tool_name: str) -> None:
-        """Delete tool cooldown from database"""
-        if not self.db:
-            return
-
-        try:
-            await self.db.execute_query(
-                """
-                DELETE FROM tool_tracking_state
-                WHERE tool_name = $1 AND tracking_type = 'cooldown'
-                """,
-                params=(tool_name,),
-                commit=True
-            )
-
-            logger.debug(f"Deleted tool cooldown from DB: {tool_name}")
-
-        except Exception as e:
-            logger.error(f"Failed to delete tool cooldown: {e}")
-
-    async def _get_all_tool_cooldowns(self) -> Dict[str, int]:
-        """Get all tool cooldowns from database"""
-        if not self.db:
-            return {}
-
-        try:
-            results = await self.db.execute_query(
-                """
-                SELECT tool_name, state_data
-                FROM tool_tracking_state
-                WHERE tracking_type = 'cooldown' AND iteration_count > 0
-                """,
-                fetch_all=True
-            )
-
-            cooldowns = {}
-            for row in results:
-                try:
-                    state_data = json.loads(row['state_data']) if isinstance(row['state_data'], str) else row['state_data']
-                    iterations = state_data.get('iterations_remaining', 0)
-                    if iterations > 0:
-                        cooldowns[row['tool_name']] = iterations
-                except Exception as parse_error:
-                    logger.debug(f"Failed to parse cooldown row: {parse_error}")
-                    continue
-
-            return cooldowns
-
-        except Exception as e:
-            logger.error(f"Failed to get all tool cooldowns: {e}")
-            return {}
-
-    async def _store_tool_failure_count(self, tool_name: str, count: int) -> None:
-        """Store tool failure count in database"""
-        if not self.db:
-            return
-
-        try:
-            await self._ensure_tool_tracking_table()
-
-            await self.db.execute_query(
-                """
-                INSERT INTO tool_tracking_state (
-                    tool_name, tracking_type, state_data, iteration_count
-                ) VALUES ($1, 'failure_count', $2, $3)
-                ON CONFLICT (tool_name, tracking_type) DO UPDATE SET
-                    state_data = EXCLUDED.state_data,
-                    iteration_count = EXCLUDED.iteration_count,
-                    last_updated = CURRENT_TIMESTAMP
-                """,
-                params=(
-                    tool_name,
-                    json.dumps({'failure_count': count}),
-                    count
-                ),
-                commit=True
-            )
-
-            logger.debug(f"Stored tool failure count in DB: {tool_name} → {count}")
-
-        except Exception as e:
-            logger.error(f"Failed to store tool failure count: {e}")
-
-    async def _get_tool_failure_count(self, tool_name: str) -> int:
-        """Get tool failure count from database"""
-        if not self.db:
-            return 0
-
-        try:
-            results = await self.db.execute_query(
-                """
-                SELECT state_data
-                FROM tool_tracking_state
-                WHERE tool_name = $1 AND tracking_type = 'failure_count'
-                """,
-                params=(tool_name,),
-                fetch_all=True
-            )
-
-            if results and len(results) > 0:
-                state_data = json.loads(results[0]['state_data']) if isinstance(results[0]['state_data'], str) else results[0]['state_data']
-                return state_data.get('failure_count', 0)
-
-            return 0
-
-        except Exception as e:
-            logger.error(f"Failed to get tool failure count: {e}")
-            return 0
-
-    async def _store_tool_sequence(self, tools_used: List[str]) -> None:
-        """Store tool sequence in database"""
-        if not self.db:
-            return
-
-        try:
-            await self._ensure_tool_tracking_table()
-
-            # Store with timestamp as tool_name since we want multiple sequences
-            tool_name = f"sequence_{int(time.time() * 1000)}"
-
-            await self.db.execute_query(
-                """
-                INSERT INTO tool_tracking_state (
-                    tool_name, tracking_type, state_data
-                ) VALUES ($1, 'sequence', $2)
-                """,
-                params=(
-                    tool_name,
-                    json.dumps({'tools': tools_used, 'timestamp': datetime.now().isoformat()})
-                ),
-                commit=True
-            )
-
-            # Clean up old sequences (keep last 10)
-            await self.db.execute_query(
-                """
-                DELETE FROM tool_tracking_state
-                WHERE tracking_type = 'sequence'
-                AND id NOT IN (
-                    SELECT id FROM (
-                        SELECT id FROM tool_tracking_state
-                        WHERE tracking_type = 'sequence'
-                        ORDER BY last_updated DESC
-                        LIMIT 10
-                    ) AS recent
-                )
-                """,
-                commit=True
-            )
-
-            logger.debug(f"Stored tool sequence in DB: {tools_used}")
-
-        except Exception as e:
-            logger.error(f"Failed to store tool sequence: {e}")
-
-    async def _get_recent_tool_sequences(self, limit: int = 10) -> List[List[str]]:
-        """Get recent tool sequences from database"""
-        if not self.db:
-            return []
-
-        try:
-            results = await self.db.execute_query(
-                """
-                SELECT state_data
-                FROM tool_tracking_state
-                WHERE tracking_type = 'sequence'
-                ORDER BY last_updated DESC
-                LIMIT $1
-                """,
-                params=(limit,),
-                fetch_all=True
-            )
-
-            sequences = []
-            for row in results:
-                try:
-                    state_data = json.loads(row['state_data']) if isinstance(row['state_data'], str) else row['state_data']
-                    tools = state_data.get('tools', [])
-                    if tools:
-                        sequences.append(tools)
-                except Exception as parse_error:
-                    logger.debug(f"Failed to parse sequence row: {parse_error}")
-                    continue
-
-            return sequences
-
-        except Exception as e:
-            logger.error(f"Failed to get recent tool sequences: {e}")
-            return []
-
     async def get_skill_recommendations(self, max_skills: int = 10) -> List[Tuple[str, float]]:
         """
         Get skill/domain recommendations ranked by learning potential
@@ -3194,42 +3375,36 @@ class IntrinsicMotivationSystem:
             hypothesis_id if hypothesis was created, None otherwise
         """
         try:
-            from core.reasoning.hypothesis_testing import get_hypothesis_system
+            # Route through the REASONING AUTHORITY — it owns the hypothesis
+            # subsystem now. Intrinsic motivation ASKS the authority to generate a
+            # hypothesis rather than reaching the hypothesis system directly (the
+            # single-authority rule). Substrate-native: a goal becomes a
+            # falsifiable claim the substrate can test, no model involved.
+            from core.reasoning.neural_bridge import get_neural_bridge
 
-            hypothesis_system = get_hypothesis_system()
-
-            # Initialize if not already done
-            if not hasattr(hypothesis_system, 'db') or not hypothesis_system.db:
-                await hypothesis_system.initialize()
-
-            # Extract goal details
             description = goal.get('description', '')
             component = goal.get('component', 'system')
             objective_type = goal.get('objective_type', 'explore')
 
-            # Convert goal into falsifiable hypothesis claim
             claim = self._goal_to_hypothesis_claim(description, objective_type)
-
-            # Generate predictions based on goal type
             predictions = self._generate_hypothesis_predictions(goal, objective_type)
 
-            # Create hypothesis
-            hypothesis = await hypothesis_system.generate_hypothesis(
+            hypothesis_id = await get_neural_bridge().generate_hypothesis(
                 claim=claim,
                 domain=component,
                 predictions=predictions,
-                alternatives=self._generate_alternative_hypotheses(goal)
+                alternatives=self._generate_alternative_hypotheses(goal),
             )
+            if hypothesis_id is None:
+                return None
 
-            logger.info(f"✓ Created hypothesis {hypothesis.hypothesis_id} from goal: {description[:60]}...")
-            logger.debug(f"  Claim: {claim}")
-            logger.debug(f"  Predictions: {len(predictions)}")
+            logger.info(f"✓ Created hypothesis {hypothesis_id} from goal: {description[:60]}...")
 
             # Store mapping between goal and hypothesis
             if hasattr(goal, 'get') and 'id' in goal:
-                await self._store_goal_hypothesis_mapping(goal['id'], hypothesis.hypothesis_id)
+                await self._store_goal_hypothesis_mapping(goal['id'], hypothesis_id)
 
-            return hypothesis.hypothesis_id
+            return hypothesis_id
 
         except Exception as e:
             logger.error(f"Failed to convert goal to hypothesis: {e}")

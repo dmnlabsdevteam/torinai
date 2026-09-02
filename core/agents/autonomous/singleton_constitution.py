@@ -111,6 +111,16 @@ class SingletonConstitution:
         self.minimum_compliance_threshold = 0.70  # 70% minimum per law
         self.average_compliance_threshold = 0.85  # 85% average across all laws
 
+        # Metrics — surfaced via get_constitution_status for the health monitor.
+        # Honest counters of what THIS authority did: drift assessments run and
+        # drift alerts raised. (Directive-governance decisions and their counts
+        # are the GovernanceAgent's — the constitution only supplies law scores.)
+        self.metrics: Dict[str, Any] = {
+            "alignment_checks": 0,
+            "drift_alerts": 0,
+            "last_average_compliance": None,
+        }
+
         SingletonConstitution._initialized = True
         logger.info("Singleton constitution initialized with 5 governance laws")
 
@@ -367,6 +377,15 @@ class SingletonConstitution:
 
         return compliance_scores
 
+    # NOTE (2026-09-02): a validate_directive() was briefly added here but REMOVED
+    # — it re-implemented the compliance DECISION (thresholds) on top of the raw
+    # law scores, bypassing the GovernanceAgent, which is the authority that owns
+    # that decision (it calls calculate_law_compliance_scores below, applies the
+    # threshold + external rules, and reports requires_governance). Directive
+    # governance flows DirectiveSystem → GovernanceAgent → this constitution's
+    # calculate_law_compliance_scores. The constitution stays the law-SCORING
+    # authority; the GovernanceAgent stays the compliance-DECISION authority.
+
     async def _calculate_context_law_compliance(
         self,
         law: GovernanceLaw,
@@ -497,6 +516,7 @@ class SingletonConstitution:
             "last_check": self.last_check.isoformat() if self.last_check else None,
             "minimum_compliance_threshold": self.minimum_compliance_threshold,
             "average_compliance_threshold": self.average_compliance_threshold,
+            "metrics": dict(self.metrics),
             "current_violations": [
                 {
                     "law_number": v.law_number,
@@ -570,6 +590,12 @@ class SingletonConstitution:
             drift_severity = DriftSeverity.SIGNIFICANT
         else:
             drift_severity = DriftSeverity.CRITICAL
+
+        # Honest metrics of what the drift-assessment authority actually did.
+        self.metrics["alignment_checks"] += 1
+        self.metrics["last_average_compliance"] = round(average_compliance, 4)
+        if drift_severity in (DriftSeverity.SIGNIFICANT, DriftSeverity.CRITICAL):
+            self.metrics["drift_alerts"] += 1
 
         return ConstitutionalAssessment(
             drift_severity=drift_severity,

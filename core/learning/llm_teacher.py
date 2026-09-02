@@ -197,17 +197,11 @@ class LLMTeacher:
 def model_can_serve(llm_service: Any) -> bool:
     """Whether the teacher's model is actually able to serve a request right now.
 
-    Policy first: under STRICT_MODEL_FREE no model may be invoked however well
-    loaded it is, so a forbidding policy is a more fundamental "no" than an
-    unloaded backend. Then the service object, then the backend — the presence of
-    a service is not enough: the remote backend only marks the device REMOTE once
-    the shared llama-server answers, and the in-process backend only sets .model
-    after a successful load. Reading the policy has NO census side effect: asking
-    whether a model COULD serve is a routing question, not an attempt.
+    The service object first, then the backend — the presence of a service is not
+    enough: the remote backend only marks the device REMOTE once the shared
+    llama-server answers, and the in-process backend only sets .model after a
+    successful load. Asking whether a model COULD serve is a routing question.
     """
-    from core.model_policy import get_model_policy, ModelPolicy
-    if get_model_policy() is ModelPolicy.STRICT_MODEL_FREE:
-        return False
     if llm_service is None:
         return False
     if getattr(llm_service, "model", None) is not None:

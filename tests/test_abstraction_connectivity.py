@@ -373,23 +373,40 @@ def test_significance_boost_is_idempotent():
 # ------------------------------------- criterion 1: admission-controlled invocation
 
 
+class _StubBridge:
+    """Stands in for the reasoning authority: owns the abstraction pipeline and
+    exposes the bridge API the memory agent now asks (abstract_over_memories)."""
+
+    def __init__(self, pipeline):
+        self.abstraction = pipeline
+
+    async def abstract_over_memories(self, batch):
+        if self.abstraction is None:
+            raise RuntimeError("no abstraction subsystem")
+        return await self.abstraction.process_memories(batch)
+
+
 class _StubAgent:
-    """Memory agent exposing only what the admission gate needs."""
+    """Memory agent exposing only what the admission gate needs. Abstraction is
+    the reasoning authority's now, so the agent holds a (stub) bridge and ASKS
+    it — mirroring the real memory_agent._reasoning_authority()."""
 
     ABSTRACTION_MIN_NEW_MEMORIES = 15
     ABSTRACTION_COOLDOWN_S = 900.0
     ABSTRACTION_BATCH_SIZE = 200
 
     def __init__(self, items, pipeline):
-        from datetime import datetime as _dt
         self._items = items
-        self.abstraction_pipeline = pipeline
+        self._bridge = _StubBridge(pipeline)
         self.abstraction_state = {
             'last_abstraction_run': None, 'last_processed_created_at': None,
             'memories_since_abstraction': 0, 'abstraction_backlog': 0,
             'schemas_formed_last_run': 0, 'runs': 0, 'last_skip_reason': None,
         }
         self._abstraction_running = False
+
+    def _reasoning_authority(self):
+        return self._bridge
 
     async def get_recent_memories(self, limit=10, **kwargs):
         return self._items[:limit]
@@ -449,25 +466,36 @@ def test_concurrent_abstraction_is_refused():
 
 
 def test_declining_records_a_reason():
-    """A tier that never runs must be visible, not silently idle."""
+    """A tier that never runs must be visible, not silently idle. With the
+    reasoning authority owning abstraction, "no owner" is the decline reason."""
     agent = _make_agent()
-    agent.abstraction_pipeline = None
+    agent._bridge.abstraction = None  # authority has no abstraction subsystem
 
     report = asyncio.run(agent.form_abstractions_if_due())
     assert report["ran"] is False
-    assert agent.abstraction_state["last_skip_reason"] == "no_pipeline"
+    assert agent.abstraction_state["last_skip_reason"] == "no_reasoning_authority"
 
 
-def test_idle_tier_is_registered_with_the_coordinator():
-    """Criterion 1: the pipeline must be reachable from a scheduled tier."""
+def test_abstraction_is_event_triggered_not_polled():
+    """Criterion 1 (updated): abstraction is REASONING owned by the reasoning
+    authority and is driven by an EVENT — episodic-memory accumulation — not by
+    a scheduled poll tier. So it must NOT be a registered idle tier, and the
+    memory store's episodic path must schedule it via note_episodic_stored."""
     import inspect
     from core.agents.autonomous.autonomous_coordinator import AutonomousCoordinator
+    from core.agents.memory_agent import MemoryAgent
 
     source = inspect.getsource(AutonomousCoordinator._register_idle_subsystems)
+    assert "idle_abstraction" not in source, "abstraction should no longer be a poll tier"
 
-    assert "idle_abstraction" in source, "abstraction tier is not registered"
-    assert hasattr(AutonomousCoordinator, "_idle_abstraction_work")
-    assert inspect.iscoroutinefunction(AutonomousCoordinator._idle_abstraction_work)
+    # The event trigger exists and the store path invokes it.
+    assert hasattr(MemoryAgent, "note_episodic_stored")
+    assert hasattr(MemoryAgent, "_run_abstraction_then_reflect")
+    store_src = inspect.getsource(MemoryAgent.store_memory)
+    assert "note_episodic_stored" in store_src, "episodic store does not trigger abstraction"
+    # The memory agent asks the authority rather than owning a pipeline.
+    gate_src = inspect.getsource(MemoryAgent.form_abstractions_if_due)
+    assert "_reasoning_authority" in gate_src and "abstract_over_memories" in gate_src
 
 
 # ----------------------- induced knowledge must enter the belief constraint graph

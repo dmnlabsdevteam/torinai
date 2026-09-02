@@ -242,7 +242,6 @@ class MetaLearner(IStrategySelection):
 
         # Status
         self.active: bool = False
-        self.llm_service: Any = None
 
         # Optional registry for generic meta-learning tasks (used by
         # interaction_meta_learning and other systems that want to

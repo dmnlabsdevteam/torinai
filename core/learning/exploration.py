@@ -80,7 +80,7 @@ class SubstrateExplorer:
 
     def _authority_(self):
         if self._authority is None:
-            from core.learning.learning_authority import get_learning_authority
+            from core.learning.unified_learning_system import get_learning_authority
             self._authority = get_learning_authority()
         return self._authority
 

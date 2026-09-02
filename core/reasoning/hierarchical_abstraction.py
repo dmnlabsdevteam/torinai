@@ -426,7 +426,143 @@ class AbstractionPipeline:
             'governance_blocks_checked': 0,
             'motivation_adjustments': 0
         }
+        self._db_handle = None
+        self._schema_table_ready = False
         logger.info("AbstractionPipeline v2.0 initialized")
+
+    # ── Schema persistence (schemas survive a restart) ───────────────────────
+
+    _SCHEMA_DDL = """
+    CREATE TABLE IF NOT EXISTS unified.schemas (
+        schema_id      VARCHAR PRIMARY KEY,
+        belief_id      VARCHAR,
+        probability    DOUBLE PRECISION,
+        payload        JSONB NOT NULL,
+        formation_time TIMESTAMPTZ,
+        updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    """
+
+    def _db(self):
+        if self._db_handle is None:
+            from core.database import get_database_manager
+            self._db_handle = get_database_manager()
+        return self._db_handle
+
+    async def _ensure_schema_table(self) -> None:
+        if self._schema_table_ready:
+            return
+        db = self._db()
+        if not getattr(db, "initialized", False):
+            await db.initialize()
+        await db.execute_query(self._SCHEMA_DDL.strip())
+        self._schema_table_ready = True
+
+    @staticmethod
+    def _schema_to_payload(schema: 'ProbabilisticSchema') -> Dict[str, Any]:
+        """Serialize a schema to JSON-native fields. datetimes→iso, tuples→lists;
+        free-form condition/outcome dicts go through default=str at dump time."""
+        import dataclasses
+        out: Dict[str, Any] = {}
+        for f in dataclasses.fields(schema):
+            v = getattr(schema, f.name, None)
+            if isinstance(v, datetime):
+                out[f.name] = v.isoformat()
+            elif isinstance(v, tuple):
+                out[f.name] = list(v)
+            else:
+                out[f.name] = v
+        return out
+
+    @staticmethod
+    def _schema_from_payload(d: Dict[str, Any]) -> 'ProbabilisticSchema':
+        import dataclasses
+        names = {f.name for f in dataclasses.fields(ProbabilisticSchema)}
+        kwargs: Dict[str, Any] = {}
+        for k, v in d.items():
+            if k not in names:
+                continue
+            if k in ("formation_time", "last_reinforced") and isinstance(v, str):
+                try:
+                    kwargs[k] = datetime.fromisoformat(v)
+                except ValueError:
+                    kwargs[k] = datetime.now()
+            elif k == "confidence_interval" and isinstance(v, list):
+                kwargs[k] = tuple(v)
+            else:
+                kwargs[k] = v
+        return ProbabilisticSchema(**kwargs)
+
+    async def _save_schema(self, schema: 'ProbabilisticSchema') -> bool:
+        """Persist/refresh one schema. Non-fatal: a failure is logged and
+        counted-by-log, never faked as success."""
+        try:
+            import json as _json
+            await self._ensure_schema_table()
+            payload = self._schema_to_payload(schema)
+            await self._db().execute_query(
+                "INSERT INTO unified.schemas"
+                " (schema_id, belief_id, probability, payload, formation_time, updated_at)"
+                " VALUES ($1, $2, $3, $4, $5, NOW())"
+                " ON CONFLICT (schema_id) DO UPDATE SET"
+                "   belief_id = EXCLUDED.belief_id, probability = EXCLUDED.probability,"
+                "   payload = EXCLUDED.payload, updated_at = NOW()",
+                (schema.schema_id, getattr(schema, "belief_id", None),
+                 float(getattr(schema, "probability", 0.0)),
+                 _json.dumps(payload, default=str),
+                 getattr(schema, "formation_time", None)),
+                commit=True)
+            return True
+        except Exception as e:
+            logger.warning("save_schema failed for %s: %s",
+                           getattr(schema, "schema_id", "?"), e)
+            return False
+
+    async def _delete_schema(self, schema_id: str) -> bool:
+        try:
+            await self._ensure_schema_table()
+            await self._db().execute_query(
+                "DELETE FROM unified.schemas WHERE schema_id = $1",
+                (schema_id,), commit=True)
+            return True
+        except Exception as e:
+            logger.warning("delete_schema failed for %s: %s", schema_id, e)
+            return False
+
+    async def load_schemas_from_db(self) -> int:
+        """Rehydrate active_schemas on startup so induced structure survives a
+        restart (it used to live only in RAM and evaporate). Returns count."""
+        try:
+            import json as _json
+            await self._ensure_schema_table()
+            rows = await self._db().execute_query(
+                "SELECT payload FROM unified.schemas", fetch_all=True) or []
+            loaded = 0
+            for r in rows:
+                payload = r["payload"]
+                if isinstance(payload, str):
+                    payload = _json.loads(payload)
+                try:
+                    schema = self._schema_from_payload(payload)
+                    self.active_schemas[schema.schema_id] = schema
+                    loaded += 1
+                except Exception as row_err:
+                    logger.debug("load_schemas: skipping malformed row: %s", row_err)
+            if loaded:
+                logger.info("restored %d schema(s) from PostgreSQL", loaded)
+            return loaded
+        except Exception as e:
+            logger.warning("load_schemas_from_db failed: %s", e)
+            return 0
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Flat scalars for the health probe (the pipeline was blind to health).
+        Surfaces the live abstraction counters plus the active-schema count."""
+        return {
+            "active_schemas": len(self.active_schemas),
+            "abstraction_candidates": len(self.abstraction_candidates),
+            **{k: v for k, v in self.stats.items() if isinstance(v, (int, float, bool))},
+        }
 
     async def start_monitoring(self, interval_hours: float = 1.0):
         """Start continuous abstraction pressure monitoring"""
@@ -920,6 +1056,9 @@ class AbstractionPipeline:
         await self._create_belief_from_schema(schema)
         await self.apply_abstraction_effects(schema)
         await self._add_to_hierarchy(schema, cluster)
+        # DURABLE: a newly-formed schema (with its belief_id now set) is persisted
+        # so induced structure survives a restart instead of living only in RAM.
+        await self._save_schema(schema)
 
         # Enrichment runs detached. Ordering it last is not sufficient on its
         # own: awaiting it here would still hold schema formation open for the
@@ -1264,7 +1403,11 @@ class AbstractionPipeline:
             return
         for memory_id in schema.counterexamples:
             try:
-                memory = await self.memory.get_memory(memory_id)
+                # MemoryAgent's accessor is retrieve_memory() — there is no
+                # get_memory(); the old name raised AttributeError per counterexample
+                # (swallowed below), so strong-schema contradictions were never
+                # actually flagged. Mirrors the correct call at line ~1231.
+                memory = await self.memory.retrieve_memory(memory_id)
                 if memory:
                     await self.memory.update_memory(
                         memory_id,
@@ -1682,13 +1825,18 @@ class AbstractionPipeline:
                     'description': f"Meta-pattern in {domain} domain"
                 }
 
-                # Create principle node
+                # Create principle node. ConceptNode requires content + probability
+                # and has NO schema_ids/confidence/metadata fields — the previous
+                # kwargs raised TypeError (swallowed below), so Level-3 principles
+                # never actually formed. A principle is an ABSTRACTION_OF its
+                # schemas, and it is found by domain via applicable_contexts.
                 principle_node = ConceptNode(
                     concept_id=f"principle_{domain}_{len(self.concept_hierarchy.nodes)}",
                     level=AbstractionLevel.PRINCIPLE,
-                    schema_ids=[s.schema_id for s in schemas],
-                    confidence=common_principle['avg_probability'],
-                    metadata={'domain': domain, 'schema_count': len(schemas)}
+                    content=common_principle['description'],
+                    probability=common_principle['avg_probability'],
+                    abstraction_of=[s.schema_id for s in schemas],
+                    applicable_contexts=[domain],
                 )
 
                 self.concept_hierarchy.add_concept(principle_node)
@@ -1725,7 +1873,12 @@ class AbstractionPipeline:
                     # Remove schema if it decayed below threshold
                     if schema.probability < 0.3:
                         del self.active_schemas[schema_id]
+                        # DURABLE: drop the row too, else load resurrects it.
+                        await self._delete_schema(schema_id)
                         logger.info(f"Removed low-probability schema: {schema_id}")
+                    else:
+                        # DURABLE: persist the decayed schema state.
+                        await self._save_schema(schema)
 
             logger.info(f"✓ Applied decay to {schemas_decayed} schemas")
 

@@ -120,6 +120,7 @@ class DomainRegistry:
             await self._db().initialize()
             await self._load_domains()
             await self._load_concepts()
+            self._repair_category_links()
             await self._project_universal_level()
             await self._load_mappings()
             await self._rebuild_indexes()
@@ -134,6 +135,47 @@ class DomainRegistry:
             )
             return True
 
+
+    def _repair_category_links(self) -> None:
+        """Make the category hierarchy consistent BY CONSTRUCTION.
+
+        Every typed domain must be reachable from its DomainType category, both
+        ways. Two ways it wasn't: the load path set the PARENT link
+        unconditionally but the reciprocal CHILD link only when the category node
+        already existed at that moment (load-order dependent), and a domain
+        crystallized in-session was persisted with no link at all. Either way a
+        real learned domain -- an 86-concept `code_generation`, a taught `bird`
+        -- became invisible to category-level resolution. This runs after all
+        domains and concepts are loaded, so every node exists: for each domain it
+        ensures the category node is present and the parent<->child link holds on
+        BOTH sides. Idempotent; a node is never made its own child.
+        """
+        repaired = 0
+        for domain_id, domain in list(self.domains.items()):
+            dtype = domain.domain_type
+            if dtype is None:
+                continue
+            category_id = f"domain_{dtype.value}"
+            if domain_id == category_id:
+                continue
+            category = self.domains.get(category_id)
+            if category is None:
+                category = Domain(
+                    domain_id=category_id,
+                    name=dtype.value.replace("_", " ").title(),
+                    domain_type=dtype,
+                    description=f"Domain category: {dtype.value}",
+                )
+                self.domains[category_id] = category
+            if category_id not in domain.parent_domains:
+                domain.parent_domains.add(category_id)
+                repaired += 1
+            if domain_id not in category.child_domains:
+                category.child_domains.add(domain_id)
+                repaired += 1
+        if repaired:
+            logger.info("domain hierarchy: repaired %d category link(s) so every "
+                        "typed domain is reachable from its category", repaired)
 
     @staticmethod
     def _domain_key(domain_id: str) -> str:
@@ -285,6 +327,53 @@ class DomainRegistry:
         "economics": DomainType.BUSINESS,
     }
 
+    #: Recognizable terms per DomainType, for classifying a field the explicit
+    #: map above does not name. A newly-encountered domain is classified from
+    #: the terms in its own name so it is wired automatically, rather than left
+    #: for a human to add to the table above.
+    _DOMAIN_TYPE_TERMS = {
+        DomainType.MATHEMATICAL: {"math", "mathematics", "arithmetic", "algebra",
+                                  "calculus", "geometry", "logic", "number", "numeric"},
+        DomainType.PHYSICAL: {"physics", "physical", "mechanics", "mechanical", "fluid",
+                              "thermodynamics", "thermo", "electronics", "electrical", "circuit"},
+        DomainType.SCIENTIFIC: {"biology", "bio", "chemistry", "chem", "material",
+                                "materials", "science", "scientific", "research"},
+        DomainType.LINGUISTIC: {"language", "linguistic", "linguistics", "conversation",
+                                "communication", "documentation", "semantic", "semantics",
+                                "text", "nlp", "reading", "grammar"},
+        DomainType.BUSINESS: {"business", "economics", "econ", "finance", "market", "commerce"},
+        DomainType.CREATIVE: {"art", "creative", "design", "music", "aesthetic"},
+        DomainType.SOCIAL: {"social", "society"},
+        DomainType.PRACTICAL: {"plumbing", "construction", "trade", "installation",
+                               "maintenance", "repair"},
+        # The substrate's own operating fields resolve here.
+        DomainType.TECHNICAL: {"ai", "ml", "code", "coding", "software", "program",
+                               "programming", "data", "database", "db", "network",
+                               "networking", "security", "system", "systems", "execution",
+                               "filesystem", "file", "reasoning", "computer", "computing",
+                               "tool", "tools", "api", "monitoring", "memory", "learning",
+                               "engineering", "electronic", "tech", "technical", "test",
+                               "testing", "generation", "processing", "search", "substrate"},
+    }
+
+    @classmethod
+    def _classify_field(cls, field: str) -> DomainType:
+        """Classify a knowledge field into a DomainType, automatically.
+
+        Explicit assignments (made against the concepts a field actually holds)
+        win. An unknown field is classified by the recognizable terms in its own
+        name, so a newly-encountered domain is wired without a human editing a
+        table. Only a field with no recognizable signal falls to ABSTRACT.
+        """
+        explicit = cls._FIELD_TO_DOMAIN_TYPE.get(field)
+        if explicit is not None:
+            return explicit
+        tokens = set(field.lower().replace("-", " ").replace("_", " ").split())
+        for domain_type, terms in cls._DOMAIN_TYPE_TERMS.items():
+            if tokens & terms:
+                return domain_type
+        return DomainType.ABSTRACT
+
     async def _load_concepts(self):
         """Load concepts from unified.concepts and attach them to their domains.
 
@@ -317,12 +406,11 @@ class DomainRegistry:
             domain_id = f"domain_{field}"
 
             if domain_id not in self.domains:
-                dtype = self._FIELD_TO_DOMAIN_TYPE.get(field)
-                if dtype is None:
-                    # Loaded anyway -- the concepts are real. Named loudly so the
-                    # category is assigned deliberately rather than guessed.
+                dtype = self._classify_field(field)
+                if dtype is DomainType.ABSTRACT and field not in self._FIELD_TO_DOMAIN_TYPE:
+                    # No recognizable signal in the field name: classified as
+                    # ABSTRACT automatically, not left for a human to map.
                     unclassified.add(field)
-                    dtype = DomainType.ABSTRACT
                 self.domains[domain_id] = Domain(
                     domain_id=domain_id,
                     name=field.replace("_", " ").title(),
@@ -372,10 +460,10 @@ class DomainRegistry:
         ]
 
         if unclassified:
-            logger.warning(
-                "unified.concepts: no DomainType mapping for field(s) %s; loaded "
-                "as ABSTRACT. Add them to _FIELD_TO_DOMAIN_TYPE to classify them.",
-                ", ".join(sorted(unclassified)),
+            logger.info(
+                "unified.concepts: %d field(s) had no recognizable domain signal "
+                "and were auto-classified as ABSTRACT: %s",
+                len(unclassified), ", ".join(sorted(unclassified)),
             )
         logger.info(
             "unified.concepts: attached %d concepts across %d fields",
@@ -442,6 +530,27 @@ class DomainRegistry:
                 self.domains[c] for c in sorted(match.child_domains)
                 if c in self.domains
             ]
+            # If the reference names a CATEGORY (a DomainType value), the answer
+            # is every domain OF that type -- not only the ones wired as
+            # children. A learned subject domain that never got linked into the
+            # hierarchy (a persisted crystallized domain, or one whose reciprocal
+            # child link was lost to load order) is still of this type, and
+            # category-level reasoning must reach it or it silently skips real
+            # knowledge -- an 86-concept `code_generation` domain went missing
+            # exactly this way. `_bound` dedupes, so unioning is safe. An EXACT
+            # FIELD reference ("physics") is NOT a DomainType value and so is
+            # never widened -- exact still wins.
+            try:
+                as_category = DomainType(key)
+            except ValueError:
+                as_category = None
+            if as_category is not None:
+                members = list(children)
+                members += [d for d in self.domains.values()
+                            if d.domain_type == as_category]
+                if match.concepts:
+                    members.append(match)
+                return self._bound(members, require_concepts, max_targets, rank_against)
             # A node with members is a category. It contributes itself only if
             # it actually carries concepts.
             if children:
@@ -601,18 +710,20 @@ class DomainRegistry:
         for row in rows:
             meta = row["metadata"]
             try:
-                if meta:
-                    if isinstance(meta, str):
-                        meta = json.loads(meta)
+                # THE STRUCTURED COLUMNS ARE AUTHORITATIVE. The cross-domain
+                # reasoner writes a mapping into the columns (source_domain,
+                # similarity_score, ...) and does not always duplicate it into
+                # the metadata blob. A metadata blob is only a full serialised
+                # mapping when it carries `mapping_id`; some rows (operator-
+                # correspondence, kind=operator_correspondence) store a PARTIAL
+                # blob without the mapping fields, and deserialising that raised
+                # KeyError and dropped a real mapping. So metadata is used only
+                # when it is a complete mapping; otherwise the columns are.
+                if isinstance(meta, str):
+                    meta = json.loads(meta)
+                if isinstance(meta, dict) and "mapping_id" in meta:
                     mapping = self._deserialize_mapping(meta)
                 else:
-                    # THE STRUCTURED COLUMNS ARE AUTHORITATIVE. The cross-domain
-                    # reasoner writes a mapping into the columns
-                    # (source_domain, similarity_score, ...) and does not always
-                    # duplicate it into the metadata blob. Rebuilding from the
-                    # columns loads that real mapping instead of dropping it for
-                    # lacking a redundant copy -- the same columns the master's
-                    # own reader uses.
                     mapping = self._mapping_from_row(row)
             except Exception as e:
                 failed.append(f"{row['mapping_id']} ({type(e).__name__}: {e})")

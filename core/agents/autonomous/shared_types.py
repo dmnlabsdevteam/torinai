@@ -181,13 +181,11 @@ class Task:
     """
     Task representation with verifiable completion criteria.
     
-    Completion Protocol:
-    - success_criteria: What must be true for task to be VERIFIED
-    - required_artifacts: Files/outputs that must exist
-    - acceptance_criteria: Formal acceptance tests
-    - completion_spec: Full TaskCompletionSpec (imported from completion_protocol)
-    
-    The LLM cannot mark a task VERIFIED - only the completion validator can.
+    Completion:
+    - success_criteria: optional hints the coordinator seeds for a task.
+    A task is VERIFIED by the substrate re-observing the world (the executor
+    confirms its own effects / re-observes the goal state) — not by a
+    generator-policing completion protocol, which has been retired.
     """
     id: str
     type: TaskType
@@ -263,6 +261,12 @@ class Task:
     retry_count: int = 0
     max_retries: int = 1
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    #: The tools this task may use, or None for UNRESTRICTED. None is the
+    #: substrate's own work (it has every tool); a list is a SCOPED grant the
+    #: substrate defines when it deploys an agent, so a spawned copy can
+    #: only reach the tools it was given. The executor enforces this.
+    allowed_tools: Optional[List[str]] = None
 
     def __post_init__(self):
         """Validate and fix types after initialization"""

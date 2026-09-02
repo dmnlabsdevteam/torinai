@@ -4,14 +4,15 @@ EpistemicEngine — Unified BayesianUncertaintySystem + HypothesisTestingSystem.
 
 Public API (callers never touch the subsystems directly):
 
-    apply_llm_output(outputs) -> List[EpistemicMutation]
+    apply_reasoning_output(outputs) -> List[EpistemicMutation]
         Snapshot → apply → recompute → measure delta → record only real mutations.
         Serialised through asyncio.Lock; safe for concurrent executor threads.
+        (Was apply_llm_output; model-free — folds SUBSTRATE reasoning conclusions.)
 
     observe_tool_result(tool_name, parameters, output, success) -> List[EpistemicMutation]
         Called after each tool execution in the agent loop.
         Converts tool outcomes into belief evidence so the epistemic engine
-        reflects actual task progress — not just post-completion LLM assertions.
+        reflects actual task progress — from what the tool OBSERVED.
         Each successful call corroborates a canonical belief for that tool category,
         raising its posterior and lowering entropy until it exits the unstable set.
 
@@ -111,7 +112,8 @@ class EpistemicEngine:
     Unified facade over BayesianUncertaintySystem and HypothesisTestingSystem.
 
     Architecture contract:
-      - Executor calls apply_llm_output() after task completion.
+      - The executor folds tool observations into belief via observe_tool_result()
+        (→ apply_reasoning_output); the reasoning authority exposes both.
       - Intrinsic motivation calls get_unstable_regions() for goal generation.
       - Coordinator only reads result["epistemic_mutations"] (a list).
       - Nothing else accesses the subsystems directly.
@@ -169,11 +171,18 @@ class EpistemicEngine:
     # Public: apply LLM output
     # ------------------------------------------------------------------
 
-    async def apply_llm_output(
+    async def apply_reasoning_output(
         self, outputs: Dict[str, Any]
     ) -> List[EpistemicMutation]:
         """
-        Parse structured LLM outputs and apply epistemic mutations.
+        Fold structured SUBSTRATE reasoning conclusions into the belief graph.
+
+        `outputs` = {"hypotheses": [...], "belief_updates": [...]} produced by the
+        substrate's own reasoning (a settled reasoning result, a generated
+        hypothesis) — NOT a model. Renamed from `apply_llm_output`: the mechanism
+        (create/update beliefs, record only real entropy change) is model-free;
+        only its old framing assumed a model produced the structure. Driven by
+        the reasoning authority (see NeuralSymbolicBridge.apply_reasoning_output).
 
         Correct order per belief:
           1. Snapshot entropy_before
@@ -373,7 +382,7 @@ class EpistemicEngine:
         if mutations:
             types = ", ".join(sorted({m.mutation_type for m in mutations}))
             logger.info(
-                f"EpistemicEngine.apply_llm_output: {len(mutations)} mutations "
+                f"EpistemicEngine.apply_reasoning_output: {len(mutations)} mutations "
                 f"[{types}]"
             )
         return mutations
@@ -433,10 +442,10 @@ class EpistemicEngine:
             )
             return []
 
-        # Route through apply_llm_output so existing mutation recording,
+        # Route through apply_reasoning_output so existing mutation recording,
         # deduplication, PRIOR_INFORMATION_THRESHOLD and net-delta tracking all
         # apply unchanged.
-        mutations = await self.apply_llm_output({"belief_updates": updates})
+        mutations = await self.apply_reasoning_output({"belief_updates": updates})
         if mutations:
             logger.info(
                 "[epistemic] %s → %d mutation(s): %s",
@@ -602,37 +611,47 @@ class EpistemicEngine:
     # Public: read unstable regions
     # ------------------------------------------------------------------
 
-    async def reason(self, request) -> Any:
-        """Compute uncertainty for a reasoning request
-        
-        Args:
-            request: ReasoningRequest with query, mode, and context
-            
-        Returns:
-            ReasoningResult with uncertainty estimate
+    async def assess_uncertainty(self, request) -> Dict[str, Any]:
+        """The substrate's EPISTEMIC uncertainty about a query, from its own
+        belief graph — NOT a general reasoner (the reasoning authority owns
+        reason()). Measures how unsettled the substrate's relevant knowledge is:
+        average entropy across the unstable regions (high-entropy beliefs +
+        stalled hypotheses). The reasoning authority CALLS this to annotate its
+        results with how confident the substrate's own knowledge is.
+
+        Returns {uncertainty, confidence, basis} — a reading, never a fabricated
+        certainty. (Was `reason()`, an LLM-era name that collided with the one
+        reasoning authority; renamed and reframed for the model-free substrate.)
         """
-        from core.reasoning.reasoning_interfaces import ReasoningResult
-        
-        # Get all unstable regions
         unstable_regions = self.get_unstable_regions()
-        
         if not unstable_regions:
-            # No unstable regions = low uncertainty
-            return ReasoningResult(uncertainty=0.1, confidence=0.9, reasoning="No unstable epistemic regions")
-        
-        # Compute average entropy across unstable regions
-        total_entropy = sum(region.entropy for region in unstable_regions)
-        avg_entropy = total_entropy / len(unstable_regions)
-        
-        # Normalize to [0, 1] range (Shannon entropy for binary is max 1.0)
+            return {"uncertainty": 0.1, "confidence": 0.9,
+                    "basis": "no unstable epistemic regions"}
+        avg_entropy = sum(r.entropy for r in unstable_regions) / len(unstable_regions)
         uncertainty = min(1.0, avg_entropy)
-        
-        return ReasoningResult(
-            uncertainty=uncertainty,
-            confidence=1.0 - uncertainty,
-            reasoning=f"Computed from {len(unstable_regions)} unstable regions, avg entropy={avg_entropy:.3f}"
-        )
+        return {
+            "uncertainty": uncertainty,
+            "confidence": 1.0 - uncertainty,
+            "basis": f"{len(unstable_regions)} unstable region(s), avg entropy={avg_entropy:.3f}",
+        }
     
+    def model_coherence(self) -> Optional[float]:
+        """How settled the belief model is right now: ``1 − mean belief entropy``,
+        in [0,1]. Higher means the substrate's beliefs are confident and stable.
+
+        Returns None when there are NO beliefs yet — an empty model has no
+        coherence to report, which is NOT the same as being maximally coherent.
+        Exposed here (the belief owner) so readers such as intrinsic motivation
+        do not reach into the belief store directly.
+        """
+        beliefs = self._uncertainty().beliefs
+        if not beliefs:
+            return None
+        ents = [float(getattr(b, "entropy", 1.0)) for b in beliefs.values()]
+        if not ents:
+            return None
+        return max(0.0, min(1.0, 1.0 - sum(ents) / len(ents)))
+
     def get_unstable_regions(self) -> List[EpistemicTarget]:
         """
         Return high-entropy beliefs and stalled hypotheses as exploration targets.
@@ -681,6 +700,47 @@ class EpistemicEngine:
         except Exception as e:
             logger.warning(
                 f"EpistemicEngine.get_unstable_regions (beliefs): {e}"
+            )
+
+        # -- Known-unknowns: acknowledged declarative gaps -----------------
+        # A KNOWN_UNKNOWN is the substrate's own record of a fact it knows it
+        # does not hold (produced by detect_knowledge_gap / an unanswered
+        # in-domain question). It is a genuine high-uncertainty region — the
+        # answer is unknown by construction — so it surfaces here alongside
+        # high-entropy beliefs, and intrinsic motivation turns it into a goal to
+        # ACQUIRE the missing fact (research or being taught), not a belief
+        # experiment. This is what makes a detected gap get EXPLORED rather than
+        # sit inertly in the register. Marked `requires_acquisition` (NOT
+        # `requires_epistemic_output`): closing it means resolving the unknown,
+        # not mutating the belief graph.
+        try:
+            unc = self._uncertainty()
+            for uid, unknown in getattr(unc, "known_unknowns", {}).items():
+                if not getattr(unknown, "can_be_resolved", True):
+                    continue
+                info = float(getattr(unknown, "information_value", 0.0) or 0.0)
+                if info < 0.5:
+                    continue  # not worth a goal yet; low-value gaps wait
+                targets.append(EpistemicTarget(
+                    target_id=uid,
+                    target_type="knowledge_gap",
+                    # Unknown by construction: entropy near the top, ranked by
+                    # how valuable resolving it is.
+                    entropy=min(1.0, 0.85 + 0.15 * info),
+                    description=f"Acquire missing knowledge: {unknown.question}",
+                    domain=getattr(unknown, "domain", "") or "general",
+                    metadata={
+                        "known_unknown_id": uid,
+                        "requires_acquisition": True,
+                        "acquire": unknown.question,
+                        "information_value": info,
+                        "resolution_strategy": getattr(
+                            unknown, "resolution_strategy", None),
+                    },
+                ))
+        except Exception as e:
+            logger.warning(
+                f"EpistemicEngine.get_unstable_regions (known-unknowns): {e}"
             )
 
         # -- Stalled hypotheses --------------------------------------------

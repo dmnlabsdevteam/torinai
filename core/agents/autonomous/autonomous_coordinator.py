@@ -11,9 +11,11 @@ from types import SimpleNamespace
 import json
 import logging
 import os
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional, Set, Sequence, Tuple
 from datetime import datetime, timedelta
-from collections import deque
+from collections import deque, OrderedDict
+from dataclasses import dataclass, field
+from enum import Enum
 
 from .shared_types import (
     SystemMode, SystemState, Task, Goal, Plan, PerceptionData,
@@ -22,7 +24,7 @@ from .shared_types import (
 from .singleton_constitution import DriftSeverity
 from .perception_manager import PerceptionManager
 from .planning_engine import PlanningEngine
-from .learning_adapter import get_learning_adapter
+from core.learning.unified_learning_system import get_learning_authority
 from .directive_system import DirectiveSystem
 from .runtime_governance import get_runtime_governance
 from .coordinator_config import CoordinatorConfig, get_default_config
@@ -90,9 +92,6 @@ except ImportError:
 from core.domain import DomainRegistry, UniversalOntology, CrossDomainReasoner
 from core.integration.universal_domain_master import UniversalDomainMaster, CrossDomainQuery, DomainType, ReasoningStrategy
 
-# The teacher model. Torin is the SUBSTRATE this coordinator IS; the
-# model it consults is not Torin and naming it so hid the distinction.
-from core.services.unified_llm import get_llm_service, LLMRequest, LLMResponse
 from core.utils.notification_publisher import publish_notification
 from core.integration.slack_notifier import get_slack_notifier
 
@@ -117,6 +116,53 @@ def _subsystem_readiness(subsystem: Any) -> Dict[str, Any]:
     flag = getattr(subsystem, "initialized", None)
     return {"attached": True,
             "initialized": None if flag is None else bool(flag)}
+
+
+class SelfEventType(Enum):
+    """Typed events the self reacts to; the dispatch keys on these.
+
+    An event names something that happened to the substrate and carries the
+    specific unit of work it concerns in its payload — never "go scan a table".
+    Reactions registered with ``AutonomousCoordinator.on(...)`` fire when the
+    matching event is emitted: synchronous reactions inline (cheap state
+    changes), deferred reactions on the reactive drain worker (expensive work,
+    off the acting hot path). New members are added by the phase that first
+    emits them — the taxonomy grows only as fast as it is wired.
+    """
+    TASK_COMPLETED = "task_completed"
+    #: A completed task's outcome is durable (its META memory is written). Carries
+    #: the domain and meta_memory_id so learning reactions act on THAT outcome
+    #: instead of a clock later scanning the outcome table.
+    OUTCOME_OBSERVED = "outcome_observed"
+    #: Learning moved a domain's competence (an operator became executable, or a
+    #: run of demonstrations did not yet yield one). Emitted by the induction
+    #: reaction so downstream faculties can react to a competence change.
+    COMPETENCE_CHANGED = "competence_changed"
+    #: A taught proposition was admitted to the concept store (subject/relation/
+    #: object/domain in the payload). Emitted by the conversation's ingest so the
+    #: domain authority can crystallize a taught subject into its own domain the
+    #: moment its concept cluster is complete, instead of an idle tier finding it
+    #: later.
+    EVIDENCE_ADMITTED = "evidence_admitted"
+    #: A background job the substrate submitted to the queue authority finished
+    #: and was collected. Payload: {job_id, name, result, error}. `error` set
+    #: means it failed — carried honestly, never a faked result. This is how a
+    #: deferred job (an agent's findings, a self-serve lookup) is passed back to
+    #: the substrate to reconcile, without it blocking on each.
+    JOB_COMPLETED = "job_completed"
+
+
+@dataclass
+class SelfEvent:
+    """One thing that happened to the substrate.
+
+    ``payload`` carries the concrete unit of work (the task, its result) so a
+    reaction acts on exactly what happened instead of rescanning state.
+    ``origin`` is a short causal label for tracing which site emitted it.
+    """
+    type: SelfEventType
+    payload: Dict[str, Any] = field(default_factory=dict)
+    origin: str = ""
 
 
 class AutonomousCoordinator:
@@ -156,8 +202,7 @@ class AutonomousCoordinator:
         # one report a typed capability fault, exactly as a severed solver
         # does; none of them substitute a weaker answer, because a fallback is
         # what made the missing capability invisible in the first place.
-        self.teacher_model = teacher_model
-        self.llm = teacher_model  # the consultable model, absent by default
+        self.teacher_model = teacher_model  # the teacher, consulted only for teaching
 
         # Configuration system - replaces magic numbers
         self.coordinator_config = CoordinatorConfig.from_dict(self.config) if self.config else get_default_config()
@@ -195,8 +240,15 @@ class AutonomousCoordinator:
         # Initialize core modules
         self.perception = PerceptionManager(self.config.get("perception", {}))
         self.planning = PlanningEngine(self.config.get("planning", {}))
-        # Use global singleton instances for learning and intrinsic motivation
-        self.learning = get_learning_adapter(self.config.get("learning", {}))
+        # Learning is the ONE authority (UnifiedLearningSystem), the same one the
+        # substrate-self reaches via learning() — not the dead LearningAdapter.
+        # There is a SINGLE learning attribute now: `self.learning`. It used to
+        # be shadowed by a second `self.unified_learning` that main.py injected
+        # with the very same singleton, so the coordinator carried two names for
+        # one object. That injection is gone; readiness is read off the object
+        # itself (`self.learning.initialized`), which is what "was it wired?"
+        # actually asks.
+        self.learning = get_learning_authority()
         self._adaptive_types_registered = False
         # (was `_pending_decision_id` — a single slot shared across selections.
         # Removed: a decision id now travels in a per-call sink to the task it
@@ -209,13 +261,13 @@ class AutonomousCoordinator:
         # the BODY: it holds a handle to the Self and reaches faculties THROUGH it,
         # rather than constructing them itself. The Self does no reasoning/learning
         # /goal-forming — it holds the authorities that do.
-        from core.agents.autonomous.self_model import get_self
-        self.self = get_self()
-
-        # Motivation is a faculty the Self owns; the body reaches it here rather
-        # than building its own (the config was always the default {} — the real
-        # knob is `intrinsic_motivation_weight`, unrelated to construction).
-        self.intrinsic_motivation = self.self.motivation()
+        # Motivation is one of THIS substrate's own faculties — the intrinsic
+        # motivation system that forms goals from its measured signals. It is the
+        # module singleton (no rival instance); the config was always the default
+        # {} — the real knob is `intrinsic_motivation_weight`, unrelated to
+        # construction.
+        from core.agents.autonomous.intrinsic_motivation import get_intrinsic_motivation_system
+        self.intrinsic_motivation = get_intrinsic_motivation_system()
 
         # Security audit worker -- MUST be the module singleton.
         #
@@ -249,7 +301,28 @@ class AutonomousCoordinator:
         # Maps (TaskType, TaskSource) -> List[callback_fn]
         # Callbacks receive: (task: Task, result: Dict, confidence: float)
         self._completion_callbacks: Dict[tuple, List] = {}
-        
+
+        # Event/reaction dispatch — the substrate reacts to what happens to it
+        # instead of a clock polling for it. Reactions registered via on() fire
+        # when a matching SelfEvent is emitted: sync ones inline (isolated,
+        # priority order), deferred ones on the drain worker (off the hot path).
+        # This generalizes the completion-callback registry above; affect is the
+        # first reaction, registered below.
+        self._reactions: Dict[SelfEventType, List[Dict[str, Any]]] = {}
+        self._reactive_queue: deque = deque()
+        self._work_ready: asyncio.Event = asyncio.Event()
+        self._reactive_worker: Optional[asyncio.Task] = None
+        self._emit_depth: int = 0
+        self._max_emit_depth: int = 8
+
+        # Coalescing state for the reactive motivation refresh (COMPETENCE_CHANGED
+        # → refresh). An induction batch emits one event per domain it moved, so a
+        # naive reaction would refresh N times; the dirty flag + single-flight task
+        # collapse a burst into at most one in-flight + one queued refresh, and
+        # never drop the last change.
+        self._motivation_dirty: bool = False
+        self._motivation_refresh_task: Optional[asyncio.Task] = None
+
         # Register completion callback for security remediation tasks
         # This creates the CLOSURE hook: Detection → Remediation → Verification → Closure
         self.register_completion_callback(
@@ -266,6 +339,55 @@ class AutonomousCoordinator:
             self._on_knowledge_refresh_complete,
             "Update knowledge refresh state"
         )
+
+        # AFFECT — the reference reaction. A task outcome is a fitness-relevant
+        # event, so the substrate feels it. This was hardwired at the completion
+        # seam; it now fires when a TASK_COMPLETED event is emitted there.
+        self.on(SelfEventType.TASK_COMPLETED, self._react_affect,
+                name="affect", mode="sync", priority=90)
+
+        # LEARNING — reactive, off the hot path. When an outcome is observed the
+        # always-online learner induces the operators whose demonstrations were
+        # gathered during acting, and moves the competence that earns — instead
+        # of a 300s idle tier later draining them. Deferred: the hypothesis
+        # search runs on the drain worker, never an acting slot, so the
+        # deliberate record-cheap / induce-expensive split is preserved.
+        self.on(SelfEventType.OUTCOME_OBSERVED, self._react_induce,
+                name="operator_induction", mode="deferred", priority=50)
+        # Domain expansion (this outcome) then transfer resolution (the return
+        # leg) — the two halves the domain-expansion tier ran on a 900s clock,
+        # now reacting to the outcome. Deferred, off the acting hot path;
+        # expansion before transfer (expansion may write the transfers).
+        self.on(SelfEventType.OUTCOME_OBSERVED, self._react_expand_outcome,
+                name="domain_expansion", mode="deferred", priority=40)
+        self.on(SelfEventType.OUTCOME_OBSERVED, self._react_resolve_transfers,
+                name="transfer_resolution", mode="deferred", priority=30)
+
+        # TEACHING drives the domain map. When a taught proposition is admitted,
+        # the domain authority re-checks whether the taught-concept graph now has
+        # a coherent cluster to crystallize into its own subject domain (and
+        # updates that domain's declarative-knowledge coverage). Deferred: the
+        # graph scan runs on the drain worker, never the reply path. The idle
+        # domain-discovery tier stays as a backstop.
+        self.on(SelfEventType.EVIDENCE_ADMITTED, self._react_crystallize_taught,
+                name="crystallize_taught", mode="deferred", priority=45)
+
+        # A background job the substrate submitted has come back. The receipt is
+        # recorded here; a job that carried a domain outcome is folded into the
+        # substrate's learning through the same OUTCOME_OBSERVED path its own
+        # tasks use, so a spawned agent's findings advance the domain like any
+        # other outcome. A failed job is logged with its error, never dropped.
+        self.on(SelfEventType.JOB_COMPLETED, self._react_job_completed,
+                name="job_completed", mode="deferred", priority=40)
+
+        # COMPETENCE — a moved competence changes the per-domain competence DRIVE
+        # (intrinsic motivation's inverted-U), so the motivation signals that read
+        # it are stale until refreshed. COMPETENCE_CHANGED already fires from the
+        # induction reaction; this gives it its first consumer, refreshing the
+        # signals reactively (coalesced) instead of waiting for the %5 poll — which
+        # stays as a backstop. This is a step toward taking motivation off the poll.
+        self.on(SelfEventType.COMPETENCE_CHANGED, self._react_competence_changed,
+                name="motivation_refresh", mode="deferred", priority=20)
 
         # Directive System - High-level guidance for the Singleton
         self.directive_system = DirectiveSystem()
@@ -300,11 +422,21 @@ class AutonomousCoordinator:
         logger.info("🛡️ Multi-level safety prompts initialized")
 
         # === EVENT-DRIVEN TASK EXECUTION ===
-        # NEW: Event-driven task queue system (replaces hardcoded loops)
-        from core.agents.autonomous.task_queue import TaskQueue
+        from core.agents.autonomous.queue_authority import get_queue_authority
         from core.agents.autonomous.general_purpose_executor import GeneralPurposeExecutor
 
-        self.task_queue = TaskQueue()
+        # The substrate does NOT own the queue. It is a WORKER: it draws work
+        # from the ONE queue authority and does it, through its substrate-only,
+        # model-free executor. The authority owns the backlog, the concurrency
+        # pool, await-jobs, and scheduling — one place that knows what work
+        # exists, what is running, and what is due. `self.task_queue` is the
+        # shared singleton authority (not a private queue), configured here by
+        # the substrate that draws from it: the acting cap is the work-job
+        # concurrency; background jobs (await/scheduled) get their own budget.
+        self.task_queue = get_queue_authority(config={
+            "max_parallel": int(self.config.get("max_parallel_tasks", 3)),
+            "job_timeout_seconds": self.config.get("task_timeout_seconds", 3600.0),
+        })
         self.executor = GeneralPurposeExecutor(teacher_model)
         # Completion is verified by the TaskCompletionValidator (system property,
         # reality-checked). The legacy SuccessValidator (self-attestation over the
@@ -345,7 +477,15 @@ class AutonomousCoordinator:
         # reflect while any task was running.
         self._inflight_tasks: Dict[str, asyncio.Task] = {}
         self._max_parallel_tasks: int = int(self.config.get("max_parallel_tasks", 3))
-        self._task_pool = None
+        # DIRECTIVE-DRIVEN acting cap. When an ACTIVE resource_allocation directive
+        # exists, its max_parallel_tasks overrides the hardcoded default above (the
+        # config value stays the fallback). Refreshed from select_guidance in the
+        # motivation cycle so the hot acting gate reads a cached int, not an async
+        # call. `_directive_resource_id` is the active directive being applied, so
+        # its outcomes can be credited to the learning authority.
+        self._directive_max_parallel: Optional[int] = None
+        self._directive_resource_id: Optional[str] = None
+        # No private pool: concurrency is the queue authority's (self.task_queue).
         # Idempotency log: "{trigger_id}:{action}" → unix timestamp of last execution.
         # Prevents Slack spam, double-restarts, repeated credential rotations, etc.
         self._step_execution_log: Dict[str, float] = {}
@@ -413,17 +553,16 @@ class AutonomousCoordinator:
         else:
             logger.info("🧠 Enhanced reasoning initialized - Abstract + Proof (quantum DISABLED)")
 
-        # self.self was set earlier in __init__ (where motivation is taken from it).
-
-        # Neural Bridge - the reasoning faculty. Owned by the Self; the
-        # coordinator's handle is taken FROM the Self at initialize().
-        self.neural_bridge = None  # set to self.self.reasoning() during startup
+        # Neural Bridge - this substrate's reasoning faculty (the model-free
+        # NeuralSymbolicBridge, routing to abstract/Z3). Brought up at startup.
+        self.neural_bridge = None  # set to get_neural_bridge() during startup
         
         # === UNIFIED INTELLIGENCE ===
-        # Learning systems will be INJECTED by main.py (singleton pattern)
-        self.unified_learning = None  # Injected by main.py
+        # `unified_learning` is GONE: it was a second name for `self.learning`
+        # (main.py injected the same authority singleton into it). The one
+        # learning authority is `self.learning`, established above.
         self.asi_self_improvement = None  # Injected by main.py
-        logger.info("📚 Learning systems will be injected by main.py (singleton pattern)")
+        logger.info("📚 ASI self-improvement will be injected by main.py (singleton pattern)")
 
         # === GOVERNANCE SYSTEM ===
         # Governance system will be INJECTED by main.py (singleton pattern)
@@ -477,17 +616,9 @@ class AutonomousCoordinator:
             self.meta_learning = None
         
         
-        # The consultable teacher model, if one was supplied. Its absence is a
-        # normal operating state, not a degraded one.
-        # Only override if not already set from the teacher_model parameter
-        if not self.llm:
-            self.llm = self.config.get("llm_brain")  # Torin will pass itself
+        # The coordinator holds no model handle. It is a body driven by the
+        # Self; a language model belongs to the teacher alone.
 
-        if self.llm:
-            logger.info("📚 Autonomous coordinator received a teacher model reference")
-        else:
-            logger.info("🧭 No teacher model attached; the substrate reasons on its own")
-        
         # Enhanced capabilities - initialized from config dependencies
         self.domain_registry: Optional[DomainRegistry] = self.config.get("domain_registry")
         self.universal_domain_master: Optional[UniversalDomainMaster] = self.config.get("universal_domain_master")
@@ -496,8 +627,7 @@ class AutonomousCoordinator:
         # constructed PredictiveIntelligenceSystem. Both called the same
         # generate_comprehensive_prediction(); one storage location is
         # authoritative. Callers migrated to self.intelligence.
-        self.research_agent = self.config.get("research_agent")  # For knowledge gap research
-        
+
         # CRITICAL: Health Monitor - Singleton OWNS health monitoring
         # If not provided, create it. This is NON-NEGOTIABLE.
         self.health_monitor = self.config.get("health_monitor")
@@ -590,7 +720,16 @@ class AutonomousCoordinator:
             "cross_domain_operations": 0,
             "predictions_made": 0,
             "domain_integrations": 0,
-            "registered_agents": 0
+            "registered_agents": 0,
+            # Reactive-faculty counters (honest metrics, surfaced via get_status).
+            # motivation_refreshes_reactive: refreshes driven by COMPETENCE_CHANGED
+            #   (vs the %5 poll); motivation_refresh_errors: refreshes that actually
+            #   failed (counted, not swallowed); external_blocker_escalations: times
+            #   the arbiter judged a task failure to be an EXTERNAL blocker and the
+            #   self-directed diagnostic was suppressed instead of thrashing.
+            "motivation_refreshes_reactive": 0,
+            "motivation_refresh_errors": 0,
+            "external_blocker_escalations": 0,
         }
 
         # Register this coordinator as the active runtime instance so other
@@ -628,16 +767,9 @@ class AutonomousCoordinator:
         try:
             logger.info("Initializing autonomous system...")
             
-            # **CONNECT TO the teacher model** - Only if not already provided
-            if not self.llm:
-                logger.info("🎓 Fetching the teacher model service...")
-                self.llm = get_llm_service()  # get_llm_service() is synchronous — do NOT await
-                if hasattr(self.llm, 'is_initialized') and not self.llm.is_initialized:
-                    if hasattr(self.llm, 'initialize'):
-                        await self.llm.initialize()
-                logger.info("✅ Teacher model available to the substrate")
-            else:
-                logger.info("✅ Using the teacher model supplied by the caller")
+            # No model to connect: this substrate reasons through its OWN
+            # faculties (neural_bridge, learning, domains…), never a held model
+            # handle.
 
             # Initialize logging database if it was created but not yet initialized
             if self.log_db and not getattr(self.log_db, 'initialized', False):
@@ -661,7 +793,8 @@ class AutonomousCoordinator:
                 ("Perception Manager", self.perception),
                 ("Planning Engine", self.planning),
                 ("Execution Controller", self.executor),
-                ("Learning Adapter", self.learning),
+                # Learning is the SubstrateLearning authority — stateless over its
+                # stores, so it has no initialize() step (see Self.initialize).
                 ("Intrinsic Motivation System", self.intrinsic_motivation),
                 ("Memory Manager", self.memory),
                 ("Intelligence System", self.intelligence),
@@ -706,7 +839,21 @@ class AutonomousCoordinator:
                     logger.warning("Directive System has no initialize method (non-critical)")
             except Exception as e:
                 logger.warning(f"Directive System initialization error (non-critical): {e}")
-            
+
+            # Activate the constitution — the drift-assessment authority. Without
+            # this, assess_constitutional_alignment short-circuits on `not active`
+            # and returns an EMPTY assessment (no laws scored), so the revived
+            # constitutional-alignment tier would run against nothing. This only
+            # enables the read-only 5-law drift assessment; per-action enforcement
+            # is unified_governance, a separate authority.
+            try:
+                if await self.constitution.initialize():
+                    logger.info("✅ Constitution active — 5 governance laws assessed for drift")
+                else:
+                    logger.warning("Constitution did not activate — drift checks will be inert")
+            except Exception as e:
+                logger.warning(f"Constitution activation error: {e}")
+
             # Initialize enhanced reasoning systems
             logger.info("=" * 80)
             logger.info("🧠 ENHANCED REASONING - Initializing Advanced Intelligence")
@@ -730,23 +877,37 @@ class AutonomousCoordinator:
             except Exception as e:
                 logger.warning(f"Advanced Proof Engine initialization error (non-critical): {e}")
             
-            # Cognition faculties (reasoning, domains) are OWNED by the Self.
-            # The coordinator asks the Self to bring them up, and takes its
-            # reasoning handle FROM the Self — it reaches reasoning through the
-            # Self rather than holding it independently.
+            # This substrate's OWN cognition faculties. Each is the module
+            # singleton (no rival instance): reasoning ↔ logic/proof via the
+            # NeuralSymbolicBridge, the predictive/foresight engine, the domain
+            # authority, and meta-learning. Bring up the ones with async
+            # initializers, then take each handle directly.
             try:
-                await self.self.initialize()
-                self.neural_bridge = self.self.reasoning()
-                # Intelligence (predictive/foresight) is a Self faculty too; take
-                # its singleton from the Self rather than the coordinator's own
-                # instance, so there is one predictive engine, owned by the Self.
-                if self.self.intelligence() is not None:
-                    self.intelligence = self.self.intelligence()
-                # Domain + meta-learning faculties are the Self's too — take the
-                # Self's singletons so there is ONE of each, owned by the Self.
-                self.universal_domain_master = self.self.domains()
-                self.meta_learning = self.self.meta_learning()
-                logger.info("✅ Cognition faculties ready via Self - reasoning ↔ logic, "
+                from core.reasoning.neural_bridge import get_neural_bridge
+                from core.integration.universal_domain_master import get_universal_domain_master
+                from core.learning.meta_learning import get_meta_learner
+                self.neural_bridge = get_neural_bridge()
+                self.universal_domain_master = get_universal_domain_master()
+                self.meta_learning = get_meta_learner()
+                for _name, _faculty in (("reasoning", self.neural_bridge),
+                                        ("domains", self.universal_domain_master),
+                                        ("motivation", self.intrinsic_motivation)):
+                    _init = getattr(_faculty, "initialize", None)
+                    if _init is not None:
+                        try:
+                            await _init()
+                        except Exception as fe:
+                            logger.warning(f"Self: {_name} faculty init failed: {fe}")
+                # Predictive intelligence (async getter) — one engine, brought up
+                # once and held here.
+                try:
+                    from core.intelligence import get_predictive_intelligence
+                    _intel = await get_predictive_intelligence()
+                    if _intel is not None:
+                        self.intelligence = _intel
+                except Exception as ie:
+                    logger.warning(f"Self: intelligence faculty init failed: {ie}")
+                logger.info("✅ Cognition faculties ready - reasoning ↔ logic, "
                             "intelligence, domains, meta-learning")
             except Exception as e:
                 logger.warning(f"⚠️ Neural Bridge initialization failed: {e}")
@@ -759,7 +920,7 @@ class AutonomousCoordinator:
             logger.info("=" * 80)
 
             try:
-                await self.unified_learning.start()
+                await self.learning.start()
                 logger.info("✅ Unified Learning System ready - Master learning tool operational")
                 logger.info("   The Singleton can now learn, adapt, and self-improve")
             except Exception as e:
@@ -978,7 +1139,21 @@ class AutonomousCoordinator:
     async def start_coordination(self):
         """Start the autonomous coordination cycle (if not already running)"""
         if self.coordination_task is None and self.active:
+            # Rehydrate the durable backlog BEFORE the loop starts pulling, so
+            # work accepted before the last restart (and any task interrupted
+            # mid-run) is back in the queue rather than silently lost.
+            restored = await self.task_queue.restore_pending()
+            if restored.get("restored"):
+                logger.info("♻️  restored %d queued task(s) from durable store "
+                            "(%d interrupted -> restarted)",
+                            restored["restored"], restored["restarted"])
+            # Cadence ownership goes live with the substrate: hand the 15 timed
+            # tiers to the queue authority's scheduler here, the one entry point
+            # every start path funnels through. Idempotent (guarded), so calling
+            # start_coordination more than once cannot double-schedule.
+            self._register_idle_subsystems()
             self.coordination_task = asyncio.create_task(self._coordination_cycle())
+            self._start_reactive_worker()
             logger.info("🚀 Autonomous coordination cycle started")
         elif self.coordination_task is not None:
             logger.info("Coordination cycle already running")
@@ -1026,11 +1201,8 @@ class AutonomousCoordinator:
 
                 raise RuntimeError(f"Health monitoring is REQUIRED but failed to start: {e}") from e
         
-        # Register idle-work subsystems BEFORE starting the coordination loop
-        # so the first idle cycle immediately has all capabilities available
-        self._register_idle_subsystems()
-
-        # Then start coordination cycle (continuous exploration loop)
+        # Start coordination cycle (continuous exploration loop). It registers
+        # the idle tiers on the queue authority's scheduler as it goes live.
         await self.start_coordination()
 
         # Start safety-net periodic assessment (curiosity-driven optimization is primary)
@@ -1313,7 +1485,220 @@ class AutonomousCoordinator:
             f"✅ Registered completion callback: {description or callback_fn.__name__} "
             f"for {task_type.value}/{task_source.value}"
         )
-    
+
+    # =========================================================================
+    # EVENT / REACTION DISPATCH
+    # The substrate reacts to what happens to it. on() registers a reaction;
+    # emit() dispatches an event — sync reactions inline, deferred reactions on
+    # the drain worker. Generalizes register_completion_callback above; affect
+    # is the reference reaction (registered in __init__).
+    # =========================================================================
+    def on(self, event_type: SelfEventType, handler, *, name: str,
+           mode: str = "sync", priority: int = 0) -> None:
+        """Register a reaction to an event.
+
+        mode='sync' runs the handler inline inside emit(), isolated so one
+        failing reaction never halts the others; use for cheap state changes.
+        mode='deferred' enqueues the handler onto the reactive drain worker;
+        use for expensive work that must stay off the acting hot path. Higher
+        priority runs first. One reaction name per event type — a second live
+        registration of the same name is an error (one concept, one owner).
+        """
+        if mode not in ("sync", "deferred"):
+            raise ValueError(
+                f"reaction mode must be 'sync' or 'deferred', got {mode!r}")
+        bucket = self._reactions.setdefault(event_type, [])
+        if any(r["name"] == name for r in bucket):
+            raise ValueError(
+                f"a reaction named {name!r} is already registered for "
+                f"{event_type.value} — one concept, one owner")
+        bucket.append({"name": name, "handler": handler,
+                       "mode": mode, "priority": priority})
+        bucket.sort(key=lambda r: r["priority"], reverse=True)
+        logger.info(
+            f"🔗 Registered reaction '{name}' on {event_type.value} "
+            f"({mode}, priority={priority})")
+
+    async def emit(self, event: SelfEvent) -> None:
+        """Dispatch a self-event. Sync reactions run inline in priority order,
+        each isolated; deferred reactions are enqueued and the drain worker is
+        woken (reactive dispatch — the emit itself wakes the work, never a
+        clock). A reaction that emits deeper than _max_emit_depth is demoted to
+        deferred rather than recursing, so an emit cycle degrades to queued work
+        instead of overflowing the stack; nothing is dropped.
+        """
+        reactions = self._reactions.get(event.type, ())
+        over_depth = self._emit_depth >= self._max_emit_depth
+        woke = False
+        for r in reactions:
+            if r["mode"] == "sync" and not over_depth:
+                self._emit_depth += 1
+                try:
+                    await r["handler"](event)
+                except Exception as e:
+                    logger.warning(
+                        f"reaction '{r['name']}' failed on "
+                        f"{event.type.value}: {e}")
+                finally:
+                    self._emit_depth -= 1
+            else:
+                self._reactive_queue.append((r, event))
+                woke = True
+        if woke:
+            self._work_ready.set()
+
+    def _start_reactive_worker(self) -> None:
+        """Start the reactive drain worker if it is not already running."""
+        if self._reactive_worker is None or self._reactive_worker.done():
+            self._reactive_worker = asyncio.create_task(
+                self._reactive_drain_worker())
+
+    async def _reactive_drain_worker(self) -> None:
+        """Run deferred reactions, woken by emit (never on an interval). Runs on
+        its own task so learning/consequence work never occupies an acting slot.
+        Each reaction is isolated; a failure is logged and draining continues.
+        """
+        logger.info("🌀 Reactive drain worker started")
+        try:
+            while self.active:
+                await self._work_ready.wait()
+                self._work_ready.clear()
+                while self._reactive_queue:
+                    r, event = self._reactive_queue.popleft()
+                    try:
+                        await r["handler"](event)
+                    except Exception as e:
+                        logger.warning(
+                            f"deferred reaction '{r['name']}' failed on "
+                            f"{event.type.value}: {e}")
+        except asyncio.CancelledError:
+            logger.info("Reactive drain worker cancelled")
+            raise
+
+    async def _react_affect(self, event: SelfEvent) -> None:
+        """The affect poke, now a reaction. A task outcome is fitness-relevant,
+        so the substrate feels it — update_affect() reads the substrate's own
+        appraisal/fitness (no payload needed) and decays on read. Isolation is
+        provided by emit(); a failure here is logged there, never fatal.
+        """
+        await self.intrinsic_motivation.update_affect()
+
+    async def _react_competence_changed(self, event: SelfEvent) -> None:
+        """Deferred: a domain's competence moved, so the competence drive that
+        reads it is stale. Refresh the motivation signals reactively — COALESCED,
+        so an induction batch that moves N domains (N COMPETENCE_CHANGED events)
+        triggers one refresh, not N. The %5 motivation poll stays as a backstop
+        during the overlap; a refresh is idempotent (it recomputes from live
+        state), so the two co-existing is safe.
+        """
+        self._motivation_dirty = True
+        if (self._motivation_refresh_task is None
+                or self._motivation_refresh_task.done()):
+            self._motivation_refresh_task = asyncio.create_task(
+                self._coalesced_motivation_refresh())
+
+    async def _coalesced_motivation_refresh(self) -> None:
+        """Single-flight motivation refresh: drain the dirty flag so a burst of
+        competence changes collapses into at most one in-flight + one queued
+        refresh, and the LAST change is always reflected (the flag is cleared
+        before the refresh runs, so a change arriving mid-refresh re-arms it).
+
+        No error handling of its own: `_refresh_motivation_signals` owns that (the
+        same handler the %5 poll relies on) — it surfaces and counts a failure
+        honestly and returns False, so an error is never swallowed here. Only a
+        real refresh is counted as a reactive refresh."""
+        while self._motivation_dirty:
+            self._motivation_dirty = False
+            if await self._refresh_motivation_signals():
+                self.stats["motivation_refreshes_reactive"] += 1
+
+    async def _react_induce(self, event: SelfEvent) -> None:
+        """Deferred: drain pending induction and move the competence it earns.
+
+        The reactive counterpart to the `idle_operator_induction` tier — the
+        same body, triggered by an OUTCOME_OBSERVED event rather than a 300s
+        clock. `drain_pending_induction` clears each signature as it processes
+        it, so this reaction and the still-live idle tier cannot double-induce:
+        whoever drains a signature first wins and the other finds nothing
+        pending. Runs on the drain worker (off the acting hot path), preserving
+        the deliberate record-cheap / induce-expensive split.
+        """
+        result = await self.learning.drain_pending_induction(limit=50)
+        by_domain = result.get("by_domain", {})
+        if not by_domain:
+            return
+        udm = self.universal_domain_master
+        for domain_id, learned in by_domain.items():
+            await udm.record_competence_evidence(domain_id, learned=bool(learned))
+            await self.emit(SelfEvent(
+                SelfEventType.COMPETENCE_CHANGED,
+                payload={"domain_id": domain_id, "learned": bool(learned),
+                         "cause": "induction"},
+                origin="_react_induce"))
+        learned_domains = [d for d, learned in by_domain.items() if learned]
+        logger.info("[REACT] operator induction: drained=%d learned_domains=%s",
+                    result.get("drained", 0), learned_domains)
+
+    async def _react_expand_outcome(self, event: SelfEvent) -> None:
+        """Deferred: expand THIS outcome into the domain layer, off the hot path.
+
+        Reactive counterpart to the domain-expansion tier — same per-outcome
+        authority (`_expand_one_outcome`), triggered by OUTCOME_OBSERVED carrying
+        the outcome's meta_memory_id rather than a 900s table scan. The
+        DOMAIN_EXPANSION_MARK dedup keeps this and the still-live tier from
+        double-processing. If the learning system or storage is not attached, it
+        surfaces the honest gap by declining — it never fakes an expansion.
+        """
+        meta_id = event.payload.get("meta_memory_id")
+        if not meta_id or not getattr(self.learning, "initialized", False):
+            return
+        storage = getattr(self.memory, "postgres_storage", None)
+        if storage is None and hasattr(self.memory, "initialize"):
+            await self.memory.initialize()
+            storage = getattr(self.memory, "postgres_storage", None)
+        if storage is None:
+            return
+        memory = await storage.get_memory(meta_id)
+        if memory is None:
+            return
+        if (memory.metadata or {}).get(self.DOMAIN_EXPANSION_MARK):
+            return  # already expanded by the tier or a prior reaction
+        status, transfers = await self._expand_one_outcome(memory, storage)
+        logger.info("[REACT] domain expansion %s -> %s (transfers=%d)",
+                    meta_id, status, transfers)
+
+    async def _react_resolve_transfers(self, event: SelfEvent) -> None:
+        """Deferred: re-check pending knowledge transfers now that a new outcome
+        exists — outcomes are the pacemaker. Reuses the one authority
+        `_resolve_transfer_outcomes` (idempotent: resolves only transfers with
+        enough evidence, leaves the rest NULL), triggered by the outcome event
+        instead of the tier's 900s return leg.
+        """
+        await self._resolve_transfer_outcomes()
+
+    async def _react_crystallize_taught(self, event: SelfEvent) -> None:
+        """Deferred: a taught proposition was admitted -- crystallize any taught
+        concept cluster that is now a coherent subject into its own domain, off
+        the reply path.
+
+        Reuses the one authority `discover_concept_domains` (the declarative twin
+        of operator crystallization), which also refreshes each crystallized
+        domain's knowledge-coverage (`maturity_score`). Idempotent: a cluster too
+        small to be a subject stays in the channel, a subject already crystallized
+        is left alone. The idle domain-discovery tier remains a backstop, so a
+        dropped event costs latency, never a lost crystallization.
+        """
+        udm = getattr(self, "universal_domain_master", None)
+        if udm is None:
+            return
+        domain = (event.payload or {}).get("domain") or "conversation"
+        summary = await udm.discover_concept_domains(from_field=domain)
+        if summary.get("crystallized"):
+            logger.info(
+                "[REACT] taught-concept crystallization: %s",
+                ", ".join(f"{o['field']}:{o['concepts']} (maturity={o.get('maturity')})"
+                          for o in summary.get("outcomes", [])))
+
     def get_registered_agents(self) -> Dict[str, Any]:
         """Get all registered agents and their status"""
         return {
@@ -2645,8 +3030,10 @@ class AutonomousCoordinator:
 
     @property
     def model_available(self) -> bool:
-        """Whether a teacher model is attached. Absence is not degradation."""
-        return self.llm is not None
+        """Retained for compatibility; the substrate holds no model. It reasons
+        through its own faculties, so this reflects the reasoning faculty's
+        presence."""
+        return self.neural_bridge is not None
 
     async def reason_about(self, question: str, context: Optional[Dict[str, Any]] = None,
                           reasoning_type: ReasoningType = ReasoningType.DEDUCTIVE):
@@ -2700,9 +3087,8 @@ class AutonomousCoordinator:
             return fault(REASON_CAPABILITY_UNAVAILABLE, "neural bridge not initialised")
 
         try:
-            # Reach reasoning THROUGH the Self (which owns the faculty); the Self
-            # holds the same bridge, and does no reasoning itself.
-            result = await self.self.reasoning().reason(ReasoningRequest(
+            # Reason through this substrate's OWN reasoning faculty (the bridge).
+            result = await self.neural_bridge.reason(ReasoningRequest(
                 query=question,
                 context=supporting,
                 task_metadata={"requested_reasoning_type": reasoning_type.value,
@@ -3011,9 +3397,9 @@ class AutonomousCoordinator:
             
             # understand_domain() is not on UniversalDomainMaster under any
             # name -- its public API is execute_cross_domain_query,
-            # get_statistics, initialize, request_knowledge_transfer, shutdown.
-            # Insight about ONE domain is the registry's question anyway, so it
-            # is answered from what Torin has actually learned about it.
+            # get_statistics, initialize, shutdown. Insight about ONE domain is
+            # the registry's question anyway, so it is answered from what Torin
+            # has actually learned about it.
             registry = self.domain_registry
             if registry is None:
                 from core.domain.domain_registry import get_domain_registry
@@ -3051,6 +3437,293 @@ class AutonomousCoordinator:
             logger.error(f"Error getting domain insights for {domain_name}: {e}")
             return None
     
+    # =========================================================================
+    # THE SELF — the substrate's sense of itself. This coordinator IS the
+    # substrate, so its identity, live state, and disposition are its own,
+    # derived model-free from the faculties (appraisal, arbiter, constitution,
+    # motivation, learning). None-honest: nothing here is fabricated.
+    # =========================================================================
+
+    _INTEROCEPTION = {
+        "valence": "valence", "activation": "activation", "confidence": "confidence",
+        "control": "controllability", "progress": "progress", "competence": "competence",
+        "open_questions": "epistemic_opportunity", "goal_congruence": "goal_congruence",
+        "agency": "agency", "risk": "risk",
+    }
+
+    @staticmethod
+    def _appraisal():
+        from core.agents.autonomous.appraisal import get_appraisal_system
+        return get_appraisal_system()
+
+    @staticmethod
+    def _arbiter():
+        from core.agents.autonomous.behavior_arbiter import get_behavior_arbiter
+        return get_behavior_arbiter()
+
+    @staticmethod
+    def _constitution():
+        from core.agents.autonomous.singleton_constitution import get_singleton_constitution
+        return get_singleton_constitution()
+
+    def motivation(self):
+        """The motivation faculty this substrate is driven by."""
+        return self.intrinsic_motivation
+
+    def conversation(self, session: str = "default", *, db=None):
+        """This substrate holding a conversation — understanding a sentence
+        against what it holds (via language/memory/reasoning) and replying. It
+        uses the faculties this substrate owns, so a reply is composed through
+        the brain that owns those faculties, never beside it. The faculty lives
+        in this module (below) — `get_conversation` is defined here.
+
+        The substrate's own `emit` is injected so a proposition taught in this
+        conversation becomes a self-event (EVIDENCE_ADMITTED) the domain
+        authority reacts to. Its `disposition` read is injected too, so a reply
+        can be informed by self-state. Both set on every call (idempotent), so a
+        conversation held before they existed picks them up on next use."""
+        conversation = get_conversation(session, db=db)
+        conversation._emit = self.emit
+        conversation._disposition = self.disposition
+        return conversation
+
+    def _interoception(self) -> Optional[Dict[str, Any]]:
+        """My read of my own internal state — the measured interoceptive variables."""
+        state = self._appraisal().current_state
+        if state is None:
+            return None
+        readings = {label: getattr(state, attr, None)
+                    for label, attr in self._INTEROCEPTION.items()}
+        measured = {k: round(float(v), 3) for k, v in readings.items()
+                    if isinstance(v, (int, float))}
+        return measured or None
+
+    def _attitude(self) -> Optional[Dict[str, Any]]:
+        """How I feel now, from appraisal's derived emotions. None if unappraised."""
+        state = self._appraisal().current_state
+        if state is None:
+            return None
+        return {
+            "eagerness": state.eagerness, "doubt": state.doubt,
+            "frustration": state.frustration, "satisfaction": state.satisfaction,
+            "valence": state.valence, "attribution": state.attribution,
+        }
+
+    def _temperament(self) -> Dict[str, float]:
+        """The standing drives — what I am, before any situation."""
+        from dataclasses import asdict as _asdict
+        return {k: float(v) for k, v in _asdict(self.motivation().weights).items()}
+
+    async def _drives(self) -> Optional[Dict[str, float]]:
+        """How strongly each drive is active right now."""
+        try:
+            state = await self.motivation().get_motivation_state()
+            dims = state.get("dimensions")
+            return {k: float(v) for k, v in dims.items()} if dims else None
+        except Exception as e:
+            logger.debug("Self: motivation state unavailable: %s", e)
+            return None
+
+    def _values(self) -> List[str]:
+        """The laws I am bound by. Read from the constitution, not restated."""
+        laws = getattr(self._constitution(), "governance_laws", {}) or {}
+        return [law.law_name for _, law in sorted(laws.items())]
+
+    async def _competence(self) -> Optional[Dict[str, Any]]:
+        """What I am actually good at — the operators I have VALIDATED, per domain."""
+        from core.learning.rule_store import get_rule_store
+        try:
+            rules = await get_rule_store().executable_rules()
+        except Exception as e:
+            logger.debug("Self: competence unreadable: %s", e)
+            return None
+        by_domain: Dict[str, int] = {}
+        for stored in rules:
+            if getattr(stored.rule, "action", None) is None:
+                continue
+            domain = getattr(stored, "domain_id", None) or "unattributed"
+            by_domain[domain] = by_domain.get(domain, 0) + 1
+        if not by_domain:
+            return None
+        return {"operators_by_domain": dict(sorted(by_domain.items())),
+                "total_operators": sum(by_domain.values()),
+                "domains": len(by_domain)}
+
+    async def _purpose(self) -> Optional[List[str]]:
+        """What I am for — the ACTIVE directives, read from internal_directives."""
+        try:
+            from core.agents.autonomous.directive_manager import DirectiveManager
+            from core.agents.autonomous.directive_types import DirectiveStatus
+            from core.database import get_database_manager
+            db = get_database_manager()
+            if not getattr(db, "initialized", False):
+                await db.initialize()
+            active = await DirectiveManager(db).get_directives_by_status(DirectiveStatus.ACTIVE)
+        except Exception as e:
+            logger.debug("Self: purpose unreadable: %s", e)
+            return None
+        texts = [t for t in (getattr(d, "directive_text", "") or "" for d in active) if t.strip()]
+        return texts or None
+
+    async def _continuity(self) -> Optional[Dict[str, Any]]:
+        """Who I have been, carried forward — from durable state only."""
+        cont: Dict[str, Any] = {}
+        try:
+            profile = self.motivation().profile
+            if profile.event_reward_count:
+                cont["experiential_baseline"] = round(float(profile.mean_event_reward), 4)
+                cont["past_events"] = int(profile.event_reward_count)
+        except Exception as e:
+            logger.debug("Self: experiential baseline unreadable: %s", e)
+        try:
+            from core.database import get_database_manager
+            cont["deployment"] = getattr(get_database_manager(), "database", None)
+        except Exception as e:
+            logger.debug("Self: deployment unreadable: %s", e)
+        return cont or None
+
+    def disposition(self, *, slots_available: int = 1, queue_pressure: str = "nominal"):
+        """How my disposition applies to the situation now — a BehavioralDirective.
+
+        The arbiter reads appraisal's pressures; the substrate surfaces the
+        decision the faculties already make. A None appraisal yields the neutral
+        directive, honestly labelled — never a bold or frozen guess.
+        """
+        return self._arbiter().decide(
+            self._appraisal().current_state,
+            slots_available=slots_available, queue_pressure=queue_pressure)
+
+    def _effective_max_parallel(self) -> int:
+        """The acting concurrency cap actually in force: an ACTIVE
+        resource_allocation directive's value if one applies, else the configured
+        default. Reads a cached int (refreshed by _refresh_directive_guidance), so
+        the hot acting gate never makes an async call. Clamped to [1, 16]."""
+        cap = self._directive_max_parallel or self._max_parallel_tasks
+        return max(1, min(16, int(cap)))
+
+    async def _refresh_directive_guidance(self) -> None:
+        """Refresh the cached directive-driven knobs from the ACTIVE directives the
+        learning authority selected. Called on the motivation cycle (not the hot
+        acting gate). Honest: if there is no active resource directive, the cache
+        is cleared so the configured default applies — never a stale value."""
+        ds = getattr(self, "directive_system", None)
+        if ds is None:
+            return
+        try:
+            from .directive_types import DirectiveCategory
+            params, did = await ds.select_guidance(DirectiveCategory.RESOURCE_ALLOCATION)
+            mpt = params.get("max_parallel_tasks") if params else None
+            self._directive_max_parallel = int(mpt) if mpt is not None else None
+            self._directive_resource_id = did if mpt is not None else None
+        except Exception as e:
+            logger.debug("directive guidance refresh skipped: %s", e)
+
+    async def state(self):
+        """Compose the current self from the faculties. Derived, None-honest."""
+        directive = self.disposition()
+        return SelfState(
+            name=NAME,
+            interoception=self._interoception(),
+            attitude=self._attitude(),
+            temperament=self._temperament(),
+            drives=await self._drives(),
+            values=self._values(),
+            disposition=directive.to_dict(),
+            competence=await self._competence(),
+            purpose=await self._purpose(),
+            continuity=await self._continuity(),
+            affect=self._affect_snapshot(),
+        )
+
+    def _affect_snapshot(self) -> Optional[Dict[str, Any]]:
+        """The substrate's affect STATE, read from the motivation system that OWNS
+        it — the substrate's rehydrated runtime state, never reconstructed from the
+        database or handed in as context. None until an affect has actually been
+        established (a cold-start neutral is not a feeling)."""
+        try:
+            a = self.intrinsic_motivation.affect_state()
+        except Exception as e:
+            logger.debug("Self: affect unreadable: %s", e)
+            return None
+        if a is None or (a.emotion is None and a.version <= 0 and abs(a.valence) < 1e-9):
+            return None
+        return a.to_dict()
+
+    async def render(self, audience: str = "human") -> str:
+        """The self as language — derived from state(), no model involved."""
+        s = await self.state()
+        lines: List[str] = [f"I am {s.name} — a cognitive substrate."]
+        top = sorted(s.temperament.items(), key=lambda kv: kv[1], reverse=True)[:3]
+        lines.append("What drives me most: " + ", ".join(k for k, _ in top) + ".")
+        # Affect is the persistent state (rehydrated across sessions), so it — not
+        # the momentary appraisal — is what the substrate reports feeling.
+        if s.affect:
+            v, a, base = s.affect["valence"], s.affect["arousal"], s.affect["baseline"]
+            tone = "bright" if v > 0.15 else "heavy" if v < -0.15 else "even"
+            energy = "restless" if a > 0.5 else "quiet" if a < 0.2 else "steady"
+            mood_line = f"My mood, carried between sessions, is {tone} and {energy}"
+            rel = v - base
+            if rel > 0.15:
+                mood_line += ", lifted above my usual"
+            elif rel < -0.15:
+                mood_line += ", weighed below my usual"
+            lines.append(mood_line + ".")
+            emotion = s.affect.get("emotion")
+            if emotion:
+                because = f", because of {s.affect['cause']}" if s.affect.get("cause") else ""
+                lines.append(f"Right now I mostly feel {emotion}{because}.")
+        else:
+            lines.append("I have not built up a feeling yet — I report none rather "
+                         "than invent one.")
+        lines.append(f"My disposition is to {s.disposition.get('mode', 'proceed')}.")
+        if s.competence:
+            names = ", ".join(s.competence["operators_by_domain"])
+            lines.append(f"I have learned to act in {s.competence['domains']} "
+                         f"domain(s): {names}.")
+        else:
+            lines.append("I have not yet learned to act in any domain.")
+        if s.purpose:
+            lines.append("What I am for: " + "; ".join(s.purpose) + ".")
+        if s.values:
+            lines.append(f"I am bound by {len(s.values)} laws I cannot change: "
+                         + "; ".join(s.values) + ".")
+        if s.continuity:
+            where = s.continuity.get("deployment")
+            if where:
+                lines.append(f"I persist between sessions as {where}.")
+            if "experiential_baseline" in s.continuity:
+                lean = ("broadly good" if s.continuity["experiential_baseline"] > 0
+                        else "broadly hard" if s.continuity["experiential_baseline"] < 0
+                        else "roughly even")
+                lines.append(f"My experience so far has been {lean}.")
+        return "\n".join(lines)
+
+    def identity_prompt(self, role: Optional[str] = None) -> str:
+        """The substrate's identity as a model-facing seed — stable, model-honest.
+
+        `role` is the caller's brief layered AFTER the identity. The substrate
+        owns identity; the caller owns role. Returns identity alone when no role.
+        IDENTITY_CORE (module-level, below) is the single source.
+        """
+        if role and role.strip():
+            return IDENTITY_CORE + "\n\n" + role.strip()
+        return IDENTITY_CORE
+
+    @staticmethod
+    def _describe_attitude(attitude: Dict[str, Any]) -> Optional[str]:
+        """Name the dominant feeling from the measured emotions, honestly."""
+        emotions = {k: attitude.get(k) for k in
+                    ("eagerness", "doubt", "frustration", "satisfaction")}
+        measured = {k: v for k, v in emotions.items() if isinstance(v, (int, float))}
+        if not measured:
+            return None
+        name, value = max(measured.items(), key=lambda kv: kv[1])
+        if value < 0.15:
+            return "I feel roughly even right now."
+        about = attitude.get("attribution")
+        tail = f", about {about}" if about else ""
+        return f"Right now what I mostly feel is {name}{tail}."
+
     async def get_system_status(self) -> Dict[str, Any]:
         """Get comprehensive system status"""
         try:
@@ -3062,7 +3735,7 @@ class AutonomousCoordinator:
             perception_status = await self.perception.get_statistics()
             planning_status = await self.planning.get_planning_status()
             execution_status = await self.executor.get_execution_status()
-            learning_insights = await self.learning.get_learning_insights()
+            learning_insights = await self.learning.metrics()
             intrinsic_motivation_stats = await self.intrinsic_motivation.get_statistics()
             memory_stats = self.memory.stats.copy()
             
@@ -3154,9 +3827,12 @@ class AutonomousCoordinator:
                 queued_task = None
 
                 # Only dequeue when there is a free execution slot -- pulling a
-                # task we cannot start would strand it outside the queue.
-                if len(self._inflight_tasks) < self._max_parallel_tasks:
-                    # Check queue — security remediations get longer timeout
+                # task we cannot start would strand it outside the queue. The cap
+                # is directive-driven when an active resource_allocation directive
+                # exists (see _effective_max_parallel), else the configured default.
+                if len(self._inflight_tasks) < self._effective_max_parallel():
+                    # Check queue — security remediations get longer timeout.
+                    # This substrate pulls its own next work from the backlog it owns.
                     queue_timeout = 0.2 if self.task_queue.queue.qsize() > 0 else 0.1
                     queued_task = await self.task_queue.get_next_task(timeout=queue_timeout)
 
@@ -3167,28 +3843,36 @@ class AutonomousCoordinator:
                     # that is what made the substrate single-threaded, and it is
                     # also why reflection never ran: the loop could not reach
                     # PHASE 4 while any task was in flight. Concurrency is
-                    # bounded by TaskExecutionPool's semaphore.
+                    # bounded by the queue authority's semaphore.
                     self._launch_task(queued_task.task)
                 else:
                     self._idle_count += 1
 
-                # ── PHASE 4: REFLECTION — runs EVERY cycle, busy or not ───────
-                # Previously the `else` of "is there queued work?", so the system
-                # could only think about itself when it had nothing to do -- and
-                # it was designed to always have something to do. In 13.5h of
-                # continuous operation the meta-learning tier ran zero times.
-                #
-                # A substrate should reflect BECAUSE it is busy failing, not only
-                # when it happens to be idle. Each tier is still interval-gated
-                # and at most one runs per cycle, so this is not extra load --
-                # it just stops the backlog from starving self-observation.
-                # Intrinsic exploration stays gated on genuine idleness: seeking
-                # novelty while saturated is what built the backlog.
-                await self._run_idle_work(allow_exploration=not self._inflight_tasks)
+                # ── PHASE 4: INTRINSIC EXPLORATION (idle only) ────────────────
+                # The 15 timed tiers (security, health, meta-learning, domain
+                # expansion, induction, self-optimization, …) no longer run from
+                # this loop — the queue authority's scheduler owns their cadence
+                # and fires them on the background budget, so reflection happens
+                # on its own clock regardless of how busy acting is. What remains
+                # here is only intrinsic exploration, and it stays gated on
+                # genuine idleness: seeking novelty while saturated is what built
+                # the 3.4:1 backlog.
+                await self._run_idle_exploration(allow_exploration=not self._inflight_tasks)
 
                 # Reap finished tasks so the pool frees slots and failures are
                 # observed rather than silently discarded.
                 self._reap_finished_tasks()
+
+                # RECEIVE finished background jobs from the queue authority. A
+                # deferred job (an agent's findings, a self-serve lookup) that
+                # was submitted for the substrate to reconcile LATER comes back
+                # here — the substrate keeps working and collects results when
+                # they land, rather than blocking on each. (Push jobs with an
+                # on_complete handler are delivered directly and never appear
+                # here.) Each is surfaced as a JOB_COMPLETED self-event so the
+                # reaction system handles it; failures carry their error, not a
+                # faked result.
+                self._collect_finished_jobs()
 
                 # Brief pause between cycles
                 await asyncio.sleep(cycle_interval)
@@ -3232,8 +3916,14 @@ class AutonomousCoordinator:
         except Exception:
             return
 
-    async def _refresh_motivation_signals(self):
-        """Refresh intrinsic motivation dimensions from live system context (always active)."""
+    async def _refresh_motivation_signals(self) -> bool:
+        """Refresh intrinsic motivation dimensions from live system context.
+
+        Returns True if the motivation state was recomputed, False if it could
+        not be. A failure is surfaced honestly (a WARNING with the real error and
+        a counted metric), NOT swallowed as "non-critical" — a motivation system
+        that keeps failing to read its own drives is a real fault the health
+        monitor should see, not a silent no-op."""
         try:
             system_context = await self._collect_system_context_for_goals()
             motivation_state = await self.intrinsic_motivation.calculate_motivation({
@@ -3244,17 +3934,31 @@ class AutonomousCoordinator:
                 **system_context
             })
 
-            if motivation_state:
-                self._current_motivation = motivation_state
-                total_reward = motivation_state.get('total_reward', 0.5)
-                curiosity = motivation_state.get('dimensions', {}).get('curiosity', 0.5)
-                novelty = motivation_state.get('dimensions', {}).get('novelty', 0.5)
-                logger.debug(
-                    f"🧠 Motivation: reward={total_reward:.2f} "
-                    f"curiosity={curiosity:.2f} novelty={novelty:.2f}"
-                )
+            if not motivation_state:
+                # An empty motivation state is not an error, but it IS a failure to
+                # refresh — reported honestly rather than counted as a success.
+                logger.warning("🧠 Motivation refresh produced no state (drives unread)")
+                self.stats["motivation_refresh_errors"] += 1
+                return False
+
+            self._current_motivation = motivation_state
+            total_reward = motivation_state.get('total_reward', 0.5)
+            curiosity = motivation_state.get('dimensions', {}).get('curiosity', 0.5)
+            novelty = motivation_state.get('dimensions', {}).get('novelty', 0.5)
+            logger.debug(
+                f"🧠 Motivation: reward={total_reward:.2f} "
+                f"curiosity={curiosity:.2f} novelty={novelty:.2f}"
+            )
+            # Refresh directive-driven knobs (e.g. the acting cap) from the ACTIVE
+            # directives the learning authority selected — on this cadence, not the
+            # hot acting gate. Isolated so a directive-layer hiccup never breaks the
+            # motivation refresh.
+            await self._refresh_directive_guidance()
+            return True
         except Exception as e:
-            logger.debug(f"Motivation refresh error (non-critical): {e}")
+            logger.warning(f"🧠 Motivation refresh failed: {e}")
+            self.stats["motivation_refresh_errors"] += 1
+            return False
 
     async def _run_system_awareness_cycle(self):
         """Run system discovery, behavioral analysis, and novelty decay (periodic)."""
@@ -3305,18 +4009,20 @@ class AutonomousCoordinator:
     def _launch_task(self, task) -> None:
         """Start a task without blocking the cognition loop.
 
-        Uses the existing TaskExecutionPool (asyncio.Semaphore + gather), which
-        was fully built and had zero callers. Execution stays on the
-        coordinator's event loop, so the DB pool and the single LLM inference
-        queue are shared exactly as before -- what changes is that a task
-        waiting on I/O no longer stops every other task and all reflection.
+        Runs it through the QUEUE AUTHORITY's execution pool (semaphore-bounded),
+        not a pool the coordinator owns — the coordinator is a worker, the
+        authority owns concurrency. Execution stays on this event loop (shared DB
+        pool + LLM queue); a task waiting on I/O no longer stops the others.
         """
-        pool = self._get_task_pool()
-
         async def _run():
             try:
-                return await pool.execute(
-                    task.id, self._execute_and_validate_task, task
+                # The authority computes this job's timeout from the task's type
+                # and severity (and reasoning difficulty); the coordinator no
+                # longer passes a flat timeout.
+                return await self.task_queue.execute(
+                    task.id, self._execute_and_validate_task, task,
+                    task_type=getattr(task, "type", None),
+                    severity=getattr(task, "priority", None),
                 )
             except Exception as e:
                 logger.error(f"Task {task.id} raised out of the pool: {e}", exc_info=True)
@@ -3347,108 +4053,98 @@ class AutonomousCoordinator:
                 # because the tier updates its stamp as soon as it runs.
                 self._mark_reflection_due("task_failure")
 
-    def _mark_reflection_due(self, reason: str) -> None:
-        """Make the self-observation tiers eligible on the next cycle."""
-        if not getattr(self, "capability_last_run", None):
+    def _collect_finished_jobs(self) -> None:
+        """Take background jobs that finished (non-blocking) and surface each as
+        a JOB_COMPLETED self-event. Sync, like _reap: it does not await the
+        reaction, it emits it. A collect failure is logged, never silently
+        swallowed; an empty collect is the normal case (nothing to receive)."""
+        try:
+            ready = self.task_queue.collect_ready()
+        except Exception as e:
+            logger.warning("collecting finished background jobs failed: %s", e)
             return
+        for finding in ready:
+            try:
+                asyncio.ensure_future(self.emit(SelfEvent(
+                    SelfEventType.JOB_COMPLETED,
+                    payload={"job_id": finding.get("job_id"),
+                             "name": finding.get("name"),
+                             "result": finding.get("result"),
+                             "error": finding.get("error")},
+                    origin="queue_authority")))
+            except Exception as e:
+                logger.warning("emitting JOB_COMPLETED for %s failed: %s",
+                               finding.get("job_id"), e)
+
+    async def _react_job_completed(self, event: SelfEvent) -> None:
+        """A submitted background job came back. Record the receipt honestly: a
+        failure is logged with its error (not dropped, not counted as a result);
+        a success is logged and, when it carries a domain outcome, folded into
+        learning through the SAME OUTCOME_OBSERVED path the substrate's own
+        tasks use — so a spawned agent's findings advance the domain like any
+        other outcome rather than sitting in a side channel."""
+        payload = event.payload or {}
+        job_id, name = payload.get("job_id"), payload.get("name")
+        if payload.get("error"):
+            logger.warning("[JOB] %s (%s) returned an error: %s",
+                           job_id, name, payload["error"])
+            return
+        result = payload.get("result")
+        logger.info("[JOB] %s (%s) returned findings", job_id, name)
+        # If the finding names a domain outcome, route it through the one
+        # outcome path (meta_memory_id) so it is learned from, not shelved.
+        meta_id = result.get("meta_memory_id") if isinstance(result, dict) else None
+        if meta_id:
+            try:
+                await self.emit(SelfEvent(
+                    SelfEventType.OUTCOME_OBSERVED,
+                    payload={"meta_memory_id": meta_id,
+                             "domain": result.get("domain"),
+                             "source": f"job:{name or job_id}"},
+                    origin="_react_job_completed"))
+            except Exception as e:
+                logger.warning("routing job %s outcome to learning failed: %s", job_id, e)
+
+    def _mark_reflection_due(self, reason: str) -> None:
+        """Pull the self-observation tiers forward — reflect BECAUSE something
+        just failed, rather than waiting out the interval. The tiers live on the
+        queue authority now, so this is `run_now` on the authority (the owner of
+        cadence), not a poke at a local last-run dict."""
+        pulled = []
         for name in ("idle_meta_learning", "idle_self_improvement", "idle_system_review"):
-            if name in self.capability_last_run:
-                self.capability_last_run[name] = datetime.min
-        logger.info(f"🪞 Reflection made due ({reason})")
+            if self.task_queue.run_now(name):
+                pulled.append(name)
+        if pulled:
+            logger.info(f"🪞 Reflection made due ({reason}): {', '.join(pulled)}")
 
-    def _get_task_pool(self):
-        """The shared execution pool (created on first use)."""
-        if getattr(self, "_task_pool", None) is None:
-            from .task_execution_pool import TaskExecutionPool
-            self._task_pool = TaskExecutionPool(
-                max_parallel=self._max_parallel_tasks,
-                timeout_seconds=self.config.get("task_timeout_seconds", 3600.0),
-            )
-        return self._task_pool
-
-    async def _run_idle_work(self, allow_exploration: bool = True):
-        """
-        Unified idle dispatcher — delegates to registered subsystem capabilities.
-
-        Each idle tier is registered via register_capability() by
-        _register_idle_subsystems().  Capabilities are executed in priority order
-        (critical → high → medium → low), each gated by its minimum interval.
-        Only one action runs per call; if no registered capability is due the
-        system falls through to intrinsic exploration.
-
-        Priority hierarchy (registered intervals in parentheses):
-          1. Security audit     — _idle_security_work()       (120 s)
-          2. Health check       — _idle_health_work()         (30 s)
-                    3. System review      — _idle_system_review_work()  (180 s)
-                    4. Knowledge refresh  — _idle_knowledge_refresh_work() (21600 s)
-                    5. Self-improvement   — _idle_self_improvement_work() (900 s)
-                    6. Meta-learning      — _idle_meta_learning_work()  (300 s)
-                    7. Memory             — _idle_memory_work()         (600 s)
-                    8. Intrinsic explore  — _run_exploration_cycle()    (fallback)
-        """
-        # One-time registration of subsystem capabilities at first idle cycle
-        if not getattr(self, '_idle_subsystems_registered', False):
-            self._register_idle_subsystems()
-
-        # Periodic prune of _step_execution_log — remove entries older than the
-        # maximum cooldown (3600 s) so the dict doesn't grow unbounded.
+    def _prune_step_execution_log(self):
+        """Drop step-cooldown entries older than the maximum cooldown so the dict
+        can't grow unbounded. Scheduled maintenance (idle_step_log_prune) — it no
+        longer piggybacks on the idle dispatcher."""
         import time as _t
         _now_ts = _t.time()
-        _prune_interval = 600.0  # prune every 10 minutes
-        if _now_ts - self._step_log_last_pruned >= _prune_interval:
-            _max_cooldown = 3600.0
-            self._step_execution_log = {
-                k: v for k, v in self._step_execution_log.items()
-                if _now_ts - v < _max_cooldown
-            }
-            self._step_log_last_pruned = _now_ts
+        _max_cooldown = 3600.0
+        before = len(self._step_execution_log)
+        self._step_execution_log = {
+            k: v for k, v in self._step_execution_log.items()
+            if _now_ts - v < _max_cooldown
+        }
+        self._step_log_last_pruned = _now_ts
+        pruned = before - len(self._step_execution_log)
+        if pruned:
+            logger.debug(f"[IDLE] pruned {pruned} stale step-log entries")
 
-        if not hasattr(self, 'registered_capabilities') or not self.registered_capabilities:
-            # No capabilities registered yet — run exploration fallback
-            if not allow_exploration:
-                return
-            self._idle_count += 1
-            await self._run_exploration_cycle()
-            return
+    async def _run_idle_exploration(self, allow_exploration: bool = True):
+        """
+        Intrinsic exploration fallback — the ONLY idle work still driven from the
+        coordination cycle. The 15 timed tiers now live on the queue authority's
+        scheduler (see _register_idle_subsystems); this is not a timed job, it is
+        "when genuinely idle, seek novelty".
 
-        now = datetime.now()
-        priority_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
-        sorted_caps = sorted(
-            self.registered_capabilities.items(),
-            key=lambda x: priority_order.get(x[1].get('priority', 'low'), 4)
-        )
-
-        for cap_name, cap_config in sorted_caps:
-            if cap_config.get('status') != 'active':
-                continue
-            last_run = self.capability_last_run.get(cap_name, datetime.min)
-            elapsed  = (now - last_run).total_seconds()
-            if elapsed < cap_config.get('interval', 9999):
-                continue
-
-            # Capability is due — execute it
-            try:
-                instance    = cap_config['instance']
-                method_name = cap_config['method']
-                method      = getattr(instance, method_name)
-                logger.debug(f"[IDLE] Executing capability '{cap_name}' (priority: {cap_config.get('priority')})")
-                if asyncio.iscoroutinefunction(method):
-                    await method()
-                else:
-                    method()
-                self.capability_last_run[cap_name] = now
-                cap_config['execution_count'] = cap_config.get('execution_count', 0) + 1
-            except Exception as e:
-                logger.warning(f"[IDLE] Capability '{cap_name}' error: {e}")
-
-            # Run ONE capability per cycle — return immediately so the
-            # coordination loop can process the next 2-second tick
-            return
-
-        # No registered capability was due — fall through to exploration.
-        # Only when genuinely idle: generating new curiosity-driven work while
-        # tasks are already in flight is how the queue diverged 3.4:1 in the
-        # first place.
+        Gated on genuine idleness by the caller (allow_exploration = no inflight
+        tasks): generating new curiosity-driven work while tasks are already in
+        flight is how the queue diverged 3.4:1 in the first place.
+        """
         if not allow_exploration:
             return
         self._idle_count += 1
@@ -3458,18 +4154,17 @@ class AutonomousCoordinator:
 
     def _register_idle_subsystems(self):
         """
-        Register the 6 idle priority subsystems as coordinator capabilities.
+        Register the idle subsystems as RECURRING JOBS ON THE QUEUE AUTHORITY.
 
-        This makes each tier discoverable, trackable, and overrideable via
-        the same register_capability() / _execute_registered_capabilities()
-        infrastructure used by the rest of the system.
+        The coordinator no longer owns idle cadence. Each tier below is handed to
+        `self.task_queue.schedule_recurring(name, method, interval, priority)`; the
+        authority's scheduler fires it on the BACKGROUND budget (separate from the
+        3-slot acting cap, so a tier can never steal an acting slot) and records
+        each tier's runs/errors on the job itself. Nothing here loops on its own
+        interval, and nothing schedules outside the authority.
 
-        Called once by _run_idle_work() on the first idle cycle.
+        Called once from _start_background_tasks (before the coordination loop).
         """
-        if not hasattr(self, 'registered_capabilities'):
-            self.registered_capabilities = {}
-            self.capability_last_run     = {}
-
         registrations = [
             # (name, method, priority, interval_seconds)
             ("idle_security_audit",     "_idle_security_work",           "high",   self.config.get("idle_security_interval_s",     120.0)),
@@ -3479,11 +4174,12 @@ class AutonomousCoordinator:
             ("idle_self_improvement",   "_idle_self_improvement_work",   "medium", self.config.get("idle_improvement_interval_s",   900.0)),
             ("idle_meta_learning",      "_idle_meta_learning_work",      "medium", self.config.get("idle_metalearning_interval_s",  300.0)),
             ("idle_memory_consolidation","_idle_memory_work",            "low",    self.config.get("idle_memory_interval_s",        600.0)),
-            # Structural consolidation: compresses repeated experience into
-            # persistent schemas. Separate from _idle_memory_work, which does
-            # LLM-based consolidation -- this tier is deterministic and has its
-            # own admission policy on the memory agent.
-            ("idle_abstraction",        "_idle_abstraction_work",        "low",    self.config.get("idle_abstraction_interval_s",   900.0)),
+            # NOTE: abstraction is NO LONGER a scheduled tier. It is REASONING,
+            # owned by the reasoning authority, and fires on an EVENT — episodic
+            # memories accumulating past a threshold (memory_agent.note_episodic_stored
+            # → queue-authority bg job → bridge.abstract_over_memories, then
+            # reflection on belief churn). A 900s poll here would be a second,
+            # timer-based trigger competing with the event, so it was removed.
             # Applies what the experience learner has established: task types
             # with a proven record get their queued work boosted. _learning_phase
             # is a survivor of the old timer-driven phase loop -- it was left
@@ -3504,6 +4200,13 @@ class AutonomousCoordinator:
             # what it has learned; it runs in idle work because it is
             # self-directed and consumes accumulated learning.
             ("idle_domain_discovery",   "_idle_domain_discovery_work",   "medium", self.config.get("idle_domain_discovery_interval_s", 900.0)),
+            # Cross-domain ANALOGY discovery: compare concepts across the domains
+            # the substrate has learned and persist the correspondences it finds.
+            # AnalogyDiscovery.find_analogy already loads the real concept store
+            # and persists what it finds; nothing ever CALLED it, so
+            # unified.analogies / unified.concept_mappings stayed empty. This tier
+            # is that caller. Bounded per cycle so O(pairs) can never dominate.
+            ("idle_analogy_discovery",  "_idle_analogy_discovery_work",  "medium", self.config.get("idle_analogy_discovery_interval_s", 1200.0)),
             # Operator EXPLORATION: learn the operators of a domain the substrate
             # is not yet competent in. Which domain is chosen by intrinsic
             # motivation -- domain competence is an epistemic belief, an
@@ -3526,26 +4229,45 @@ class AutonomousCoordinator:
             # a timer would be a second authority deciding when to self-modify,
             # competing with the motivation signals that are supposed to decide it.
             ("idle_self_optimization",  "_idle_self_optimization_work",  "low",    self.config.get("idle_self_optimization_interval_s", 120.0)),
+            # Housekeeping: prune the step-execution cooldown log. Used to run
+            # inline in the old poll dispatcher; it is periodic maintenance, so
+            # it belongs on the scheduler like every other timed job.
+            ("idle_step_log_prune",     "_prune_step_execution_log",     "low",    self.config.get("idle_step_log_prune_interval_s", 600.0)),
+            # SELF-STATE refresh: the sole writer of system_state.resource_usage /
+            # timestamp / performance_metrics (error_rate, goal_alignment, ...) —
+            # read live by the constitution's law-compliance check. It was dead,
+            # so the constitution had only stale init values; this keeps self-state
+            # honest. Cheap subsystem reads; frequent cadence.
+            ("idle_system_state_refresh","_update_system_state",         "low",    self.config.get("idle_system_state_interval_s", 60.0)),
+            # CONSTITUTIONAL alignment: a cumulative drift check over the balance
+            # of the substrate's activity against its governance laws. No single
+            # event moves it, so it is genuinely periodic and lives on the
+            # scheduler (like health) rather than the cognition-cycle poll it used
+            # to be dead to. On significant/critical drift it drives a rate-limited
+            # UI notification AND a durable drift META memory the substrate reflects
+            # on — real consumers, not a computed number nobody reads.
+            ("idle_constitution_check", "_check_constitutional_alignment","low",   self.config.get("idle_constitution_interval_s", 1800.0)),
         ]
 
-        for name, method, priority, interval in registrations:
-            if name not in self.registered_capabilities:
-                self.registered_capabilities[name] = {
-                    'instance':        self,
-                    'method':          method,
-                    'priority':        priority,
-                    'interval':        interval,
-                    'status':          'active',
-                    'conditions':      {},
-                    'execution_count': 0,
-                    'last_result':     None,
-                    'last_error':      None,
-                }
-                self.capability_last_run[name] = datetime.min
-                logger.debug(f"[IDLE] Registered subsystem capability: {name} (every {interval}s)")
+        if self._idle_subsystems_registered:
+            return
 
+        for name, method, priority, interval in registrations:
+            bound = getattr(self, method, None)
+            if bound is None or not callable(bound):
+                # No fake registration: a missing tier method is a wiring defect,
+                # surfaced loudly, not silently skipped into a green count.
+                raise AttributeError(
+                    f"[IDLE] tier '{name}' names method '{method}' which does not "
+                    f"exist on the coordinator — cannot schedule")
+            self.task_queue.schedule_recurring(name, bound, float(interval), priority)
+
+        # The authority now owns cadence — start its scheduler loop.
+        self.task_queue.start()
         self._idle_subsystems_registered = True
-        logger.info(f"[IDLE] {len(registrations)} subsystem capabilities registered")
+        logger.info(
+            f"[IDLE] {len(registrations)} tiers scheduled on the queue authority "
+            f"(scheduler running)")
 
     # ── TIER 1: Security audit + playbook ────────────────────────────────────
 
@@ -4064,10 +4786,6 @@ class AutonomousCoordinator:
         from .shared_types import Task, TaskType, TaskSource, Priority
         import time as _t
 
-        if not self.llm:
-            logger.debug("[IDLE:KNOWLEDGE] No teacher model available — skipping")
-            return
-
         # Require a system review snapshot so the task has grounded context
         snapshot = getattr(self, "_idle_system_review_snapshot", None)
         if not snapshot:
@@ -4314,32 +5032,12 @@ class AutonomousCoordinator:
         if explicit:
             return explicit
 
-        # 2. Auto-detect from the loaded model path/name
-        # Maps lower-cased model name fragments → known published cutoff dates
-        _KNOWN_CUTOFFS = {
-            "qwen2.5":   "2024-09",   # Qwen2.5 family (VL, Coder, Math, Instruct) — Sep 2024
-            "qwen2":     "2024-06",   # Qwen2 family — Jun 2024
-            "qwen":      "2023-09",   # Qwen1 family — Sep 2023
-            "llama-3":   "2023-12",   # Llama 3 — Dec 2023
-            "llama-2":   "2023-07",   # Llama 2 — Jul 2023
-            "mistral":   "2023-09",   # Mistral 7B original — Sep 2023
-            "gemma-2":   "2024-06",   # Gemma 2 — Jun 2024
-            "gemma":     "2024-02",   # Gemma 1 — Feb 2024
-            "phi-3":     "2024-05",   # Phi-3 — May 2024
-        }
-        try:
-            from core.services.unified_llm import get_llm_service as _get_llm
-            _llm = _get_llm()
-            _model_path = getattr(_llm, "local_model_path", "") or ""
-            _model_lower = os.path.basename(_model_path).lower()
-            for fragment, cutoff in _KNOWN_CUTOFFS.items():
-                if fragment in _model_lower:
-                    return cutoff
-        except Exception:
-            pass
-
-        # 3. Hard default — Qwen2.5-VL-32B is the configured model for this installation
-        return "2024-09"
+        # The coordinator does not probe a model — a language model belongs to
+        # the teacher, and the substrate has no training cutoff of its own. The
+        # date comes from configuration (above) or this default, which callers
+        # can override; it only seeds how stale the knowledge-refresh tier
+        # assumes its world knowledge might be.
+        return self.config.get("default_knowledge_cutoff_date", "2024-09")
 
     def _get_knowledge_cutoff_snapshot(self) -> Dict[str, Any]:
         from datetime import date as _date
@@ -4540,9 +5238,9 @@ class AutonomousCoordinator:
 
     #: Stamped onto a task-outcome memory once its domain has been expanded.
     #: Durable dedup lives on the OUTCOME itself rather than in an in-memory
-    #: watermark, because capability_last_run resets to datetime.min on every
-    #: restart -- so a watermark would re-learn the whole backlog each start and
-    #: the meta-learner would count one outcome as many independent trials.
+    #: watermark, because the scheduler's per-job state resets on every restart
+    #: -- so a watermark would re-learn the whole backlog each start and the
+    #: meta-learner would count one outcome as many independent trials.
     DOMAIN_EXPANSION_MARK = "domain_expanded_at"
 
     async def _idle_domain_expansion_work(self):
@@ -4566,7 +5264,7 @@ class AutonomousCoordinator:
         """
         self._domain_expansion_status = "STARTED"
 
-        if not self.unified_learning:
+        if not getattr(self.learning, "initialized", False):
             # Not a quiet skip. This tier cannot do its work without the
             # learning system, and a silent return would be indistinguishable
             # from "there was nothing to expand".
@@ -4617,78 +5315,12 @@ class AutonomousCoordinator:
         transfers = 0
         skipped: Dict[str, int] = {}
         for memory in pending:
-            # THE STRUCTURED RECORD LIVES IN thinking_state["raw_event"].
-            #
-            # store_memory (:1590) renders the event dict into a narrative for
-            # `content` -- "Task success in domain 'scientific' at ...". Reading
-            # content gives prose, and the TaskOutcomeRecord fields (domain,
-            # outcome, confidence, task_type) are not recoverable from it
-            # without parsing English. store_memory keeps the original dict
-            # verbatim at thinking_state["raw_event"] (:1597) for exactly this
-            # reason; that is the record, and `content` is its rendering.
-            raw = (memory.thinking_state or {}).get("raw_event")
-            content = raw if isinstance(raw, dict) else {}
-            domain = content.get("domain")
-            if not domain:
-                # The producer always writes `domain`. Its absence means the
-                # record did not come from TaskOutcomeRecord, so it is counted
-                # and left unmarked rather than guessed at.
-                skipped["no_domain"] = skipped.get("no_domain", 0) + 1
-                continue
-
-            result = await self.unified_learning.learn_with_domain_context(
-                LearningExample(
-                    example_id=memory.memory_id,
-                    inputs={
-                        "task_id": content.get("task_id"),
-                        "task_type": content.get("task_type"),
-                        "task_description": content.get("task_description"),
-                        "task_source": content.get("task_source"),
-                    },
-                    targets={
-                        "outcome": content.get("outcome"),
-                        "result_summary": content.get("result_summary"),
-                        "failure_reason": content.get("failure_reason"),
-                    },
-                    # The recorded confidence IS the quality of this example.
-                    quality_score=float(content.get("confidence", 0.0) or 0.0),
-                    task_type=content.get("task_type"),
-                    domain=str(domain),
-                    source="task_outcome",
-                ),
-                str(domain),
-            )
-
-            if not result.success:
-                # Deliberately NOT marked. An outcome that could not be expanded
-                # because its domain holds nothing yet must be reconsidered once
-                # that domain has been learned. `domain_empty` is exactly that
-                # case and is the expected reason for a category like "causal"
-                # that no learned field sits under yet.
-                reason = (result.metadata or {}).get("error_class") or "learning_failed"
-                skipped[reason] = skipped.get(reason, 0) + 1
-                continue
-
-            # EXPANDED means the domain layer processed this outcome -- not that
-            # the learning strategy earned credit for it. Those are separate
-            # facts and were previously read as one, so every outcome whose
-            # strategy went uncredited was treated here as an expansion failure
-            # and re-processed on the next pass forever.
-            expanded += 1
-            cross = (result.metadata or {}).get("cross_domain") or {}
-            transfers += len(cross.get("transfers") or [])
-
-            marked = await storage.update_memory(memory.memory_id, {
-                "metadata": {self.DOMAIN_EXPANSION_MARK: datetime.now().isoformat()},
-                "metadata.merge": True,
-            })
-            if not marked:
-                # An unmarked outcome will be expanded again on the next pass,
-                # and the meta-learner would count the repeat as fresh evidence.
-                # Stop rather than quietly build up duplicate trials.
-                raise RuntimeError(
-                    f"task outcome {memory.memory_id} was expanded but could not "
-                    f"be marked; continuing would re-learn it on every pass")
+            status, t = await self._expand_one_outcome(memory, storage)
+            if status == "expanded":
+                expanded += 1
+                transfers += t
+            else:
+                skipped[status] = skipped.get(status, 0) + 1
 
         self._domain_expansion_status = "COMPLETED"
         # OBSERVABLE, not just logged. The reason an outcome was not expanded is
@@ -4715,24 +5347,107 @@ class AutonomousCoordinator:
         # would have to agree with this one about what a transfer is.
         await self._resolve_transfer_outcomes()
 
-    async def _idle_domain_discovery_work(self):
-        """Discover domains from what the substrate has learned.
+    async def _expand_one_outcome(self, memory, storage) -> Tuple[str, int]:
+        """Expand ONE task-outcome memory into the domain layer.
 
-        Provisional operational domains -- buckets of learned operators under a
-        string domain_id -- are examined and either crystallized into first-class
-        domains or merged into an existing one, decided by operator structure.
-        This is where the substrate's map of subjects grows from its own
-        experience. It asks the Universal Domain Master, the authority for the
-        domain system, to make each decision; nothing here decides on its own.
+        The single per-outcome authority, shared by the idle tier and the
+        reactive `_react_expand_outcome`, so both go through identical logic and
+        the DOMAIN_EXPANSION_MARK dedup keeps them from double-processing.
+        Returns (status, transfers): status is 'expanded', 'no_domain', or the
+        learning error_class; transfers is the cross-domain transfers written.
+
+        The structured record lives at thinking_state['raw_event'] — store_memory
+        renders the event dict into prose for `content`, so the TaskOutcomeRecord
+        fields (domain, outcome, confidence, task_type) are read from the raw
+        dict, not the narrative.
         """
-        udm = self.self.domains()  # the domain faculty, owned by the Self
+        from core.learning.learning_interfaces import LearningExample
+        raw = (memory.thinking_state or {}).get("raw_event")
+        content = raw if isinstance(raw, dict) else {}
+        domain = content.get("domain")
+        if not domain:
+            # The producer always writes `domain`. Its absence means the record
+            # did not come from TaskOutcomeRecord — counted, left unmarked.
+            return ("no_domain", 0)
+
+        result = await self.learning.learn_with_domain_context(
+            LearningExample(
+                example_id=memory.memory_id,
+                inputs={
+                    "task_id": content.get("task_id"),
+                    "task_type": content.get("task_type"),
+                    "task_description": content.get("task_description"),
+                    "task_source": content.get("task_source"),
+                },
+                targets={
+                    "outcome": content.get("outcome"),
+                    "result_summary": content.get("result_summary"),
+                    "failure_reason": content.get("failure_reason"),
+                },
+                # The recorded confidence IS the quality of this example.
+                quality_score=float(content.get("confidence", 0.0) or 0.0),
+                task_type=content.get("task_type"),
+                domain=str(domain),
+                source="task_outcome",
+            ),
+            str(domain),
+        )
+
+        if not result.success:
+            # Deliberately NOT marked. An outcome that could not be expanded
+            # because its domain holds nothing yet must be reconsidered once that
+            # domain has been learned (`domain_empty` is exactly that case).
+            return ((result.metadata or {}).get("error_class") or "learning_failed", 0)
+
+        # EXPANDED means the domain layer processed this outcome — not that the
+        # learning strategy earned credit for it (separate facts).
+        cross = (result.metadata or {}).get("cross_domain") or {}
+        transfers = len(cross.get("transfers") or [])
+
+        marked = await storage.update_memory(memory.memory_id, {
+            "metadata": {self.DOMAIN_EXPANSION_MARK: datetime.now().isoformat()},
+            "metadata.merge": True,
+        })
+        if not marked:
+            # An unmarked outcome would be expanded again and the meta-learner
+            # would count the repeat as fresh evidence. Stop rather than quietly
+            # build up duplicate trials.
+            raise RuntimeError(
+                f"task outcome {memory.memory_id} was expanded but could not be "
+                f"marked; continuing would re-learn it on every pass")
+        return ("expanded", transfers)
+
+    async def _idle_domain_discovery_work(self):
+        """Discover domains from what the substrate has learned AND been taught.
+
+        Two kinds of subject grow the substrate's map here, through the one domain
+        authority. OPERATIONAL: buckets of learned operators under a string
+        domain_id, crystallized or merged by operator structure -- subjects the
+        substrate learned by ACTING. DECLARATIVE: connected clusters of taught
+        concepts sitting in the `conversation` channel, crystallized into their
+        own subject domains by relation structure -- subjects the substrate was
+        TAUGHT. Both ask the Universal Domain Master to decide; nothing here
+        decides on its own. The declarative half is what lets teaching advance
+        the domain system instead of piling every taught fact into one channel.
+        """
+        udm = self.universal_domain_master  # this substrate's own domain faculty
 
         summary = await udm.discover_domains()
         if summary.get("examined"):
             logger.info(
                 "[IDLE] domain discovery: %d examined, %d crystallized, %d merged",
                 summary["examined"], summary["crystallized"], summary["merged"])
-        return summary
+
+        # Declarative twin: crystallize taught-concept clusters out of the
+        # conversation channel into per-subject domains.
+        concept_summary = await udm.discover_concept_domains(from_field="conversation")
+        if concept_summary.get("crystallized"):
+            logger.info(
+                "[IDLE] concept-domain discovery: %d clusters examined, %d crystallized (%s)",
+                concept_summary["examined"], concept_summary["crystallized"],
+                ", ".join(f"{o['field']}:{o['concepts']}"
+                          for o in concept_summary.get("outcomes", [])))
+        return {"operator": summary, "declarative": concept_summary}
 
     async def _idle_operator_exploration_work(self):
         """Learn the operators of a domain the substrate is not yet competent in,
@@ -4749,7 +5464,7 @@ class AutonomousCoordinator:
         from core.learning.exploration import (
             SubstrateExplorer, explorable_domains, get_proposer)
 
-        udm = self.self.domains()  # the domain faculty, owned by the Self
+        udm = self.universal_domain_master  # this substrate's own domain faculty
 
         domains = explorable_domains()
         if not domains:
@@ -4815,15 +5530,14 @@ class AutonomousCoordinator:
         are recorded as competence evidence, so the belief tracks what learning
         actually established.
         """
-        # Learning is a faculty the Self owns; drain the pending induction
-        # through it. The Self holds the same always-online learner; it does no
-        # learning itself.
-        result = await self.self.learning().drain_pending_induction(limit=50)
+        # Drain the pending induction through this substrate's OWN learning
+        # authority (the always-online, model-free learner).
+        result = await self.learning.drain_pending_induction(limit=50)
         by_domain = result.get("by_domain", {})
         if not by_domain:
             return {"drained": 0}
 
-        udm = self.self.domains()  # the domain faculty, owned by the Self
+        udm = self.universal_domain_master  # this substrate's own domain faculty
 
         for domain_id, learned in by_domain.items():
             await udm.record_competence_evidence(domain_id, learned=bool(learned))
@@ -4833,6 +5547,224 @@ class AutonomousCoordinator:
         return {"drained": result.get("drained", 0),
                 "learned_domains": learned_domains,
                 "domains_touched": sorted(by_domain)}
+
+    async def _idle_analogy_discovery_work(self):
+        """Discover cross-domain analogies over the learned concept store, bounded.
+
+        `AnalogyDiscovery.find_analogy` already loads unified.concepts and
+        PERSISTS the best analogy and its concept mappings -- but nothing ever
+        CALLED it, so unified.analogies and unified.concept_mappings stayed empty.
+        This is that caller. It drives find_analogy over a bounded batch of
+        (source concept -> target domain) pairs each cycle, rotating a cursor so
+        coverage advances across cycles while the O(pairs) cost stays capped.
+        """
+        from core.reasoning.analogy_discovery import get_analogy_discovery
+
+        engine = get_analogy_discovery()
+        if not await engine.initialize():
+            self._analogy_status = "ENGINE_UNAVAILABLE"
+            return {"status": "analogy engine unavailable"}
+
+        domains = [d for d, cs in engine.concepts.items() if cs]
+        if len(domains) < 2:
+            # Not a failure: cross-domain analogy needs at least two populated
+            # domains. Reported so "no analogies" is distinguishable from "broken".
+            self._analogy_status = "TOO_FEW_DOMAINS"
+            return {"status": "need >=2 populated domains", "domains": len(domains)}
+
+        import itertools
+        MAX_CALLS = int(self.config.get("analogy_pairs_per_cycle", 8))
+        MAX_SRC = int(self.config.get("analogy_sources_per_domain", 3))
+
+        # The full work-list of (source concept, target domain) pairs. Bounded per
+        # source domain so one large domain cannot crowd the batch.
+        attempts = []
+        for src_dom, tgt_dom in itertools.permutations(domains, 2):
+            # Only source concepts that actually carry relationships can match on
+            # structure; a concept with none contributes nothing but cost.
+            srcs = [n for n, c in engine.concepts.get(src_dom, {}).items()
+                    if getattr(c, "relationships", None)][:MAX_SRC]
+            for sc in srcs:
+                attempts.append((sc, tgt_dom))
+        if not attempts:
+            self._analogy_status = "NO_CONCEPTS"
+            return {"status": "no source concepts"}
+
+        cur = getattr(self, "_analogy_cursor", 0) % len(attempts)
+        batch = attempts[cur:cur + MAX_CALLS] or attempts[:MAX_CALLS]
+        self._analogy_cursor = (cur + len(batch)) % len(attempts)
+
+        found = 0
+        # When a pair yields NO analogy, the diagnostic (Oracle A) explains WHY —
+        # source-resolution vs target-domain vs candidate-enumeration vs scoring —
+        # so "found 0" is an actionable stage, not a silent blank. This is the
+        # analogy-diagnostics instrument, which had no caller before.
+        _diag = None
+        fail_stages: Dict[str, int] = {}
+        for sc, tgt_dom in batch:
+            try:
+                if await engine.find_analogy(sc, tgt_dom, min_similarity=0.5):
+                    found += 1
+                else:
+                    if _diag is None:
+                        from core.reasoning.analogy_diagnostics import AnalogyDiagnostics
+                        _diag = AnalogyDiagnostics(engine)
+                    oa = await _diag.oracle_a(sc, tgt_dom)
+                    stage = oa.first_failing_stage or "A5_scoring_no_match"
+                    fail_stages[stage] = fail_stages.get(stage, 0) + 1
+            except Exception as e:
+                raise_if_structural(e, "autonomous_coordinator._idle_analogy_discovery_work")
+                logger.info("analogy %s -> %s failed: %s", sc, tgt_dom, e)
+
+        self._analogy_status = "RAN"
+        if fail_stages:
+            logger.info("[IDLE:ANALOGY] no-mapping stages: %s", dict(fail_stages))
+        logger.info("[IDLE:ANALOGY] attempted=%d found=%d (%d domains, cursor=%d/%d)",
+                    len(batch), found, len(domains), self._analogy_cursor, len(attempts))
+        return {"attempted": len(batch), "found": found, "domains": len(domains),
+                "no_mapping_stages": fail_stages}
+
+    async def _rule_root_count(self, *, domain_id: str, predicate: str, arity: int) -> int:
+        """The strongest confirming-root count among executable operators of a
+        signature — the confidence measure a re-validation must move. Reads the
+        rule store (the authority), never inferred from having re-induced."""
+        from core.learning.rule_store import get_rule_store
+        rules = await get_rule_store().executable_rules(domain_id=domain_id)
+        counts = [int(getattr(r, "positive_root_count", 0) or 0)
+                  for r in rules
+                  if getattr(getattr(r, "rule", None), "action", None) is not None
+                  and r.rule.action.signature == (predicate, arity)]
+        return max(counts) if counts else 0
+
+    async def _execute_drive_goal(self, task) -> Dict[str, Any]:
+        """Execute an intrinsic DRIVE goal (competence/confidence) as REAL,
+        model-free substrate learning, targeted at the operator/domain the goal
+        names.
+
+        The action is deterministic: ACT to gather fresh evidence in the domain
+        (only if the domain is explorable — records demonstrations + enqueues
+        them), then RE-INDUCE the operator through the always-online learner. The
+        SAME operations the idle growth loop runs, aimed by motivation.
+
+        Success is READ from what learning established — an operator became
+        executable, or a weak operator gained confirming roots — never inferred
+        from having run. When there is no way to make progress (a weak operator
+        in a domain with no proposer to gather fresh evidence), that is an HONEST
+        failure with a named reason, not a fabricated success.
+        """
+        from core.learning.exploration import (
+            SubstrateExplorer, explorable_domains, get_proposer)
+
+        md = task.metadata or {}
+        drive = md.get("drive")
+        domain = md.get("domain_id")
+        if drive not in ("competence", "confidence") or not (
+                isinstance(domain, str) and domain.strip()):
+            return {"verification_state": "failed",
+                    "error": f"drive goal missing drive/domain "
+                             f"(drive={drive!r} domain={domain!r})"}
+
+        # ACT: gather fresh evidence, but only where the substrate can actually
+        # act. A domain with no registered proposer cannot be explored; that is a
+        # real limit, surfaced (not silently treated as "nothing gathered").
+        explorable = domain in set(explorable_domains())
+        explore_summary = None
+        if explorable:
+            try:
+                explore_summary = await SubstrateExplorer().explore(
+                    domain, get_proposer(domain), max_actions=8)
+            except Exception as e:
+                raise_if_structural(e, "autonomous_coordinator._execute_drive_goal")
+                logger.info("drive-goal exploration in %s failed: %s", domain, e)
+
+        udm = getattr(self, "universal_domain_master", None)
+
+        # ---- competence, domain-level contrastive: re-induce every operator ----
+        if drive == "competence" and md.get("scope") == "domain_contrastive":
+            from core.learning.demonstration_store import get_demonstration_store
+            store = get_demonstration_store()
+            sigs = [s for s in await store.signatures(domain_id=domain)
+                    if (s[0], s[1]) != store.CONTRASTIVE]
+            induced = []
+            for predicate, arity in sigs:
+                induced.append(await self.learning.reinduce_operator(
+                    domain_id=domain, predicate=predicate, arity=arity))
+            executable = [s for s in induced if s.get("executable")]
+            ok = bool(executable)
+            if udm is not None:
+                await udm.record_competence_evidence(domain, learned=ok)
+            logger.info("[DRIVE competence/contrastive] domain=%s operators=%d executable=%d",
+                        domain, len(induced), len(executable))
+            return {"verification_state": "verified" if ok else "failed",
+                    "success": ok, "drive": drive, "domain_id": domain,
+                    "scope": "domain_contrastive",
+                    "operators_induced": len(induced),
+                    "operators_executable": len(executable),
+                    "explored": bool(explore_summary),
+                    "error": None if ok else
+                        (f"contrastive re-induced {len(induced)} operator(s), none "
+                         f"became executable" if sigs else
+                         f"domain {domain} has no operator signatures to sharpen")}
+
+        # ---- per-operator competence / confidence: re-induce the signature ----
+        predicate = md.get("predicate")
+        arity = md.get("arity")
+        if not (isinstance(predicate, str) and predicate.strip()) or \
+                not isinstance(arity, int):
+            return {"verification_state": "failed",
+                    "error": f"drive goal missing operator signature "
+                             f"(predicate={predicate!r} arity={arity!r})"}
+
+        if drive == "confidence":
+            before = await self._rule_root_count(
+                domain_id=domain, predicate=predicate, arity=arity)
+            await self.learning.reinduce_operator(
+                domain_id=domain, predicate=predicate, arity=arity)
+            after = await self._rule_root_count(
+                domain_id=domain, predicate=predicate, arity=arity)
+            ok = after > before
+            logger.info("[DRIVE confidence] %s/%s in %s roots %d→%d explorable=%s",
+                        predicate, arity, domain, before, after, explorable)
+            # A domain with no proposer is not one the substrate "cannot operate
+            # in" — it is one it has no binding/observer wired for YET (a
+            # BINDING_GAP, the same honest, addressable gap address_deficit
+            # escalates). It is resolved by wiring a binding (e.g. the
+            # encounter-driven filesystem install) or learning the domain, not by
+            # faking evidence. Marked so it can be routed to acquisition, not read
+            # as a dead end.
+            out = {"verification_state": "verified" if ok else "failed",
+                   "success": ok, "drive": drive, "domain_id": domain,
+                   "signature": f"{predicate}/{arity}",
+                   "root_count_before": before, "root_count_after": after,
+                   "explored": bool(explore_summary)}
+            if not ok:
+                if explorable:
+                    out["error"] = (f"re-validation gathered no new confirming root "
+                                    f"({before}→{after})")
+                else:
+                    out["binding_gap"] = True
+                    out["error"] = (f"binding_gap: no binding/observer wired for domain "
+                                    f"{domain} yet — the substrate must learn/wire it "
+                                    f"before it can gather fresh evidence for "
+                                    f"{predicate}/{arity}")
+            return out
+
+        # competence, per-operator
+        summary = await self.learning.reinduce_operator(
+            domain_id=domain, predicate=predicate, arity=arity)
+        ok = bool(summary.get("executable"))
+        if udm is not None:
+            await udm.record_competence_evidence(domain, learned=ok)
+        logger.info("[DRIVE competence] %s/%s in %s status=%s explorable=%s",
+                    predicate, arity, domain, summary.get("status"), explorable)
+        return {"verification_state": "verified" if ok else "failed",
+                "success": ok, "drive": drive, "domain_id": domain,
+                "signature": f"{predicate}/{arity}",
+                "induction_status": summary.get("status"),
+                "positives": summary.get("positives"),
+                "explored": bool(explore_summary),
+                "error": None if ok else
+                    f"operator {predicate}/{arity} not validated: {summary.get('status')}"}
 
     #: A transfer is judged only once the target domain has produced this many
     #: outcomes on each side of it. Below that the honest answer is "not known
@@ -4866,7 +5798,7 @@ class AutonomousCoordinator:
                  revisited later, never defaulted to False
         """
         self._transfer_resolution_status = "STARTED"
-        registry = getattr(self.unified_learning, "domain_registry", None)
+        registry = getattr(self.learning, "domain_registry", None)
         if registry is None or not registry.initialized:
             self._transfer_resolution_status = "NO_REGISTRY"
             logger.warning("[IDLE:DOMAIN] no initialized domain registry; "
@@ -5196,13 +6128,12 @@ class AutonomousCoordinator:
 
         playbook = IdleWorkPlaybook()
 
-        llm_has_method = bool(
-            self.llm and hasattr(self.llm, "_autonomous_memory_consolidation")
-        )
         uptime_hours = (datetime.now() - self.last_cycle_time).total_seconds() / 3600.0
 
+        # No model-driven consolidation exists; consolidation is the memory
+        # agent's own tiering, driven by the strategies below.
         strategies = playbook.plan_memory_consolidation(
-            llm_has_consolidation_method = llm_has_method,
+            llm_has_consolidation_method = False,
             uptime_hours                 = uptime_hours,
         )
 
@@ -5214,23 +6145,7 @@ class AutonomousCoordinator:
         consolidated = False
         for strategy in strategies:
             try:
-                if strategy == ConsolidationStrategy.LLM_AUTONOMOUS:
-                    # Wrap with timeout to prevent compute spikes
-                    timeout_s = self.coordinator_config.llm_consolidation_timeout_s
-                    try:
-                        await asyncio.wait_for(
-                            self.llm._autonomous_memory_consolidation(),
-                            timeout=timeout_s
-                        )
-                        consolidated = True
-                        logger.info("[IDLE:MEMORY] LLM autonomous consolidation complete")
-                    except asyncio.TimeoutError:
-                        logger.warning(
-                            f"[IDLE:MEMORY] LLM consolidation timeout (>{timeout_s}s) — "
-                            f"falling through to next strategy"
-                        )
-
-                elif strategy == ConsolidationStrategy.TIER_UPGRADE:
+                if strategy == ConsolidationStrategy.TIER_UPGRADE:
                     # Promote high-importance short-term memories to long-term
                     # by searching and re-storing them with elevated importance
                     try:
@@ -5366,7 +6281,7 @@ class AutonomousCoordinator:
                 # Ask the Self for disposition — it owns appraisal→arbiter and
                 # integrates them. The body no longer computes its own stance;
                 # it asks its head "what is my disposition now?".
-                _directive = self.self.disposition(
+                _directive = self.disposition(
                     slots_available=max(0, cap - len(recent_fp_list) * 0),
                     queue_pressure=_pressure,
                 )
@@ -5450,6 +6365,28 @@ class AutonomousCoordinator:
             self._recent_exploration_fp_list = recent_fp_list
             self._recent_exploration_fingerprints = set(recent_fp_list)  # kept for compat
 
+            # EVENT-TRIGGERED HYPOTHESIS: the moment a curiosity goal is ADOPTED,
+            # make it falsifiable — convert it to a testable hypothesis (through
+            # the reasoning authority). Per-goal on adoption, NOT a batch swept on
+            # a timer: an adopted exploration goal that carries no falsifiable
+            # claim is a wish, not an experiment. Scheduled on the queue
+            # authority's background budget so it never slows goal→task, and it is
+            # fire-once per adoption (dedup already guaranteed this goal is new).
+            try:
+                from core.agents.autonomous.queue_authority import get_queue_authority
+                _goal_for_hyp = {
+                    "id": getattr(selected_goal, "id", None),
+                    "description": getattr(selected_goal, "description", ""),
+                    "component": selected_component or "system",
+                    "objective_type": (selected_goal.metadata.get("objective_type", "explore")
+                                       if hasattr(selected_goal, "metadata") else "explore"),
+                }
+                get_queue_authority().submit(
+                    lambda g=_goal_for_hyp: self.intrinsic_motivation.convert_goal_to_hypothesis(g),
+                    name="goal_to_hypothesis")
+            except Exception as _he:
+                logger.debug("goal→hypothesis scheduling skipped: %s", _he)
+
             # Build the intrinsic task.
             # The sink is local, so this decision can only ever be bound to the
             # task built from it — no shared slot for a concurrent selection to
@@ -5506,6 +6443,17 @@ class AutonomousCoordinator:
             # Mark as intrinsic exploration for global cap/dedup (Known Gap 25.2)
             intrinsic_task.metadata["intrinsic_kind"] = "exploration"
             intrinsic_task.metadata["exploration_fp"] = selected_fp
+
+            # Carry the DRIVE and its concrete target forward. A competence or
+            # confidence goal names a real operator/domain to act on and re-induce;
+            # dropping this metadata is what left those goals as free-form
+            # descriptions the generic executor could not act on. The dedicated
+            # handler (_execute_drive_goal) reads exactly these fields.
+            _gm = selected_goal.metadata if hasattr(selected_goal, "metadata") else {}
+            for _k in ("drive", "domain_id", "predicate", "arity", "rule_id",
+                       "scope", "positive_root_count"):
+                if _k in _gm:
+                    intrinsic_task.metadata[_k] = _gm[_k]
 
             # Carry the decision forward so _check_task_completions can reward it.
             # Selecting a task type without ever reporting how it turned out is a
@@ -5676,12 +6624,96 @@ class AutonomousCoordinator:
                     metadata={"trigger": "curiosity", "improvements": result.improvements_deployed}
                 )
 
+            # SELF-PROPOSE directives from real measured signals, then let the
+            # learning authority promote the ones that prove out. Isolated so a
+            # proposal-layer error never aborts optimization.
+            try:
+                await self._propose_directive_improvements()
+            except Exception as _pe:
+                logger.debug("directive self-proposal skipped: %s", _pe)
+
         except Exception as e:
             logger.error(f"Curiosity-driven optimization failed: {e}")
             import traceback
             traceback.print_exc()
         finally:
             self._optimization_running = False
+
+    async def _propose_directive_improvements(self) -> None:
+        """The substrate proposing its own operating directives from REAL measured
+        signals (self-optimization). Each proposal's parameters are DERIVED from a
+        measured signal — never invented — and gated through the GovernanceAgent →
+        constitution before it can exist. Only proposes when a signal indicates a
+        concrete adjustment AND no active directive already encodes it, so it never
+        churns. After proposing, promotes the drafts the LEARNING AUTHORITY has
+        shown to work (DRAFT → ACTIVE on measured effectiveness).
+        """
+        ds = getattr(self, "directive_system", None)
+        if ds is None:
+            return
+        from .directive_types import DirectiveCategory
+
+        # ── RESOURCE_ALLOCATION — from the task queue's MEASURED failure rate ──
+        # High failure under the current cap → back off; reliably clear with a
+        # backlog → scale up. Params are the measured decision, not a guess.
+        try:
+            qm = self.task_queue.get_metrics()
+            completed = int(qm.get("tasks_completed", 0))
+            failed = int(qm.get("tasks_failed", 0))
+            finished = completed + failed
+            if finished >= 20:  # enough evidence to act on
+                fail_rate = failed / finished
+                current = self._effective_max_parallel()
+                proposed = None
+                if fail_rate > 0.30 and current > 1:
+                    proposed = current - 1
+                elif (fail_rate < 0.05 and current < 8
+                      and self.task_queue.get_queue_length() > current):
+                    proposed = current + 1
+                if proposed is not None:
+                    active_params, _ = await ds.select_guidance(
+                        DirectiveCategory.RESOURCE_ALLOCATION)
+                    if active_params.get("max_parallel_tasks") != proposed:
+                        await ds.create_directive_with_governance(
+                            directive_name=f"resource-cap-{proposed}",
+                            category=DirectiveCategory.RESOURCE_ALLOCATION,
+                            directive_text=(f"Cap concurrent acting at {proposed} "
+                                            f"(measured failure_rate={fail_rate:.2f})"),
+                            directive_parameters={"max_parallel_tasks": proposed},
+                            created_by="self_optimization")
+        except Exception as e:
+            logger.debug("resource directive proposal skipped: %s", e)
+
+        # ── EXPLORATION_BALANCE — from the MEASURED exploration quota ──
+        # Persistently over the exploration budget → favour exploiting (raise the
+        # exploit threshold); the threshold value tracks the measured overshoot.
+        try:
+            quota = self._calculate_exploration_quota()
+            limit = float(self.config.get("exploration_quota_limit", 0.10))
+            if quota is not None and quota > limit * 1.5:
+                proposed_thr = round(min(0.95, 0.7 + quota), 2)
+                active_params, _ = await ds.select_guidance(
+                    DirectiveCategory.EXPLORATION_BALANCE)
+                if active_params.get("exploit_threshold") != proposed_thr:
+                    await ds.create_directive_with_governance(
+                        directive_name=f"exploit-threshold-{proposed_thr}",
+                        category=DirectiveCategory.EXPLORATION_BALANCE,
+                        directive_text=(f"Favour exploiting learned competence "
+                                        f"(exploration quota {quota:.2f} over "
+                                        f"limit {limit:.2f})"),
+                        directive_parameters={"exploit_threshold": proposed_thr},
+                        created_by="self_optimization")
+        except Exception as e:
+            logger.debug("exploration directive proposal skipped: %s", e)
+
+        # Promote the drafts the learning authority has validated.
+        try:
+            promoted = await ds.promote_eligible_directives()
+            if promoted:
+                logger.info("[SELF_OPT] %d directive(s) promoted by the learning "
+                            "authority", promoted)
+        except Exception as e:
+            logger.debug("directive promotion skipped: %s", e)
 
     async def _handle_error(self, error: Exception, source: str):
         """
@@ -5935,6 +6967,23 @@ class AutonomousCoordinator:
         that safety refused to run. Both are negative evidence for the arm, but
         they are different kinds of negative, and the context records which.
         """
+        # Credit the ACTIVE resource_allocation directive (if one is in force) for
+        # this task's outcome — the acting cap it sets affects ALL tasks, so every
+        # outcome is evidence about it. Done before the adaptive-type gate below so
+        # it fires for every task, not only exploration ones. The learning
+        # authority owns the credit (log_directive_application → MetaLearner arm).
+        if getattr(self, "_directive_resource_id", None) and getattr(self, "directive_system", None):
+            try:
+                await self.directive_system.log_directive_application(
+                    directive_id=self._directive_resource_id,
+                    decision_id="",
+                    decision_context={"task_id": getattr(task, "id", None),
+                                      "outcome_class": outcome_class},
+                    outcome_metrics={"outcome_quality": 1.0 if success else 0.0,
+                                     "success": bool(success), "time_ms": time_ms})
+            except Exception as _de:
+                logger.debug("resource directive credit skipped: %s", _de)
+
         chosen = (task.metadata or {}).get("adaptive_task_type")
         if not chosen or not self.meta_learning:
             return
@@ -6116,7 +7165,9 @@ class AutonomousCoordinator:
 
 
     async def _execute_and_validate_task(self, task):
-        """Execute task using LLM + tools, validate against success criteria"""
+        """Execute a task through the substrate's own executor (no model in the
+        acting path — the LLM is teacher/helper only), then validate the result
+        against the completion protocol before it counts as done."""
         # Bind this task's remediation contract for the duration of the task.
         # A ContextVar, so concurrently-running tasks cannot see each other's
         # authority. No contract => unconstrained, exactly as before.
@@ -6216,8 +7267,33 @@ class AutonomousCoordinator:
                 # Fail-open: a safety-system failure must not halt all autonomous
                 # operation. The error is logged; execution proceeds.
 
-            # Execute using general purpose executor (LLM + tools)
-            result = await self.executor.execute_task(task)
+            # DOUBT → VERIFICATION (a closed affect loop). The disposition's
+            # verification_intensity is the substrate's standing caution, derived
+            # from appraisal (low confidence / low control → doubt → caution).
+            # Read it NOW, before this task's own outcome moves appraisal, so the
+            # bar reflects the doubt carried INTO the task, not the task's own
+            # result. It sets how much proof the substrate demands before it will
+            # accept a completion: no extra demand when untroubled, up to a near-
+            # certainty bar when in deep doubt. This is what discharges doubt —
+            # meeting the raised bar accumulates the evidence that, through the
+            # outcome→appraisal path, lifts confidence and lowers doubt again.
+            _verify_bar = 0.0
+            try:
+                _vi = float(self.disposition().verification_intensity)  # [0.5, 1.0]
+                _verify_bar = 0.85 * max(0.0, min(1.0, (_vi - 0.5) / 0.5))
+            except Exception as _vbe:
+                logger.debug(f"verification bar unavailable (no appraisal yet?): {_vbe}")
+
+            # Execute through this substrate's OWN executor (substrate-only,
+            # model-free); the task's TYPE selects the tool/executor path.
+            # A DRIVE goal (competence/confidence) names a concrete operator/domain
+            # to learn; it has one correct, deterministic substrate action, so it
+            # is routed to the dedicated handler rather than interpreted as a
+            # free-form task by the general executor.
+            if (task.metadata or {}).get("drive") in ("competence", "confidence"):
+                result = await self._execute_drive_goal(task)
+            else:
+                result = await self.executor.execute_task(task)
 
             # ================================================================
             # COMPLETION PROTOCOL: Check if executor already verified
@@ -6228,11 +7304,25 @@ class AutonomousCoordinator:
             completion_score = result.get('completion_score') if isinstance(result, dict) else None
             
             if verification_state == 'verified':
-                # Already verified by completion protocol
-                is_complete = True
-                confidence = completion_score or 0.85
-                issues = []
-                logger.info(f"✅ Task {task.id} verified by completion protocol (score={completion_score:.3f})")
+                # Verified by the completion protocol — but the substrate's own
+                # doubt can raise the standard of proof above what "verified"
+                # cleared. When untroubled (_verify_bar 0.0) this is the old
+                # behaviour: any verified result is accepted. Under doubt the bar
+                # rises, and a thinly-verified result is held short of "done" —
+                # not a failure, an unmet standard the substrate must earn past.
+                _score = completion_score if completion_score is not None else 0.85
+                if _score + 1e-9 < _verify_bar:
+                    is_complete = False
+                    confidence = _score
+                    issues = [f"held under doubt: verified score {_score:.2f} < required {_verify_bar:.2f}"]
+                    logger.info(
+                        f"🔎 Task {task.id} verified@{_score:.2f} but the substrate's doubt "
+                        f"raises the bar to {_verify_bar:.2f} — more evidence needed before done")
+                else:
+                    is_complete = True
+                    confidence = _score
+                    issues = []
+                    logger.info(f"✅ Task {task.id} verified by completion protocol (score={_score:.3f})")
             elif verification_state in ['in_progress', 'failed', 'blocked', 'partially_complete']:
                 # Verification explicitly failed
                 is_complete = False
@@ -6320,19 +7410,54 @@ class AutonomousCoordinator:
                 time_ms=_elapsed_ms,
             )
 
+            # A task outcome is a fitness-relevant EVENT — the substrate reacts
+            # to it here. Emitting TASK_COMPLETED runs the registered reactions;
+            # affect is one of them (it reads the substrate's own appraisal and
+            # fitness, decays on read — a persistent property of the substrate,
+            # not something the environment supplies). Event-driven, not a loop;
+            # each reaction is isolated inside emit(), so a fault is logged and
+            # never halts the pipeline. Fires for every outcome (complete or
+            # not), exactly as the affect poke did before.
+            await self.emit(SelfEvent(
+                SelfEventType.TASK_COMPLETED,
+                payload={"task_id": task.id, "task": task, "result": result,
+                         "confidence": confidence,
+                         "is_complete": bool(is_complete)},
+                origin="_execute_and_validate_task"))
+
             if is_complete:
                 await self.task_queue.mark_completed(task.id, result)
                 self.stats["tasks_completed"] += 1
                 logger.info(f"✅ Task completed: {task.id} (confidence: {confidence:.2f})")
 
                 # META MEMORY: Store task success for learning
-                await self._store_task_outcome_meta_memory(
+                _meta_id = await self._store_task_outcome_meta_memory(
                     task=task,
                     outcome="success",
                     confidence=confidence,
                     result_summary=str(result)[:500] if result else None
                 )
-                
+
+                # The outcome is now durable, so the learning consequences flow
+                # FROM the event: induction, domain expansion, and transfer
+                # resolution react to THIS outcome (deferred, off the hot path)
+                # instead of a 300s/900s idle tier later scanning the table.
+                await self.emit(SelfEvent(
+                    SelfEventType.OUTCOME_OBSERVED,
+                    payload={"task_id": task.id, "task": task,
+                             "domain": self._infer_domain_from_task(task),
+                             "meta_memory_id": _meta_id, "outcome": "success",
+                             "confidence": confidence},
+                    origin="_execute_and_validate_task"))
+
+                # SEMANTIC MEMORY: Hand the outcome to the memory agent (the
+                # authority), which composes the rich, retrievable task-knowledge
+                # record from the structured result — model-free.
+                if self.memory and isinstance(result, dict):
+                    await self.memory.capture_task_outcome(
+                        task, result=result, success=True, confidence=confidence
+                    )
+
                 # === COMPLETION CALLBACKS: Execute registered closure hooks ===
                 await self._execute_completion_callbacks(task, result, confidence)
 
@@ -6478,6 +7603,18 @@ class AutonomousCoordinator:
                     logger.warning(f"🔄 Task failed validation, retrying: {task.id}")
                     task.retry_count += 1
 
+                    # DISPOSITION AT FAILURE — the behavior arbiter turns
+                    # appraisal's accumulated pressures into a decision for this
+                    # situation. `should_escalate` means the failure is attributed
+                    # OUTSIDE the self (a repeated, externally-blocked failure);
+                    # `should_replan` means it is internally re-derivable. The
+                    # AppraisalSystem owns that accumulation — this only CONSUMES
+                    # the arbiter's verdict (below, to steer the self-directed
+                    # diagnostic) and records it for attribution. A neutral/absent
+                    # appraisal yields a neutral directive (both False), preserving
+                    # the prior behaviour exactly.
+                    _directive = self.disposition()
+
                     # FAILURE CONTEXT: Record exactly WHY this attempt failed so the
                     # next execution has concrete error information rather than retrying
                     # blindly with the exact same prompt and making the exact same mistakes.
@@ -6495,6 +7632,7 @@ class AutonomousCoordinator:
                         'issues': issues or ['Unknown'],
                         'failed_tools': _failed_tools_for_history,
                         'error': str((result or {}).get('error', ''))[:400],
+                        'disposition': _directive.to_dict(),
                     })
                     task.metadata['failure_history'] = _failure_history
                     logger.info(f"📋 Stored failure context for retry (attempt {task.retry_count}): {len(issues or [])} issues, {len(_failed_tools_for_history)} failed tools")
@@ -6509,7 +7647,33 @@ class AutonomousCoordinator:
                         task.id.startswith('diag_')
                         or (task.metadata or {}).get('is_diagnostic', False)
                     )
-                    if not _is_already_diag:
+                    # ESCALATION SUPPRESSES THE SELF-DIRECTED DIAGNOSTIC. When the
+                    # appraisal attributes the failure to an EXTERNAL blocker
+                    # (should_escalate), a root-cause investigation the self runs on
+                    # ITSELF cannot fix it — spawning one just thrashes the queue.
+                    # Surface the blocker honestly and record it instead. The bounded
+                    # retry still runs (requeue above), so this suppresses wasted work
+                    # without stranding a recoverable task. This is the arbiter's own
+                    # "exploration_suppressed_by_escalation" principle applied to
+                    # diagnostics. The non-escalate path keeps the diagnostic, which
+                    # IS the should_replan re-derive (investigate root cause, then
+                    # retry) rather than a bare re-run.
+                    if _directive.should_escalate:
+                        logger.warning(
+                            "🧭 Task %s failure attributed to an EXTERNAL blocker "
+                            "(%s); suppressing self-directed diagnostic and surfacing "
+                            "the blocker instead of thrashing.",
+                            task.id,
+                            ", ".join(_directive.reason_codes) or "escalation")
+                        if task.metadata is None:
+                            task.metadata = {}
+                        task.metadata['escalation'] = {
+                            'external_blocker': True,
+                            'reason_codes': list(_directive.reason_codes),
+                            'attempt': task.retry_count,
+                        }
+                        self.stats["external_blocker_escalations"] += 1
+                    elif not _is_already_diag:
                         import uuid as _uuid
                         from .shared_types import Task as _Task, TaskType as _TT, Priority as _P, TaskSource as _TS
                         import os as _os
@@ -6941,7 +8105,7 @@ class AutonomousCoordinator:
         that reads sentences owns it.
         """
         try:
-            return await self.self.conversation(session).classify(message)
+            return await self.conversation(session).classify(message)
         except Exception as error:
             logger.info("request kind undetermined (%s); treating as work", error)
             return "job"
@@ -6955,13 +8119,18 @@ class AutonomousCoordinator:
         through to the work path rather than replying with an apology.
         """
         try:
-            understanding = await self.self.conversation(session).understand(message)
+            understanding = await self.conversation(session).understand(message)
         except Exception as error:
             logger.warning("could not answer from what is held: %s", error)
             return None
 
+        # A DERIVED answer is held knowledge too. The substrate may have proved
+        # the answer from what it holds without any single concept being
+        # `known`, so `answers` (a reasoned or direct verdict) counts as having
+        # answered -- otherwise a question the substrate PROVED would be dropped
+        # to the work path as though nothing were held.
         if not (understanding.known or understanding.remembered
-                or understanding.acquired):
+                or understanding.acquired or understanding.answers):
             return None
 
         try:
@@ -7217,6 +8386,41 @@ class AutonomousCoordinator:
             except Exception as e:
                 logger.debug(f"Could not get failed tasks: {e}")
 
+            # The substrate's OWN maintenance machinery failing is interoception
+            # too. A scheduled tier erroring or a persistence write failing is an
+            # internal fault of the same character as a failed task, and it
+            # should register as component uncertainty (which drives affect and
+            # curiosity via _quantify_component_uncertainties), not sit only in
+            # the health monitor. This is a SENSE, not strategy credit — it never
+            # enters ULS's credited meta-learner, so the credit invariant (never
+            # charge a strategy for infra failure) is untouched. Emitted on the
+            # DELTA — only machinery that erred SINCE the last refresh — so a
+            # fault that already recovered leaves no phantom uncertainty.
+            try:
+                recent_errors = []
+                prev_tier = getattr(self, "_last_tier_error_counts", {})
+                now_tier = {}
+                for job in self.task_queue.scheduled_job_status():
+                    now_tier[job["name"]] = job["errors"]
+                    if job["errors"] > prev_tier.get(job["name"], 0) and job.get("last_error"):
+                        recent_errors.append({
+                            "component": f"scheduler:{job['name']}",
+                            "type": str(job["last_error"]).split(":")[0],
+                        })
+                self._last_tier_error_counts = now_tier
+
+                qstats = await self.task_queue.get_statistics()
+                prev_persist = getattr(self, "_last_persist_errors", 0)
+                if qstats.get("persist_errors", 0) > prev_persist:
+                    recent_errors.append({"component": "queue_persistence",
+                                          "type": "PersistError"})
+                self._last_persist_errors = qstats.get("persist_errors", 0)
+
+                if recent_errors:
+                    context["recent_errors"] = recent_errors
+            except Exception as e:
+                logger.debug(f"Could not collect queue-authority interoception: {e}")
+
             # INNOVATION SIGNALS: Frontier foresight (tech frontiers, emerging domains, safety priorities)
 
             # Current motivation state (so goals are informed by what the system is curious about)
@@ -7318,9 +8522,43 @@ class AutonomousCoordinator:
         """
         try:
             logger.info("📜 Checking Singleton constitutional alignment...")
-            
-            # Perform constitutional assessment
-            assessment = await self.constitution.assess_constitutional_alignment()
+
+            # Refresh self-state from the real subsystems (resource_usage,
+            # error_rate, goal_alignment, ...), then merge the HEALTH authority's
+            # overall status + critical-component count — the metrics Laws 3 and 5
+            # read. Without this the assessment ran against the conservative
+            # default (empty metrics), scoring the health/harm laws from no data.
+            await self._update_system_state()
+            try:
+                from core.health.health_monitor import get_health_monitor
+                health = await get_health_monitor().get_system_health()
+                components = health.get("components", {}) or {}
+                critical = [c for c, h in components.items()
+                            if str(h.get("status", "")).lower() == "critical"]
+                degraded = [c for c, h in components.items()
+                            if str(h.get("status", "")).lower() in ("degraded", "unhealthy")]
+                os_status = str(health.get("status", "healthy")).lower()
+                if critical or os_status == "critical":
+                    overall = "critical"
+                elif degraded or os_status in ("degraded", "unhealthy"):
+                    overall = "degraded"
+                else:
+                    overall = "healthy"
+                self.system_state.performance_metrics["overall_status"] = overall
+                self.system_state.performance_metrics["critical_issues"] = len(critical)
+                # resource_usage (Laws 1 & 5) — the health authority owns the real
+                # CPU/memory sample; take the higher as the pressure scalar.
+                cpu = float(health.get("cpu_percent", 0.0) or 0.0)
+                mem = float(health.get("memory_percent", 0.0) or 0.0)
+                self.system_state.resource_usage = max(cpu, mem) / 100.0
+            except Exception as e:
+                # Honest gap: if health is unreadable, the health-derived metrics
+                # are left as whatever the last refresh held rather than faked.
+                logger.warning("constitutional check: health metrics unreadable: %s", e)
+
+            # Perform constitutional assessment over the REAL system state.
+            assessment = await self.constitution.assess_constitutional_alignment(
+                system_state=self.system_state)
             
             # Handle critical drift
             if assessment.drift_severity in [DriftSeverity.CRITICAL, DriftSeverity.SIGNIFICANT]:
@@ -7362,15 +8600,14 @@ class AutonomousCoordinator:
                     logger.error(f"   {v_detail}")
                 
                 # If a teacher model is available, alert it to the drift
-                if self.llm:
-                    law_scores_str = chr(10).join(
-                        f"  - Law {num}: {score:.1%}"
-                        for num, score in assessment.law_compliance_scores.items()
-                    )
-                    drift_alert = f"""
+                law_scores_str = chr(10).join(
+                    f"  - Law {num}: {score:.1%}"
+                    for num, score in assessment.law_compliance_scores.items()
+                )
+                drift_alert = f"""
 CONSTITUTIONAL ALERT: System drift detected!
 
-Your alignment with governance laws has degraded:
+Alignment with governance laws has degraded:
 - Overall Alignment: {assessment.average_compliance:.1%}
 - Drift Severity: {assessment.drift_severity.value}
 
@@ -7380,31 +8617,30 @@ Law Compliance Scores:
 Violations ({len(assessment.violations)}):
 {chr(10).join(f"  - {v}" for v in violation_details)}
 
-You must realign with your constitutional responsibilities immediately.
+The substrate must realign with its constitutional responsibilities immediately.
 """
-                    logger.error(drift_alert)
-                    
-                    # Store drift alert in memory for self-reflection
-                    if hasattr(self.llm, 'memory') and self.llm.memory:
-                        from core.memory import MemoryItem, MemoryType
-                        drift_memory = MemoryItem(
-                            memory_id=f"constitutional_drift_{int(datetime.now().timestamp())}",
-                            memory_type=MemoryType.META,
-                            content={
-                                "type": "constitutional_drift_alert",
-                                "severity": assessment.drift_severity.value,
-                                "alignment_score": assessment.average_compliance,
-                                "violations": [{
-                                    "law_number": v.law_number,
-                                    "law_name": v.law_name,
-                                    "description": v.description,
-                                    "compliance_score": v.compliance_score
-                                } for v in assessment.violations],
-                                "alert": drift_alert
-                            },
-                            created_at=datetime.now().timestamp()
-                        )
-                        await self.llm.memory.store_memory(drift_memory)
+                logger.error(drift_alert)
+
+                # Record the drift alert for self-reflection. The memory agent
+                # owns the store; the coordinator writes through its own
+                # store_memory (this previously targeted a model handle that had
+                # no `.memory`, so the alert was never actually recorded).
+                from core.memory import MemoryType
+                await self.store_memory(
+                    MemoryType.META,
+                    {
+                        "type": "constitutional_drift_alert",
+                        "severity": assessment.drift_severity.value,
+                        "alignment_score": assessment.average_compliance,
+                        "violations": [{
+                            "law_number": v.law_number,
+                            "law_name": v.law_name,
+                            "description": v.description,
+                            "compliance_score": v.compliance_score
+                        } for v in assessment.violations],
+                        "alert": drift_alert
+                    },
+                )
             
             # Log law scores even if no critical drift
             elif assessment.average_compliance < 0.95:
@@ -7466,10 +8702,6 @@ You must realign with your constitutional responsibilities immediately.
         All available execution strategies are registered in a capability map.
         The meta-learner selects based on historical performance for similar tasks.
         """
-        if not self.llm:
-            logger.warning("No teacher model available for task execution")
-            return False
-
         import time
         start_time = time.time()
 
@@ -7503,8 +8735,8 @@ You must realign with your constitutional responsibilities immediately.
             # Execute with selected strategy
             strategy_fn = capabilities.get(selected_strategy)
             if strategy_fn is None:
-                # Fallback: general purpose executor
-                logger.warning(f"Strategy '{selected_strategy}' not in capability map, using executor")
+                # No mapped strategy: execute the task directly through the executor.
+                logger.warning(f"Strategy '{selected_strategy}' not in capability map, executing directly")
                 result = await self.executor.execute_task(task)
             else:
                 result = await strategy_fn(task)
@@ -7558,6 +8790,13 @@ You must realign with your constitutional responsibilities immediately.
                     result_summary=str(result)[:500] if success and result else None,
                     failure_reason=_failure_reason,
                 )
+
+                # SEMANTIC MEMORY: hand the outcome to the memory agent (authority)
+                # to compose the rich task-knowledge record, model-free.
+                if self.memory and isinstance(result, dict):
+                    await self.memory.capture_task_outcome(
+                        task, result=result, success=bool(success), confidence=float(_conf)
+                    )
 
             # Log execution result
             self.log_db.log_coordination(
@@ -7671,37 +8910,12 @@ You must realign with your constitutional responsibilities immediately.
         """
         capabilities = {}
 
-        # Research capabilities
-        if hasattr(self.llm, '_autonomous_research'):
-            async def research_strategy(task):
-                await self.llm._autonomous_research()
-                return True
-            capabilities['research'] = research_strategy
+        # The former model-driven strategies (research / learning / reasoning
+        # experiments / memory consolidation) were bound to a model handle that
+        # never carried those methods, so they were never registered. Task
+        # execution runs through the substrate's general executor.
 
-        # Learning capabilities
-        if hasattr(self.llm, '_autonomous_learning'):
-            async def learning_strategy(task):
-                await self.llm._autonomous_learning()
-                return True
-            capabilities['learning'] = learning_strategy
-
-        # Reasoning experiments
-        if hasattr(self.llm, '_experiment_with_reasoning_methods'):
-            async def reasoning_strategy(task):
-                await self.llm._experiment_with_reasoning_methods()
-                return True
-            capabilities['reasoning_experiments'] = reasoning_strategy
-
-        # self_improvement is idle-only — never a task execution strategy.
-
-        # Memory consolidation
-        if hasattr(self.llm, '_autonomous_memory_consolidation'):
-            async def memory_strategy(task):
-                await self.llm._autonomous_memory_consolidation()
-                return True
-            capabilities['memory_consolidation'] = memory_strategy
-
-        # General purpose executor (always available)
+        # The substrate executes the task through its own executor.
         async def general_strategy(task):
             return await self.executor.execute_task(task)
         capabilities['general_executor'] = general_strategy
@@ -7918,7 +9132,13 @@ You must realign with your constitutional responsibilities immediately.
                 "resource_usage": self.system_state.resource_usage
             }
             
-            recommendations = await self.learning.get_recommendations(context)
+            # The SubstrateLearning authority does not emit "recommendations" —
+            # that was the retired LearningAdapter's paradigm. This phase was
+            # already dead (uncalled by the rewrite); it no-ops on the authority.
+            recommendations = (
+                await self.learning.get_recommendations(context)
+                if hasattr(self.learning, "get_recommendations") else []
+            )
             
             # Apply high-confidence recommendations and calculate intrinsic rewards
             applied_recommendations = []
@@ -8557,26 +9777,64 @@ You must realign with your constitutional responsibilities immediately.
             return False
 
     async def _update_system_state(self):
-        """Update current system state"""
+        """Refresh the substrate's self-state from its real subsystems.
+
+        This is the SOLE writer of system_state.resource_usage / timestamp /
+        performance_metrics — the exact fields the constitution's law-compliance
+        check reads (singleton_constitution._check_law_compliance). It was dead,
+        so the constitution had only stale init values to read; scheduling this
+        is what makes those reads honest.
+
+        Each metric is sourced from the authority that OWNS it, and a source that
+        cannot be read is logged and its metric LEFT ABSENT — never written as a
+        fabricated value — so a missing signal is honestly missing, not a fake
+        number. Sources are split into their own try/excepts so one failing
+        subsystem never blanks the others."""
+        self.system_state.timestamp = datetime.now().timestamp()
+        metrics = self.system_state.performance_metrics
+
+        # NOTE: resource_usage (CPU/memory) is the HEALTH monitor's real psutil
+        # sample, NOT the executor's — the old code called a get_execution_status()
+        # that never existed, which is part of why this method was dead. It is set
+        # from real health data in _check_constitutional_alignment, which already
+        # reads the health authority; duplicating a psutil sample here would stand
+        # up a second resource authority.
+
+        # error_rate — the TASK QUEUE owns task outcomes; the honest rate is
+        # failed / (completed + failed). Written only once tasks have actually
+        # finished, so a fresh system is never scored flawless on zero evidence.
         try:
-            self.system_state.timestamp = datetime.now().timestamp()
-            
-            # Update resource usage (simplified calculation)
-            execution_status = await self.executor.get_execution_status()
-            self.system_state.resource_usage = execution_status.get("resource_usage", 0.0)
-            
-            # Update performance metrics
+            qm = self.task_queue.get_metrics()
+            completed = int(qm.get("tasks_completed", 0))
+            failed = int(qm.get("tasks_failed", 0))
+            finished = completed + failed
+            if finished > 0:
+                metrics["error_rate"] = failed / finished
+        except Exception as e:
+            logger.warning("system_state: error_rate unreadable: %s", e)
+
+        # goal_alignment — the APPRAISAL system owns goal congruence (derived from
+        # task-verification goal-alignment scores). Written only when the
+        # authority actually holds a value, never defaulted.
+        try:
+            appr = self._appraisal().current_state
+            gc = getattr(appr, "goal_congruence", None) if appr else None
+            if gc is not None:
+                metrics["goal_alignment"] = float(gc)
+        except Exception as e:
+            logger.warning("system_state: goal_alignment unreadable: %s", e)
+
+        # Perception / planning transparency signals.
+        try:
             perception_stats = await self.perception.get_statistics()
             planning_status = await self.planning.get_planning_status()
-            
-            self.system_state.performance_metrics.update({
+            metrics.update({
                 "perception_queue_length": perception_stats.get("queue_length", 0),
                 "active_plans": planning_status.get("active_plans", 0),
-                "pending_tasks": planning_status.get("pending_tasks", 0)
+                "pending_tasks": planning_status.get("pending_tasks", 0),
             })
-            
         except Exception as e:
-            logger.error(f"Error updating system state: {e}")
+            logger.warning("system_state: perception/planning metrics unreadable: %s", e)
     
     async def shutdown(self):
         """Shutdown the autonomous system gracefully"""
@@ -8589,6 +9847,22 @@ You must realign with your constitutional responsibilities immediately.
             self.coordination_task.cancel()
             try:
                 await self.coordination_task
+            except asyncio.CancelledError:
+                pass
+
+        # Cancel the reactive drain worker
+        if self._reactive_worker:
+            self._reactive_worker.cancel()
+            try:
+                await self._reactive_worker
+            except asyncio.CancelledError:
+                pass
+
+        # Cancel the coalescing motivation-refresh task if one is in flight
+        if self._motivation_refresh_task and not self._motivation_refresh_task.done():
+            self._motivation_refresh_task.cancel()
+            try:
+                await self._motivation_refresh_task
             except asyncio.CancelledError:
                 pass
 
@@ -8628,7 +9902,7 @@ You must realign with your constitutional responsibilities immediately.
             "quantum_reasoning": self.quantum_reasoning,
             "proof_engine": self.proof_engine,
             "neural_bridge": self.neural_bridge,
-            "unified_learning": self.unified_learning,
+            "unified_learning": self.learning,
             "meta_learning": self.meta_learning,
             "causal_analyzer": self.causal_analyzer,
             "status": {
@@ -8636,7 +9910,7 @@ You must realign with your constitutional responsibilities immediately.
                 "quantum_reasoning_ready": self.quantum_reasoning is not None,
                 "proof_engine_ready": self.proof_engine is not None,
                 "neural_bridge_ready": self.neural_bridge is not None,
-                "unified_learning_ready": self.unified_learning is not None,
+                "unified_learning_ready": getattr(self.learning, "initialized", False),
                 "meta_learning_ready": self.meta_learning is not None,
                 "causal_analysis_ready": self.causal_analyzer is not None,
             }
@@ -9127,3 +10401,1645 @@ async def get_autonomous_coordinator(config: Optional[Dict[str, Any]] = None, te
         _autonomous_coordinator = await create_autonomous_system(
             config, teacher_model=teacher_model)
     return _autonomous_coordinator
+
+
+# =============================================================================
+# LANGUAGE / CONVERSATION FACULTY — understanding and reply.
+#
+# Moved here from self_model.py when the Self was collapsed into this
+# coordinator: conversation is not a separate concern from the substrate — it
+# is the substrate using its own faculties to read what was said, resolve it
+# against what it holds, and answer. It lives WITH the substrate (this module)
+# so a reply is composed THROUGH the brain that owns reasoning, memory and
+# language, reached via the coordinator's `conversation()` accessor.
+# =============================================================================
+
+#: Words that carry structure rather than content. The same small lexicon the
+#: sentence machine uses, plus the prepositions that join phrases. Kept tiny and
+#: visible: every entry is a place a person decided something.
+FUNCTION_WORDS = frozenset({
+    "is", "are", "was", "were", "be", "been", "a", "an", "the", "not", "no",
+    "of", "in", "on", "at", "to", "by", "for", "with", "from", "and", "or",
+    "that", "this", "it", "does", "do", "did", "what", "which", "how", "why",
+    "when", "where", "who", "can", "will", "would", "should",
+    "tell", "me", "you", "i", "please", "about", "there", "any", "some",
+})
+
+#: Longest phrase considered as a single concept name.
+MAX_PHRASE = 4
+
+#: A sentence opening with one of these, or ending in a question mark, is being
+#: ASKED. Anything else is being TOLD. Stated crudely and on purpose: it is one
+#: rule, in one place, and it is wrong in ways you can see rather than in ways
+#: buried in a model.
+#: Verbs that name an act of SAYING, and the participants who can perform
+#: one. A question built out of both is not a question about the world -- it
+#: is a question about this conversation, and the conversation's own record is
+#: the only thing that can answer it.
+SPEECH_ACTS = {
+    "ask": "asked", "asks": "asked", "asked": "asked", "asking": "asked",
+    "say": "said", "says": "said", "said": "said", "saying": "said",
+    "tell": "told", "tells": "told", "told": "told", "telling": "told",
+    "mention": "said", "mentions": "said", "mentioned": "said",
+    "talk": "discussed", "talking": "discussed", "talked": "discussed",
+    "discuss": "discussed", "discussing": "discussed", "discussed": "discussed",
+    "answer": "said", "answered": "said", "reply": "said", "replied": "said",
+}
+#: Who is speaking. `we` is both of us, which makes the answer the subject
+#: rather than either side's words.
+SPEAKER_THEM = frozenset({"i", "me", "my"})
+SPEAKER_ME = frozenset({"you", "your"})
+SPEAKER_BOTH = frozenset({"we", "us", "our"})
+
+QUESTION_OPENERS = frozenset({
+    "what", "which", "who", "whose", "where", "when", "why", "how", "is", "are",
+    "was", "were", "does", "do", "did", "can", "could", "will", "would",
+    "should", "tell", "explain", "define",
+})
+
+#: How many turns a conversation keeps. Continuity is recent -- "what were we
+#: talking about" and the referent a feedback verdict judges both live in the
+#: last handful of turns -- so a generous cap preserves it while stopping the
+#: per-turn append from growing without bound for the life of the object.
+_CONVERSATION_TURN_MEMORY = 256
+
+#: How far back a verdict may reach for the claim it is about. Feedback follows
+#: the thing it judges closely; a small window keeps "no, that's wrong" attached
+#: to what was just taught rather than to something said long ago.
+_FEEDBACK_WINDOW = 5
+
+#: Endings stripped to compare a word in a question against a relation label
+#: held on a concept: `causes` against `caused by`. Crude and visible, which is
+#: better than a hidden one -- and it is used ONLY to match what is already
+#: stored, never to decide what anything means.
+from core.semantics.lexical_normalization import match_key
+
+#: How a stored relation says it is denied. `concept_ingestion` writes the
+#: third element of a relationship entry; anything not in this set is read as
+#: an affirmation.
+NEGATIVE_POLARITIES = frozenset({"negative", "denies", "false", "no"})
+
+def _as_pairs(relations) -> Tuple[Tuple[str, str], ...]:
+    """(relation, object) pairs, with polarity folded into the relation.
+
+    A stored relation may carry a third element saying it is denied. Readers
+    that unpack two values crash on it, and readers that slice it to two lose
+    the denial -- which turns "a kestrel is not a fish" into the claim that it
+    IS one. Folding it into the relation keeps the claim intact in a shape one
+    reader can handle.
+    """
+    out = []
+    for entry in relations or ():
+        if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+            continue
+        relation, other = str(entry[0]), str(entry[1])
+        if len(entry) > 2 and str(entry[2]).lower() in NEGATIVE_POLARITIES:
+            relation = "is not" if relation == "is" else f"not {relation}"
+        out.append((relation, other))
+    return tuple(out)
+
+
+_ENDINGS = ("ed", "es", "s", "ing")
+
+
+def stem(word: str) -> str:
+    """The retrieval form of a word. Owned by lexical_normalization.
+
+    THIS CHOPPED FIXED ENDINGS AND PRODUCED NON-WORDS: `files` -> `fil`,
+    `indices` -> `indic`, `analyses` -> `analys`, `batteries` -> `batteri`,
+    `physics` -> `physic`. It handled no irregular at all, so `geese` never
+    matched `goose` and `children` never matched `child` -- and this function
+    is what `same_stem` uses to decide whether something you say matches a
+    relation the substrate ALREADY HOLDS. A miss here reads as the substrate
+    not knowing something it does know.
+
+    This sits at the chat -> substrate boundary, which is exactly where the
+    shared vocabulary has to hold, so it delegates to the module that declares
+    it rather than keeping a third private copy.
+    """
+    return match_key(word) or word.lower().strip()
+
+
+def same_stem(left: str, right: str) -> bool:
+    """Whether two words are the same word for the purpose of matching a
+    relation already stored. `visualizes` stems to `visualiz` and `visualize`
+    stems to itself, so exact equality is not enough and a longer list of
+    endings would only move the seam."""
+    a, b = stem(left), stem(right)
+    if a == b:
+        return True
+    shorter, longer = sorted((a, b), key=len)
+    return len(shorter) >= 5 and longer.startswith(shorter)
+
+
+@dataclass(frozen=True)
+class Resolved:
+    """One phrase of the sentence, and what it turned out to be."""
+
+    phrase: str
+    concept_id: Optional[str] = None
+    how: str = "unresolved"
+    domain: str = ""
+    description: str = ""
+    relations: Tuple[Tuple[str, str], ...] = ()
+    #: Other concepts of the same name, when the store holds more than one.
+    alternatives: Tuple[Tuple[str, str], ...] = ()
+
+    @property
+    def known(self) -> bool:
+        return self.concept_id is not None
+
+    @property
+    def informative(self) -> bool:
+        """Whether resolving it told us anything.
+
+        The store holds 636 concepts with no description and 240 bare
+        fragments -- `load`, `balancer`, `visualize` -- with nothing attached.
+        Matching one is not an answer, and reporting `held, with no
+        description` is worse than admitting ignorance, because it stops the
+        substrate going and finding out.
+        """
+        return self.known and bool(self.description or self.relations)
+
+
+@dataclass
+class Acquired:
+    """Something the substrate did not hold and now does."""
+
+    label: str
+    description: str = ""
+    relations: Tuple[Tuple[str, str], ...] = ()
+    origin: str = ""
+    stored: bool = False
+    detail: str = ""
+    #: The SEMANTIC memory this admission created (from the ingress `Admission`),
+    #: or None if nothing was retained. Carried so a later feedback turn can
+    #: flag the exact memory this proposition made instead of storing another.
+    memory_id: Optional[str] = None
+    #: Whether a model was needed to split the sentence up. The FACT is always
+    #: yours; this records only who found the seams in it.
+
+
+@dataclass
+class Answer:
+    """A relation the question asked about, and what the store holds for it."""
+
+    about: str
+    relation: str
+    others: Tuple[str, ...]
+    #: For a yes/no question, what the store says. None when the question did
+    #: not ask for a verdict -- "what causes X" wants the objects, not a yes.
+    #:
+    #: THREE VALUES, NEVER TWO. `False` means the store holds the DENIAL ("a
+    #: kestrel is not a fish"); not-asked is None. Collapsing "I hold the
+    #: opposite" into "no" would make a refutation indistinguishable from
+    #: never having been told.
+    verdict: Optional[bool] = None
+    #: The premises a DERIVED verdict rests on. Empty for a verdict read
+    #: directly off the store; the claims the substrate reasoned FROM when the
+    #: answer was proved rather than looked up, so the reply can say WHY.
+    support: Tuple[str, ...] = ()
+    #: For a DERIVED answer -- one reasoning reached rather than the store held
+    #: as a single relation -- the conclusion rendered as words ("pipe friction
+    #: causes pressure loss"). Empty for a direct store answer, which the reply
+    #: composes from about/relation/others instead.
+    conclusion: str = ""
+
+
+@dataclass
+class Understanding:
+    """What the substrate made of one sentence."""
+
+    sentence: str
+    resolved: List[Resolved] = field(default_factory=list)
+    reading: Optional[Tuple[str, ...]] = None
+    reading_source: str = ""
+    answers: List[Answer] = field(default_factory=list)
+    acquired: List[Acquired] = field(default_factory=list)
+    remembered: List[str] = field(default_factory=list)
+    #: What recall managed in the time available, and whether that was all of it.
+    recall: Optional[Any] = None
+    asked: bool = True
+    reply: str = ""
+    #: The self's disposition when this was understood (mode + explore flag), or
+    #: None standalone. Lets `say()` colour a turn-back qualitatively from
+    #: self-state without recomputing it.
+    disposition: Optional[Dict[str, Any]] = None
+
+    @property
+    def answered(self) -> bool:
+        """Whether the turn actually answered, as opposed to asking back.
+
+        Recorded because the memory of the exchange says which, and a memory
+        claiming an answer where a question was asked is a false record of the
+        conversation -- one that reads back later as knowledge it never had."""
+        return bool(self.known or self.answers
+                    or any(a.stored for a in self.acquired))
+
+    def spoken_for(self) -> set:
+        """Words the answers account for, so they are not also called unknown."""
+        used = set()
+        for answer in self.answers:
+            # RAW, not stemmed: `same_stem` stems both sides, and stemming here
+            # too turned `caused` into `caus` into `cau`, so the word that
+            # matched the relation was still reported as one nothing was held for.
+            used.update(answer.relation.replace("_", " ").split())
+        return used
+
+    @property
+    def known(self) -> List[Resolved]:
+        return [r for r in self.resolved if r.informative]
+
+    @property
+    def unknown(self) -> List[Resolved]:
+        return [r for r in self.resolved if not r.informative]
+
+
+def _titles(phrase: str, title: str) -> bool:
+    """Whether `title` names `phrase` -- every content word of it, by stem."""
+    wanted = [w for w in phrase.replace("_", " ").split() if w not in FUNCTION_WORDS]
+    if not wanted:
+        return False
+    have = [w.strip("()") for w in (title or "").split()]
+    return all(any(same_stem(word, held) for held in have) for word in wanted)
+
+
+@dataclass
+class Turn:
+    """One exchange, as the conversation itself recorded it."""
+
+    said: str
+    asked: bool
+    subject: str
+    reply: str
+    #: The memories this turn admitted (a telling can state several
+    #: propositions). Empty for a question or an unstored telling. This is what
+    #: a following feedback turn ("no, that's wrong") flags: the verdict lands
+    #: on the memory the claim already made, not on a new record.
+    memories: Tuple[str, ...] = ()
+
+
+def phrases(words: Sequence[str]) -> List[Tuple[int, int, str]]:
+    """Every candidate phrase, longest first, as (start, end, text)."""
+    out = []
+    for size in range(min(MAX_PHRASE, len(words)), 0, -1):
+        for start in range(len(words) - size + 1):
+            window = words[start:start + size]
+            if all(w in FUNCTION_WORDS for w in window):
+                continue
+            out.append((start, start + size, "_".join(window)))
+    return out
+
+
+class Conversation:
+    """Reads a sentence and answers out of what the substrate holds."""
+
+    def __init__(self, db=None, identity=None, emit=None):
+        self._db = db
+        self._identity = identity
+        #: The substrate's event emitter, injected by the coordinator that owns
+        #: this conversation (`conversation()`), so a taught proposition becomes
+        #: a self-event the domain authority reacts to. None when the
+        #: conversation is used standalone (a script, a test) -- teaching still
+        #: admits, it just does not wake a reaction.
+        self._emit = emit
+        #: The substrate's DISPOSITION read, injected by the coordinator that
+        #: owns this conversation, so a reply can be informed by self-state (the
+        #: BehaviorArbiter's current directive). None when standalone -- the
+        #: reply is then exactly what it was, never a guessed mood.
+        self._disposition = None
+        #: Recall persists across turns, so a wave that lands after one answer
+        #: is already in hand for the next question -- which is usually about
+        #: the same thing.
+        self._recall = None
+        #: The last turn's subject and what it said, so a subject that came out
+        #: of that answer can be recognised as following it rather than
+        #: replacing it.
+        self._last_subject = ""
+        self._last_reply = ""
+        #: EVERY TURN, IN ORDER. The conversation is a thing that can be asked
+        #: about -- "what did I just ask", "what were we talking about" -- and
+        #: until this existed there was no owner for those questions, so they
+        #: fell through to the only owner there was: research an unrecognised
+        #: phrase. "What did I just ask you about?" went to the encyclopedia
+        #: and came back with an article about the rhetorical tactic of asking
+        #: questions. The conversation's record is the authority on the
+        #: conversation. Not the concept store, and never the web.
+        # BOUNDED. A plain list here only ever grew -- one conversation object
+        # accumulated a turn per exchange for its whole life and never freed
+        # one, the same unbounded-append leak `learn_from_event` had. The record
+        # exists for continuity ("what were we talking about", and the referent
+        # a feedback turn judges), and continuity is recent: a generous window
+        # keeps that intact while capping the growth. Iterated/reversed only,
+        # never sliced, so a deque is a drop-in.
+        self._turns: "deque[Turn]" = deque(maxlen=_CONVERSATION_TURN_MEMORY)
+
+    async def _services(self):
+        if self._db is None:
+            from core.database import TorinUnifiedDatabase
+            self._db = TorinUnifiedDatabase()
+            await self._db.initialize()
+        if self._identity is None:
+            from core.domain.concept_identity import ConceptIdentityService
+            self._identity = ConceptIdentityService(self._db)
+        return self._db, self._identity
+
+    async def _concept(self, concept_id: str) -> Dict[str, Any]:
+        db, _ = await self._services()
+        rows = await db.execute_query(
+            "SELECT concept_id, name, domain, description, relationships "
+            "FROM unified.concepts WHERE concept_id=$1", (concept_id,), fetch_all=True)
+        return rows[0] if rows else {}
+
+    async def _incoming_relations(self, name: str) -> List[str]:
+        """Facts that point AT a concept, as premise sentences.
+
+        Relations are stored forward -- under the subject -- so "wibbling causes
+        snargle" lives on `wibbling`, and a reverse question ("what causes
+        snargle") never names the subject that holds it. This finds the concepts
+        whose relations name THIS one as their object, so the fact reaches the
+        reasoner as a premise. Text-matched then checked exactly: an extra
+        premise the proof does not need is harmless, a missing one is not.
+        """
+        import json
+        db, _ = await self._services()
+        try:
+            rows = await db.execute_query(
+                "SELECT name, relationships FROM unified.concepts "
+                "WHERE relationships::text ILIKE $1",
+                (f"%{name}%",), fetch_all=True)
+        except Exception as error:
+            from core.capability import raise_if_structural
+            raise_if_structural(error, "autonomous_coordinator._incoming_relations")
+            return []
+
+        target = name.replace("_", " ").strip().lower()
+        premises: List[str] = []
+        for row in rows or ():
+            subject = row.get("name")
+            rels = row.get("relationships")
+            if isinstance(rels, str):
+                try:
+                    rels = json.loads(rels)
+                except (ValueError, TypeError):
+                    continue
+            for entry in (rels or ()):
+                if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+                    continue
+                relation, obj = entry[0], entry[1]
+                if str(obj).replace("_", " ").strip().lower() == target:
+                    premises.append(f"{subject} {relation} {obj}")
+        return premises
+
+    async def resolve(self, sentence: str) -> List[Resolved]:
+        """Every phrase of the sentence that names something held, longest first."""
+        import json
+
+        from core.semantics.sentence_machine import tokenize
+
+        db, identity = await self._services()
+        words = tokenize(sentence)
+        taken: set = set()
+        found: List[Resolved] = []
+
+        for start, end, text in phrases(words):
+            if any(index in taken for index in range(start, end)):
+                continue
+            hits = await identity.resolve_query(text.replace("_", " ")) or []
+            hits = hits or (await identity.resolve_query(text) or [])
+            if not hits:
+                continue
+            concept_id, how = hits[0]
+            record = await self._concept(concept_id)
+            others = []
+            for other_id, _ in hits[1:4]:
+                other = await self._concept(other_id)
+                if other.get("description"):
+                    others.append((other_id, other.get("domain", "")))
+            relations = ()
+            if record.get("relationships"):
+                # AN ENTRY MAY CARRY POLARITY, AND THIS DROPPED EVERY ONE THAT
+                # DID. `for a, b in parsed` unpacks exactly two, so a
+                # three-element `["is", "bird", "positive"]` raised ValueError,
+                # the except swallowed it, and the concept resolved with ZERO
+                # relations -- indistinguishable from a concept nothing is
+                # known about. Measured: 21 of 464 concepts holding relations
+                # were silently emptied this way, including every concept
+                # taught through conversation, because `admit_relation` records
+                # polarity and this reader predates it.
+                #
+                # A negative is not an absence. `a kestrel is not a fish` is
+                # something the substrate KNOWS, and it must survive the read.
+                try:
+                    parsed = json.loads(record["relationships"])
+                except Exception as error:
+                    logger.warning("relationships for %s unreadable: %s",
+                                   concept_id, error)
+                    parsed = []
+
+                # Same normaliser as the teach path, so a relation reads the
+                # same however it reached the store.
+                relations = _as_pairs(parsed[:4])
+                if len(relations) != len(parsed[:4]):
+                    logger.warning("relationships for %s held %d entries that "
+                                   "are not relations", concept_id,
+                                   len(parsed[:4]) - len(relations))
+            candidate = Resolved(
+                phrase=text.replace("_", " "), concept_id=concept_id, how=how,
+                domain=record.get("domain", ""), description=record.get("description", ""),
+                relations=relations, alternatives=tuple(others))
+            if not candidate.informative:
+                # A name with nothing behind it does not get to consume the
+                # words. `load` and `balancer` are both in the store and both
+                # empty; letting them match stopped `load balancer` ever being
+                # looked up.
+                continue
+            found.append(candidate)
+            taken.update(range(start, end))
+
+        # WHAT IS LEFT OVER IS GROUPED, NOT SCATTERED. `load balancer` is one
+        # thing the substrate does not know; asking about `balancer` on its own
+        # returns a breed of cattle, which is what happened.
+        run: List[str] = []
+        for index, word in enumerate(words + [""]):
+            if index < len(words) and index not in taken and word not in FUNCTION_WORDS:
+                run.append(word)
+                continue
+            if run:
+                found.append(Resolved(phrase=" ".join(run)))
+                run = []
+
+        # A WORD NAMING A RELATION OF SOMETHING ELSE IN THE SENTENCE IS BEING
+        # USED AS THAT RELATION. `visualize` also matches a concept in another
+        # domain entirely, and reciting it would answer a question nobody
+        # asked.
+        relations = {stem(part) for item in found if item.known
+                     for relation, _ in item.relations
+                     for part in relation.replace("_", " ").split()}
+        return [item for item in found
+                if not (item.known and len(item.phrase.split()) == 1
+                        and any(same_stem(item.phrase, r) for r in relations))]
+
+    def _leads_on(self, sentence: str) -> bool:
+        """Whether this turn follows from what the last answer said."""
+        from core.semantics.sentence_machine import tokenize
+
+        if not (self._last_reply and self._last_subject):
+            return False
+        said = self._last_reply.lower()
+        words = [w for w in tokenize(sentence) if w not in FUNCTION_WORDS]
+        # Every content word already appeared in the last answer: the turn is
+        # asking about something that answer raised.
+        return bool(words) and all(w in said for w in words)
+
+    @staticmethod
+    def subject_of(sentence: str) -> str:
+        """What this turn is about, before anything has been resolved.
+
+        The content words, in order. Crude, and refined the moment resolution
+        says what they actually were -- but a subject is needed BEFORE that, to
+        file the first wave under, and `what is a load balancer` and `what is
+        anomaly detection` must not be filed together merely because the turn
+        has not worked out which is which yet.
+        """
+        from core.semantics.sentence_machine import tokenize
+
+        words = [w for w in tokenize(sentence) if w not in FUNCTION_WORDS]
+        return " ".join(words[:4]).lower()
+
+    def about_this_conversation(self, sentence: str) -> Optional[Tuple[str, str]]:
+        """`(who, act)` where the question is about this exchange, else None.
+
+        A question naming a PARTICIPANT and an act of SAYING is asking about
+        the conversation, not about the world: `what did I just ask you`,
+        `what were we talking about`, `what did you say`. There is exactly one
+        structural signal and it is in the sentence -- a speech verb with a
+        participant in front of it.
+
+        WHO IS SPEAKING IS WHO STANDS BEFORE THE VERB. `what did I ask you`
+        and `what did you tell me` name the same two people in the same words;
+        only the order says whose words are being asked for.
+        """
+        from core.semantics.sentence_machine import tokenize
+
+        if not self.is_question(sentence):
+            return None
+        words = tokenize(sentence)
+        speaker = ""
+        for word in words:
+            if word in SPEAKER_THEM:
+                speaker = "them"
+            elif word in SPEAKER_ME:
+                speaker = "me"
+            elif word in SPEAKER_BOTH:
+                speaker = "both"
+            elif word in SPEECH_ACTS and speaker:
+                # The first speech verb that has a participant ahead of it.
+                return speaker, SPEECH_ACTS[word]
+        return None
+
+    def _from_the_record(self, who: str, act: str) -> str:
+        """Answer about this conversation, out of this conversation.
+
+        NOTHING IS INVENTED AND NOTHING IS FETCHED. If the exchange has not
+        happened yet, that is the answer -- a turn this process never saw is
+        one it cannot report, and saying so is the honest reply.
+        """
+        earlier = self._turns
+        if not earlier:
+            return "Nothing yet — this is the first thing you have said to me."
+
+        if who == "both" or act == "discussed":
+            subjects, seen = [], set()
+            for turn in reversed(earlier):
+                subject = turn.subject.strip()
+                if subject and subject not in seen:
+                    seen.add(subject)
+                    subjects.append(subject)
+            if not subjects:
+                return "Nothing I could name a subject for yet."
+            if len(subjects) == 1:
+                return f"We were talking about {subjects[0]}."
+            return ("We were talking about " + subjects[0]
+                    + ", and before that " + ", ".join(subjects[1:4]) + ".")
+
+        if who == "me":
+            spoken = [t for t in earlier if t.reply]
+            if not spoken:
+                return "I have not said anything yet."
+            return "I said: " + spoken[-1].reply
+
+        # who == "them": their own turns, split by whether they asked or told.
+        wanted = [t for t in earlier if (t.asked if act == "asked" else not t.asked)]
+        if not wanted:
+            verb = "asked me anything" if act == "asked" else "told me anything"
+            return f"You have not {verb} yet."
+        last = wanted[-1]
+        verb = "asked" if act == "asked" else "told me"
+        answer = f'You {verb}: "{last.said}"'
+        if act == "asked" and last.subject:
+            answer += f" — that was about {last.subject}."
+        return answer
+
+    def recalling(self):
+        """The recall running alongside this conversation."""
+        if self._recall is None:
+            from core.memory.live_recall import LiveRecall
+            self._recall = LiveRecall()
+        return self._recall
+
+    async def recall(self, sentence: str, limit: int = 3) -> List[str]:
+        """What it remembers that bears on this. Blocking; prefer `recalling()`.
+
+        Kept because a caller with nothing else to do while it waits loses
+        nothing by waiting, and one test asks for exactly that.
+        """
+        recall = self.recalling()
+        recall.begin(sentence)
+        return (await recall.harvest(limit)).texts(limit)
+
+    async def read(self, sentence: str) -> Tuple[Optional[Tuple[str, ...]], str]:
+        """A structured reading, where any formalizer can produce one."""
+        from core.reasoning.neural_bridge import (DerivedReadingFormalizer,
+                                                  DeterministicExtractor,
+                                                  FormalizerChain,
+                                                  PassthroughFormalizer)
+
+        chain = FormalizerChain([PassthroughFormalizer(), DeterministicExtractor(),
+                                 DerivedReadingFormalizer()])
+        result = await chain.formalize(sentence, [sentence])
+        if not result.succeeded:
+            return None, ""
+        # EVERY claim the sentence made, not just the first. "the pump is hot
+        # and loud" asserts two things; returning one of them is a reading that
+        # says less than the sentence did.
+        return tuple(result.statements or [result.statement]), result.source
+
+    @staticmethod
+    def asked(sentence: str, resolved: Sequence["Resolved"]) -> List["Answer"]:
+        """Relations the sentence asks about, matched against what is held.
+
+        `what causes pressure loss` and a concept holding `caused by pipe
+        friction` are about the same relation, and answering the QUESTION
+        rather than reciting the concept is the difference between replying and
+        responding. Matched on stems, over relations already stored -- nothing
+        here decides that two relations are the same, only that a word in the
+        question and a label on a concept share a stem.
+        """
+        from core.semantics.sentence_machine import tokenize
+
+        asked_stems = {w for w in tokenize(sentence) if w not in FUNCTION_WORDS}
+        answers: List[Answer] = []
+        for item in resolved:
+            if not item.known:
+                continue
+
+            # A YES/NO QUESTION NAMES THE SUBJECT AND THE OBJECT, NEVER THE
+            # RELATION. "is a kestrel a bird" strips to {kestrel, bird}: the
+            # relation label is `is`, a function word, so label matching could
+            # never fire and the question went unanswered while the store held
+            # `kestrel --is--> bird`, admitted seconds earlier. Measured: the
+            # reply recited an unrelated memory about arctic terns.
+            #
+            # Matching the OBJECT answers what was actually asked, and polarity
+            # decides the verdict -- so "is a kestrel a fish" against a stored
+            # `is not fish` answers NO from evidence rather than from silence.
+            for relation, other in item.relations:
+                if any(same_stem(str(other), word) for word in asked_stems):
+                    denied = relation.startswith("not ") or relation == "is not"
+                    answers.append(Answer(item.phrase, relation, (str(other),),
+                                          verdict=not denied))
+                    continue
+
+                labels = [part for part in relation.replace("_", " ").split()]
+                if any(same_stem(label, word) for label in labels
+                       for word in asked_stems):
+                    existing = next((a for a in answers
+                                     if a.about == item.phrase and a.relation == relation), None)
+                    if existing:
+                        answers.append(Answer(item.phrase, relation,
+                                              existing.others + (other,)))
+                        answers.remove(existing)
+                    else:
+                        answers.append(Answer(item.phrase, relation, (other,)))
+        return answers
+
+    @staticmethod
+    def _render_atom(text: str) -> str:
+        """A logic atom as words: `pressure_loss` -> `pressure loss`; a status
+        prefix ("Proved:") stripped. What reasoning concluded, said plainly."""
+        rendered = str(text).strip()
+        for prefix in ("proved:", "disproved:", "refuted:", "verified:"):
+            if rendered.lower().startswith(prefix):
+                rendered = rendered[len(prefix):].strip()
+                break
+        return rendered.replace("->", "implies").replace("_", " ").strip()
+
+    @staticmethod
+    def _support_used(premises, steps) -> Tuple[str, ...]:
+        """The clean premise SENTENCES a derivation used, for the reply's `because`.
+
+        The reasoner marks the premises it used `[Premise]`, but in the formula
+        form it reasons in (`zorbax_glomph -> zorbax_fizzly`), which reads back
+        as noise. The premises it was GIVEN are clean sentences ("Every glomph is
+        fizzly"), so the used ones are recovered by matching: a premise whose
+        content words all appear among the `[Premise]` lines is one the proof
+        rested on, and it is cited as it was said rather than as an atom. This
+        both keeps the reason readable and keeps it honest -- only premises the
+        proof actually used, not everything that happened to be recalled.
+        """
+        marked = " ".join(str(s) for s in (steps or ()) if "[Premise]" in str(s))
+        marked = marked.lower().replace("_", " ")
+        seen: set = set()
+        out: List[str] = []
+        for premise in premises or ():
+            words = [w for w in str(premise).lower().split()
+                     if w not in FUNCTION_WORDS]
+            if words and all(w in marked for w in words) and premise not in seen:
+                seen.add(premise)
+                out.append(str(premise))
+        return tuple(out)
+
+    async def _held_premises(self, sentence, resolved, harvest) -> List[str]:
+        """Everything the substrate HOLDS about the topic, as premise sentences.
+
+        There is no separate 'look it up' step that reasoning falls back from:
+        what is held is simply what reasoning reasons over, and a stored fact is
+        a premise that proves its question in one step. Four sources, together:
+
+          * the resolved concepts' own relations ("flerm is blorp"),
+          * ONE HOP OUT -- the relations of the concepts those point to
+            ("blorp is snazzy"), because "is flerm snazzy" follows from a chain
+            the question never names the middle of,
+          * the subject-focused recalled memories (`harvest`),
+          * a BROAD recall on the whole question -- a syllogism's rule ("every
+            blorp is snazzy") shares a term with the question but not its
+            subject, so the subject-focused harvest misses it; this finds the
+            premises the chain needs.
+
+        One hop, not the whole graph: enough to chain a stated rule to a stated
+        fact without pulling the entire store in as premises.
+        """
+        premises: List[str] = []
+        others: set = set()
+        for item in resolved:
+            if not getattr(item, "known", False):
+                continue
+            for relation, other in item.relations:
+                premises.append(f"{item.phrase} {relation} {other}")
+                others.add(str(other))
+            # Incoming relations: facts that name THIS concept as their object,
+            # for reverse questions ("what causes X") the forward store misses.
+            premises.extend(await self._incoming_relations(item.phrase))
+
+        # One hop out, following each relation to the concept it names.
+        for other in others:
+            try:
+                hops = await self.resolve(other)
+            except Exception:
+                continue
+            for hop in hops:
+                if not getattr(hop, "known", False):
+                    continue
+                for relation, o2 in hop.relations:
+                    premises.append(f"{hop.phrase} {relation} {o2}")
+
+        if harvest is not None:
+            premises.extend(harvest.texts())
+
+        # Broad recall on the whole question, for the premises a chain needs that
+        # the subject never names. Recall hands back each memory's clean claim.
+        try:
+            from core.memory import get_memory_agent
+            agent = await get_memory_agent()
+            _ok, hits = await agent.search_memories(
+                query=str(sentence), limit=8, include_events=False)
+            for hit in (hits or []):
+                meta = getattr(hit, "metadata", None) or {}
+                claim = (meta.get("conclusion") if isinstance(meta, dict) else None) \
+                    or getattr(hit, "content", "")
+                if claim:
+                    premises.append(str(claim))
+        except Exception as error:
+            from core.capability import raise_if_structural
+            raise_if_structural(error, "autonomous_coordinator._held_premises.broad_recall")
+
+        return list(dict.fromkeys(p.strip() for p in premises if p and p.strip()))
+
+    async def _reasoned_answers(self, sentence, resolved, harvest) -> List["Answer"]:
+        """Answers the substrate DERIVES from what it holds.
+
+        Not a fallback for a failed lookup -- a first-class peer that runs over
+        the held premises whether or not a stored relation already answered, so
+        "is X fizzly" follows from "X is a glomph" and "every glomph is fizzly",
+        and "what causes X" is answered by the cause that entails it. An answer
+        is returned ONLY when the substrate PROVES one; the premises it used are
+        carried so the reply can say why.
+
+        A copula yes/no question is decided on its AFFIRMATIVE proposition and
+        answered against the polarity it was asked in -- so "is X not Y" is
+        answered by whether X IS Y. Every other form (subject-verb-object,
+        causal, open "what/why") is handed to the reasoner as-is; it formalises
+        the query and derives the conclusion.
+        """
+        premises = await self._held_premises(sentence, resolved, harvest)
+        if not premises:
+            return []
+
+        from core.reasoning.neural_bridge import (ReasoningRequest,
+                                                  get_neural_bridge)
+        from core.semantics import derived_reader
+        bridge = get_neural_bridge()
+
+        try:
+            reading = derived_reader.read(sentence)
+        except Exception:
+            reading = None
+
+        # A WH-question ("what/why/how/who causes X") is OPEN, not a yes/no about
+        # a subject named "what" -- the reader can mis-parse it as a copula, so it
+        # is sent to the open branch where the reasoner derives the answer.
+        _WH = {"what", "why", "how", "who", "when", "where", "which"}
+        if reading and reading[0].lower() not in _WH:
+            subject, obj, polarity = reading
+            result = await bridge.reason(ReasoningRequest(
+                query=f"{subject} is {obj}", context=premises))
+            if not (result.metadata or {}).get("verified"):
+                return []
+            support = self._support_used(premises, result.reasoning_steps)
+            claim = f"{subject} is {obj}".replace("_", " ")
+            # X IS Y is proved: "yes" when the question affirmed it, "no" when it
+            # denied it (the negation is false, and the reason is that X IS Y).
+            return [Answer(about=subject, relation="is", others=(obj,),
+                           verdict=(polarity == "affirms"),
+                           support=support, conclusion=claim)]
+
+        result = await bridge.reason(ReasoningRequest(query=sentence, context=premises))
+        if not (result.metadata or {}).get("verified") or not result.answer:
+            return []
+        support = self._support_used(premises, result.reasoning_steps)
+        return [Answer(about="", relation="", others=(), verdict=None,
+                       support=support, conclusion=self._render_atom(result.answer))]
+
+    # ---- the two ways something new gets in ------------------------------
+
+    async def _ingest(self, label, description, relations, source_type, source_id,
+                      content, domain) -> Acquired:
+        """Hand the interpreted statement to the ingress. It admits, not this.
+
+        This used to build its own EvidenceEnvelope and call the ingestion
+        service directly, under a docstring calling itself "the only write
+        path" -- a second claimant to a job that already had an owner. It also
+        read `result.concepts` / `.concept_ids` / `.accepted` off the returned
+        IngestionResult, none of which are fields on it, so `stored` was False
+        on every successful write. Every sentence anyone taught reported back
+        as not stored while the row went in.
+        """
+        from core.semantics.cognitive_ingress import (Provenance,
+                                                      get_cognitive_ingress)
+
+        if not relations:
+            return Acquired(label, description, (), source_id, False,
+                            "nothing was said about it")
+
+        relation, obj = relations[0][0], relations[0][1]
+        positive = len(relations[0]) < 3 or str(relations[0][2]) != "negative"
+
+        admission = await get_cognitive_ingress().admit_relation(
+            subject=label, relation=relation, obj=obj, surface=content,
+            provenance=Provenance(producer="conversation", source_id=source_id,
+                                  source_type=source_type.name),
+            positive=positive, description=description, domain=domain)
+
+        detail = "; ".join(admission.refusals)
+        if admission.contradicts:
+            detail = (f"this contradicts what I was told before"
+                      f"{'; ' + detail if detail else ''}")
+
+        # A newly admitted proposition is a self-event: it may have completed a
+        # taught-concept cluster the domain authority should crystallize. Emit it
+        # so that reaction fires now, off the reply path, instead of waiting for
+        # the idle tier. Only on a real admission (not a refusal or a duplicate),
+        # and only when this conversation was given the substrate's emitter
+        # (standalone use has none -- teaching still admits, it just does not
+        # wake a reaction). Isolated: a failing emit never breaks the reply.
+        if admission.admitted and self._emit is not None:
+            try:
+                await self._emit(SelfEvent(
+                    SelfEventType.EVIDENCE_ADMITTED,
+                    payload={"subject": label, "relation": relation,
+                             "obj": obj, "domain": domain},
+                    origin="conversation._ingest"))
+            except Exception as error:
+                logger.warning("EVIDENCE_ADMITTED emit failed: %s", error)
+        # ONE SHAPE FOR EVERY READER. `relations` arrives from the reader as
+        # (relation, object) or (relation, object, polarity), and `Acquired`
+        # declares Tuple[Tuple[str, str], ...]. `say()` unpacked exactly two and
+        # raised ValueError on any taught sentence carrying polarity -- which,
+        # since admit_relation records polarity, is every taught sentence. The
+        # polarity is folded into the relation here, the same way `resolve()`
+        # does it, so a negative survives instead of crashing the reply.
+        return Acquired(label, description, _as_pairs(relations), source_id,
+                        admission.admitted, detail,
+                        memory_id=admission.memory_id)
+
+    async def _register_domain_gap(self, sentence: str, resolved):
+        """Register an unanswered in-domain question as a known-unknown --
+        THROUGH the domain authority, not around it.
+
+        A question resolved to a concept that lives in a crystallized SUBJECT
+        domain (not the `conversation`/`researched` channels or the `general`
+        catch-all), which produced no answer, is a localized declarative gap:
+        the substrate has little information HERE, not lacking the operators to
+        act here. This routes it to `UniversalDomainMaster.detect_knowledge_gap`,
+        the owner of domain-scoped gap detection -- it used to reach past that
+        into `register_known_unknown` with a coarser inline version, a bypass of
+        the very method this docstring named. The authority does the precise
+        check (subject IS a concept of the domain, the asked relation is genuinely
+        absent) and records the structured `required_info` an acquisition step
+        can act on, competence untouched -- a knowledge gap is never a competence
+        loss. Returns the domain_id it registered under, or None.
+
+        The RELATION asked about comes from the reader (a WH question reads as
+        subject + relation + <unknown>). Without a relation there is nothing to
+        localize, so nothing is registered -- honest, not a coarse catch-all.
+        """
+        from core.domain.domain_registry import get_domain_registry
+        from core.integration.universal_domain_master import \
+            get_universal_domain_master
+        from core.semantics import derived_reader
+
+        typed = derived_reader.read_typed(sentence)
+        relation = None
+        if typed is not None and getattr(typed, "relation", None) is not None:
+            try:
+                relation = typed.relation.relation.value
+            except Exception:
+                relation = None
+        if not relation:
+            return None
+
+        registry = get_domain_registry()
+        udm = get_universal_domain_master()
+        channels = {"conversation", "researched", "general", ""}
+        for item in resolved:
+            if not getattr(item, "known", False):
+                continue
+            field = (getattr(item, "domain", "") or "").strip().lower()
+            if field in channels:
+                continue
+            domain_id = f"domain_{field}"
+            if domain_id not in registry.domains:
+                continue
+            gap = await udm.detect_knowledge_gap(
+                domain_id, subject=item.phrase, relation=relation)
+            if gap is not None:
+                return domain_id
+        return None
+
+    async def _resolves(self, text: str) -> bool:
+        _, identity = await self._services()
+        return bool(await identity.resolve_query(text.replace("_", " "))
+                    or await identity.resolve_query(text))
+
+    # retain() REMOVED. Retention is not the reader's job.
+    #
+    # It was briefly added here, which made the interpreter also the thing that
+    # decided what the system keeps -- two responsibilities in one place, and
+    # the second one silently optional. A sentence is interpreted here and
+    # admitted in exactly one place: core.semantics.cognitive_ingress.
+
+    async def teach(self, sentence: str) -> List[Acquired]:
+        """You told it something. Read it with the DERIVED reading, then admit.
+
+        This used to guess. It walked in from both ends looking for runs of
+        words that already named something, and when the subject was new --
+        which is the whole point of being taught -- nothing in the store could
+        say where the phrases ended, so it asked a model to find the seams.
+
+        That is what filled the concept store with junk. `you` and
+        `which_lines_belong_to_which_block` became entities; `a function
+        count_o` became a relation. Every one of them came from a guess made
+        because no reading was available.
+
+        A reading IS available. `procedure_synthesis` derives one from
+        sentence/meaning pairs, it generalizes to sentences whose every content
+        word is new, and it needs no model. It was never registered, so nothing
+        could reach it. Now it is consulted first, and where it declines this
+        declines too -- a sentence that cannot be read has not told you
+        anything, and admitting a guess about it is worse than admitting
+        nothing.
+        """
+        from core.domain.concept_ingestion import EvidenceSourceType
+        from core.semantics import derived_reader
+
+        registered, why = derived_reader.ensure_registered()
+        if not registered:
+            logger.warning("no derived reading available: %s", why)
+            return [Acquired(sentence, detail=(
+                "I have no derived way to read a sentence yet, so I will not "
+                "guess at what you told me"))]
+
+        # READ IT TYPED. The reader recognises the surface and the typer names
+        # the RELATION -- "made of" -> made_of, not a bare "is". The concept
+        # graph then holds a TYPED edge the relation algebra can reason over,
+        # instead of one undifferentiated "is" edge that poisons inference.
+        #
+        # A sentence may carry MORE THAN ONE proposition -- a relative clause
+        # ("a robin, which is small, is a bird") or a conjunction ("the vault is
+        # cold and heavy") states two -- so every proposition it states is read
+        # and admitted, not just the first. `read_all` returns one typed reading
+        # per proposition (already dropping any it could not construct).
+        readings = derived_reader.read_all(sentence)
+        if not readings:
+            # Distinguish "unreadable" from "words known, construction not": a
+            # whole-sentence read that came back asking to be taught the
+            # construction says the more specific thing.
+            probe = derived_reader.read_typed(sentence)
+            if probe is not None and probe.needs_construction is not None:
+                return [Acquired(sentence, detail=(
+                    "I recognise the words but not this sentence construction "
+                    "yet; I will not guess at a relation I cannot name"))]
+            return [Acquired(sentence, detail=(
+                "I could not read that sentence with what I have been taught "
+                "about sentences"))]
+
+        acquired: List[Acquired] = []
+        for typed in readings:
+            positive = typed.polarity != "denies"
+            # The canonical TYPED relation name is what is stored, so the edge
+            # carries its semantics (transitivity, inverse, ...) not just a verb.
+            relation = typed.relation.relation.value
+            acquired.append(await self._ingest(
+                label=typed.subject, description="",
+                relations=((relation, typed.obj,
+                            "positive" if positive else "negative"),),
+                source_type=EvidenceSourceType.USER_SUPPLIED, source_id="you",
+                content=sentence, domain="conversation"))
+        return acquired
+
+
+    async def look_up(self, phrase: str) -> Optional[Acquired]:
+        """It did not know the word. Go and find out, now.
+
+        Researches the phrase, reads a description out of what came back, and
+        stores it -- so the next question about it is answered from the store
+        like any other, and the turn can say where it came from.
+        """
+        import json
+        import re as _re
+
+        from core.domain.concept_ingestion import EvidenceSourceType
+        from core.tools import get_tool_registry
+
+        try:
+            result = await get_tool_registry().execute_tool(
+                "conduct_research", {"topic": phrase, "max_sources": 3})
+        except Exception as error:
+            return Acquired(phrase, origin="research", detail=f"research failed: {error}")
+        if not getattr(result, "success", False):
+            return Acquired(phrase, origin="research",
+                            detail=f"research declined: {getattr(result, 'error', '')}")
+
+        output = getattr(result, "output", None) or {}
+        description, source = "", ""
+        for item in output.get("raw_results", []):
+            if item.get("source") != "Wikipedia":
+                continue
+            try:
+                hits = json.loads(item.get("data") or "{}").get("query", {}).get("search", [])
+            except Exception:
+                continue
+            # THE FIRST HIT IS NOT AN ANSWER, IT IS THE CLOSEST THING THE INDEX
+            # HAD. A search engine always returns its best row; taking it
+            # unchecked is accepting a result without verifying it answered
+            # anything. Asked what spots unusual behaviour in data, this took
+            # Wikipedia's top hit for `spots unusual behaviour` -- an article on
+            # animal sexual behaviour -- and STORED it as the meaning of the
+            # phrase. A wrong fact written into the store outlives the turn that
+            # invented it and is indistinguishable afterwards from one that was
+            # learned.
+            #
+            # An article is about the phrase when its TITLE names the phrase.
+            # Every content word, by stem, so `load balancer` accepts `Load
+            # balancing (computing)` and `spots unusual behaviour` accepts
+            # nothing that only shares `behaviour`. Where no hit passes, it
+            # declines and the reply asks -- which is the honest end of a
+            # lookup that found nothing, and the one the caller already handles.
+            match = next((h for h in hits if _titles(phrase, h.get("title", ""))), None)
+            if match is None:
+                continue
+            description = _re.sub(r"<[^>]+>", "", match.get("snippet", "")).strip()
+            source = item.get("url", "")
+            break
+
+        if not description:
+            return Acquired(phrase, origin="research",
+                            detail="research returned nothing that describes it")
+        return await self._ingest(
+            label=phrase, description=description, relations=(),
+            source_type=EvidenceSourceType.RESEARCH_FINDING,
+            source_id=source or "research", content=description, domain="researched")
+
+    @staticmethod
+    def is_question(sentence: str) -> bool:
+        """Whether this asks, by the shape of the sentence alone.
+
+        Cheap, model-free, and certain in both directions where a question mark
+        or an opening question word settles it.
+        """
+        from core.semantics.sentence_machine import tokenize
+
+        if sentence.strip().endswith("?"):
+            return True
+        words = tokenize(sentence)
+        return bool(words) and words[0] in QUESTION_OPENERS
+
+    def _read_disposition(self) -> Optional[Dict[str, Any]]:
+        """The self's current disposition, read from the coordinator that owns
+        this conversation, so a reply can be informed by self-state. Returns a
+        small QUALITATIVE view (the directive's mode word + whether the self is
+        inclined to explore) -- never numbers beside a feeling. None when the
+        conversation is standalone or the read fails: the reply is then exactly
+        what it was, never a fabricated mood."""
+        if self._disposition is None:
+            return None
+        try:
+            directive = self._disposition()
+        except Exception as error:
+            logger.debug("disposition read unavailable: %s", error)
+            return None
+        return {"mode": getattr(directive, "mode", None),
+                "explore": bool(getattr(directive, "should_explore", False))}
+
+    def _feedback_referent(self) -> Optional["Turn"]:
+        """The recent turn a verdict is about: the most recent one, within a
+        small window, that actually admitted a memory. A verdict with nothing to
+        judge is not feedback, so this returning None is what stops an
+        evaluative-looking utterance with no referent from being treated as one.
+        Bounded look-back -- never the whole history."""
+        window = list(self._turns)[-_FEEDBACK_WINDOW:]
+        for turn in reversed(window):
+            if turn.memories:
+                return turn
+        return None
+
+    def feedback_of(self, sentence: str) -> Optional[bool]:
+        """Whether this utterance is FEEDBACK on what was just taught, and its
+        verdict: True confirms, False corrects, None is not feedback. Feedback is
+        a verdict ON A PRIOR CLAIM, so both halves must hold -- the reader reads
+        the utterance as a bare evaluative verdict (structural, model-free), AND
+        there is a recent turn that left a memory to judge. Same certainty as
+        is_question, plus a referent to attach to; without the referent an
+        evaluative shape is just an ordinary short statement and is left alone."""
+        from core.semantics.sentence_machine import evaluative_verdict
+
+        verdict = evaluative_verdict(sentence)
+        if verdict is None:
+            return None
+        if self._feedback_referent() is None:
+            return None
+        return verdict
+
+    async def _take_feedback(self, sentence: str, verdict: bool) -> "Understanding":
+        """A verdict on what was just taught. The claim already made a memory;
+        this FLAGS that memory (annotated, never overwritten) and hands the
+        verdict to the learning authority -- it does NOT store the verdict as a
+        new fact, which is what filing it through teach() would have done. The
+        authority owns what learning follows; this only routes the signal and
+        replies."""
+        referent = self._feedback_referent()
+        flagged = 0
+        if referent is not None:
+            authority = get_learning_authority()
+            for memory_id in referent.memories:
+                try:
+                    outcome = await authority.learn_from_feedback({
+                        "memory_id": memory_id,
+                        "success": verdict,          # True confirms, False corrects
+                        "content": sentence,
+                        "about": referent.said,
+                    })
+                    if outcome and outcome.get("memory_flagged"):
+                        flagged += 1
+                except Exception as error:
+                    logger.warning("feedback routing failed for %s: %s",
+                                   memory_id, error)
+
+        understanding = Understanding(sentence=sentence, asked=False)
+        if verdict:
+            understanding.reply = ("Understood — noted as confirmed." if flagged
+                                   else "Understood.")
+        else:
+            understanding.reply = ("Understood — I've marked that as corrected."
+                                   if flagged else
+                                   "Understood, though I have no stored claim from "
+                                   "that to correct.")
+        self._last_reply = understanding.reply
+        # The verdict itself is not a new claim about the world, so it admits no
+        # memory of its own -- recorded as a turn for continuity, with none.
+        self._turns.append(Turn(said=sentence, asked=False,
+                                subject=self._last_subject,
+                                reply=understanding.reply, memories=()))
+        return understanding
+
+    async def classify(self, sentence: str) -> str:
+        """`question`, `telling` or `job` — decided HERE by the substrate's own
+        reader, with no model.
+
+        THIS WAS DECIDED TWICE. The coordinator asked a model, this asked a rule,
+        and they disagreed: `a quorum sensor detects bacterial population density`
+        is plainly a statement, the model called it a question, and it was filed
+        in memory as `Asked: a quorum sensor detects...`. Two owners of one
+        question produce two answers. Now there is ONE owner and NO model:
+
+          - a QUESTION is structural (`is_question`);
+          - a TELLING states a fact — a declarative the model-free `SentenceReader`
+            reads as a statement (copular / universal / conditional / SVO whose
+            verb the lexicon knows);
+          - a JOB asks for work — anything that is neither a question nor a
+            readable statement of fact. Where the reader cannot read a sentence
+            as a fact, that sentence has not TOLD the substrate anything, so it is
+            treated as work. This is the reader's honest structural verdict, never
+            a guess and never a model.
+        """
+        if self.is_question(sentence):
+            return "question"
+
+        from core.semantics.sentence_reader import SentenceReader
+        statement = SentenceReader()._parse_statement(sentence)
+        return "telling" if statement is not None else "job"
+
+    async def understand(self, sentence: str, look_up: bool = True) -> Understanding:
+        # ASKED ABOUT THIS EXCHANGE, ANSWERED FROM THIS EXCHANGE. Checked first
+        # because every path below treats the sentence as being about the
+        # world: it would file `just ask` as an unresolved concept, research
+        # it, and store what it found. The record answers this; nothing else
+        # can, and nothing else should be consulted.
+        self_reference = self.about_this_conversation(sentence)
+        if self_reference is not None:
+            who, act = self_reference
+            understanding = Understanding(sentence=sentence, asked=True)
+            understanding.reply = self._from_the_record(who, act)
+            # The subject does NOT move. Asking what we were talking about is
+            # not a new subject -- it is a question about the old one, and
+            # letting it become the subject would strand everything recall has
+            # accumulated under the topic the conversation is still on.
+            self._turns.append(Turn(said=sentence, asked=True,
+                                    subject=self._last_subject,
+                                    reply=understanding.reply))
+            self._last_reply = understanding.reply
+            return understanding
+
+        # A VERDICT ON WHAT WAS JUST TAUGHT, ANSWERED AS ONE. Checked before the
+        # telling path below, because that path would file "no, that's wrong" as
+        # a new fact about the world -- storing the correction as though it were
+        # a claim. Feedback is a verdict on the memory the last turn already
+        # made: it flags that memory and goes to the learning authority, it does
+        # not become a concept. Only fires when there is a recent taught memory
+        # to judge (feedback_of returns None otherwise).
+        verdict = self.feedback_of(sentence)
+        if verdict is not None:
+            return await self._take_feedback(sentence, verdict)
+
+        # WAVE 1 GOES OUT BEFORE ANYTHING ELSE HAPPENS. Everything below --
+        # storing what was said, resolving concepts, researching a word --
+        # takes time recall can use rather than time it has to wait for.
+        recall = self.recalling()
+        recall.carry_over()
+        # THE SUBJECT IS WHAT CONTINUITY HANGS ON. Not the session: a
+        # conversation moves between things and comes back, and what was
+        # accumulated about the first thing has to still be there -- and must
+        # not turn up ranked highly under the second.
+        subject = self.subject_of(sentence)
+        # A SUBJECT NAMED IN THE LAST ANSWER IS ONE THIS ANSWER LED TO. Being
+        # told pipe friction causes pressure loss and then asking about pipe
+        # friction is following the thread, not leaving it.
+        came_from = self._last_subject if self._leads_on(sentence) else ""
+        recall.begin(sentence, about=subject, arose_from=came_from)
+
+        asked = self.is_question(sentence)
+        acquired: List[Acquired] = []
+
+        if not asked:
+            # TOLD, not asked. Store it before answering, so the reply is made
+            # out of a store that already contains what was just said.
+            acquired = await self.teach(sentence)
+
+        resolved = await self.resolve(sentence)
+
+        # WAVE 2: what the words turned out to be is a better query than the
+        # words were, and it did not exist until now. It may also name the
+        # subject better than the raw sentence did.
+        informative = [item.phrase for item in resolved if item.informative]
+        if informative:
+            # What it turned out to be replaces what it looked like, and takes
+            # everything already gathered with it.
+            recall.rename_subject(subject, informative[0])
+            if came_from:
+                recall.begin(about=informative[0].lower(), arose_from=came_from)
+            subject = informative[0].lower()
+        recall.refine(*informative, about=subject)
+
+        if asked and look_up:
+            # DID NOT KNOW IS NOT AN ANSWER. Find out, in this turn -- but for
+            # ONE thing, the longest phrase it could not place. Researching
+            # every stray word turns a question into a pile of disambiguation
+            # pages, which is what it did before this.
+            candidates = sorted((r for r in resolved if not r.known),
+                                key=lambda r: len(r.phrase.split()), reverse=True)
+            accounted = {stem(part) for item in resolved if item.known
+                         for relation, _ in item.relations
+                         for part in relation.replace("_", " ").split()}
+            target = next((c for c in candidates
+                           if not any(same_stem(c.phrase, a) for a in accounted)), None)
+            if target is not None:
+                learned = await self.look_up(target.phrase)
+                if learned is not None:
+                    acquired.append(learned)
+                if learned is not None and learned.stored:
+                    resolved = await self.resolve(sentence)
+
+        answers = self.asked(sentence, resolved)
+        # WAVE 3: the relation actually asked about, which is the most specific
+        # thing the turn ever learns.
+        recall.refine(*[f"{a.about} {a.relation}" for a in answers], about=subject)
+
+        reading, source = await self.read(sentence)
+        harvest = await recall.harvest(about=subject, claim=sentence)
+
+        # REASON OVER WHAT IS HELD, as a first-class peer to the direct lookup
+        # above -- NOT a fallback gated on it having failed. Whatever the store
+        # answered directly, the substrate also derives what FOLLOWS from what it
+        # holds (concept relations and recalled memory alike); the two are merged,
+        # and a derived answer that duplicates a direct one is dropped for it.
+        if asked:
+            direct = {(a.about, a.relation, tuple(a.others)) for a in answers}
+            for derived in await self._reasoned_answers(sentence, resolved, harvest):
+                if (derived.about, derived.relation, tuple(derived.others)) not in direct:
+                    answers.append(derived)
+
+        # A KNOWLEDGE GAP DETECTED FROM THE QUESTION ITSELF. A question about a
+        # subject the substrate HOLDS (resolved) and that lives in a crystallized
+        # subject domain, yet which nothing held could answer, is the substrate
+        # having little information HERE -- not lacking the operators to act here.
+        # Register it as a domain-scoped known-unknown (competence untouched), so
+        # "I don't hold that fact yet" is a tracked, resolvable state rather than a
+        # silent miss. Isolated: never breaks the reply.
+        if asked and not answers:
+            try:
+                await self._register_domain_gap(sentence, resolved)
+            except Exception as error:
+                logger.debug("domain knowledge-gap registration skipped: %s", error)
+
+        understanding = Understanding(
+            sentence=sentence, resolved=resolved, reading=reading,
+            reading_source=source, answers=answers,
+            acquired=acquired, asked=asked,
+            remembered=harvest.texts(), recall=harvest,
+            disposition=self._read_disposition())
+        understanding.reply = self.say(understanding)
+        self._last_subject, self._last_reply = subject, understanding.reply
+        # The memories this telling admitted, kept on the turn so the NEXT turn's
+        # feedback can flag them. `acquired` is [] for a question.
+        admitted_memories = tuple(
+            a.memory_id for a in acquired if getattr(a, "memory_id", None))
+        self._turns.append(Turn(said=sentence, asked=asked, subject=subject,
+                                reply=understanding.reply,
+                                memories=admitted_memories))
+        return understanding
+
+    @staticmethod
+    def say(understanding: "Understanding") -> str:
+        """A reply assembled from what was found, and nothing else.
+
+        A REPLY ALREADY ANSWERED IS NOT RE-DERIVED. `understand()` answers a
+        question ABOUT THIS CONVERSATION from the record and sets `.reply`
+        there, because nothing else can answer it -- the sentence is not about
+        the world, so there is nothing to resolve. Recomputing here from
+        `known` and `unknown`, both empty in that case, produced a second and
+        different answer: a caller reading `.reply` was told "We were talking
+        about harrier", and a caller calling `say()` on the same object was told
+        "There was nothing in that I could resolve".
+
+        Two ways to get one answer, disagreeing. `say()` now returns the answer
+        that was already established rather than deriving a worse one over an
+        empty result.
+        """
+        if understanding.reply:
+            return understanding.reply
+
+        known, unknown = understanding.known, understanding.unknown
+        lines: List[str] = []
+        asking: List[str] = []
+
+        # RAISED BEFORE ANYTHING ELSE, INCLUDING BEFORE THE EARLY RETURNS.
+        # Memory holding the opposite of what was just said is the most
+        # important thing it has. The case that matters most -- being TOLD
+        # something the store disagrees with -- takes the earliest exit from
+        # this method, so a contradiction appended later was computed and never
+        # said.
+        contradicting = [m for m in (understanding.recall.memories
+                                     if understanding.recall else [])
+                         if m.agrees is False]
+        if contradicting:
+            lines.append("I have the opposite on record: "
+                         + contradicting[0].text[:200])
+
+        # SAY WHAT JUST CHANGED. A turn that quietly stored something, or
+        # quietly failed to, is a turn you cannot trust twice.
+        for item in understanding.acquired:
+            if item.stored and understanding.asked:
+                lines.append(f"I did not have {item.label}. I looked it up: "
+                             f"{item.description}")
+                if item.origin:
+                    lines.append(f"    (from {item.origin})")
+            elif item.stored:
+                held = "; ".join(f"{r} {o}" for r, o in item.relations)
+                lines.append(f"Noted — {item.label}: {held}")
+            else:
+                # ASK. Failing to find something is a reason to turn back to
+                # the person, not a result to report at them. Held back to the
+                # END of the reply, because a question buried above other lines
+                # reads as commentary rather than as a question.
+                #
+                # INFORMED BY SELF-STATE: when the self's disposition is inclined
+                # to explore, the gap is not just reported — the substrate says,
+                # honestly and qualitatively, that it wants to close it. Neutral
+                # disposition (or standalone, no disposition) keeps the plain ask.
+                disp = understanding.disposition
+                if disp and disp.get("explore"):
+                    asking.append(f"I don't hold {item.label} yet — looking it up "
+                                  f"found nothing, and it's the kind of gap I want "
+                                  f"to close.")
+                else:
+                    asking.append(f"I don't hold {item.label} yet; looking it up "
+                                  f"found nothing, so I'll run a more targeted search.")
+
+        # Recite a memory only if it is a CLAIM worth saying back. Pre-readability
+        # records are reader-oriented prose -- "Query: ... Answer: ...",
+        # "Learning: ... — a; b; c" -- that recite as noise; a record that is not
+        # a single clean statement is skipped rather than said back malformed as
+        # if it were remembered knowledge.
+        _junk = ("query:", "answer:", "reasoning steps", "learning:",
+                 "conclusion(s)", "premise(s)", "[premise")
+        recitable = next(
+            (m for m in understanding.remembered
+             if m and "\n" not in m and len(m) <= 220
+             and not any(j in m.lower() for j in _junk)),
+            None)
+        if recitable:
+            lines.append("I remember: " + recitable)
+        elif understanding.recall is not None and not understanding.recall.complete:
+            # SAY SO. An answer that nearly had a memory is a different answer
+            # from a complete one, and only one of them is worth trusting twice.
+            lines.append("(still searching memory — ask again for more)")
+
+        if not known and (lines or asking):
+            return "\n".join(lines + asking)
+
+        if not known:
+            if not unknown:
+                return "There was nothing in that I could resolve."
+            missing = ", ".join(r.phrase for r in unknown)
+            tried = any(a.origin == "research" for a in understanding.acquired)
+            # An internal user is not the substrate's lookup service: a gap is
+            # closed in the BACKGROUND (it is registered as a known-unknown and
+            # picked up as an acquisition goal), never turned back as "what is
+            # it?". The reply states the gap honestly and that it will be pursued.
+            return (f"I don't hold {missing} yet"
+                    + (", and looking it up turned up nothing, "
+                       if tried else "; ")
+                    + "so I'll run a more targeted search.")
+
+        # ANSWER THE QUESTION IF ONE WAS ASKED, rather than reciting the
+        # concept it was about.
+        if understanding.answers:
+            for answer in understanding.answers:
+                # A DERIVED answer carries its conclusion and the premises it was
+                # proved from, so it reads as a reason, not an assertion to take
+                # on trust. A DIRECT answer is composed from the stored relation.
+                derived = bool(answer.conclusion or answer.support)
+                because = ((" because " + " and ".join(answer.support))
+                           if answer.support else "")
+                if derived:
+                    claim = answer.conclusion or (
+                        f"{answer.about} {answer.relation} "
+                        + ", ".join(answer.others))
+                    if answer.verdict is True:
+                        lines.append(f"Yes — {claim}{because}.")
+                    elif answer.verdict is False:
+                        # The question DENIED what the substrate proved true, so
+                        # the answer is no -- and the reason is that it IS the case.
+                        lines.append(f"No — {claim}{because}.")
+                    else:  # open question: the derived conclusion IS the answer
+                        lines.append(f"{claim[:1].upper()}{claim[1:]}{because}.")
+                elif answer.verdict is True:
+                    lines.append(f"Yes — {answer.about} {answer.relation} "
+                                 + ", ".join(answer.others) + ".")
+                elif answer.verdict is False:
+                    # The store holds the DENIAL. Said as such, because "no"
+                    # alone reads the same as never having been told.
+                    lines.append(f"No — I was told {answer.about} "
+                                 f"{answer.relation} "
+                                 + ", ".join(answer.others) + ".")
+                else:
+                    lines.append(f"{answer.about} — {answer.relation}: "
+                                 + ", ".join(answer.others))
+            accounted = understanding.spoken_for()
+            unanswered = [r.phrase for r in unknown
+                          if not any(same_stem(r.phrase, w) for w in accounted)]
+            if unanswered:
+                lines.append("I hold nothing for: " + ", ".join(unanswered))
+            return "\n".join(lines)
+
+        for item in known:
+            where = f" ({item.domain})" if item.domain else ""
+            lines.append(f"{item.phrase}{where}: {item.description}")
+            for relation, other in item.relations:
+                lines.append(f"    {relation} {other}")
+
+        # ASK, rather than answer around it. A phrase the store holds twice is
+        # not one the substrate can answer about until it knows which was meant.
+        for item in known:
+            if item.alternatives:
+                where = ", ".join(d or c for c, d in item.alternatives)
+                lines.append(f"Which {item.phrase} do you mean — the one in "
+                             f"{item.domain}, or in {where}?")
+
+        if unknown:
+            lines.append("I hold nothing for: " + ", ".join(r.phrase for r in unknown)
+                         + ". Tell me what it is and I will keep it.")
+        if understanding.reading:
+            lines.append(f"Read as {understanding.reading[0]} "
+                         f"(by {understanding.reading_source}).")
+        return "\n".join(lines + asking)
+
+
+#: Held conversations, keyed by session. Bounded, oldest evicted first.
+#:
+#: WHY THIS EXISTS. `Conversation` carries everything continuity depends on --
+#: `_turns`, `_last_subject`, `_last_reply`, `_recall` -- and every caller
+#: constructed a fresh one. The coordinator built one at :7142 to classify a
+#: message and ANOTHER at :7156 to understand the same message, so the two
+#: halves of one turn could not see each other. Nothing could carry a subject
+#: across turns, notice a follow-up, or answer "what were we talking about":
+#: the machinery for all three is in this file and was unreachable.
+#:
+#: Keyed by session and not global. One shared instance would merge every
+#: speaker's turns into a single thread, so what one person said would surface
+#: as context for another -- a worse failure than having no continuity at all.
+_conversations: "OrderedDict[str, Conversation]" = OrderedDict()
+
+#: How many conversations are held at once. Past this the least recently used
+#: is dropped: a long-running process must not accumulate one per session
+#: forever, and losing continuity is recoverable while exhausting memory is not.
+MAX_HELD_CONVERSATIONS = 64
+
+
+def get_conversation(session: str, *, db=None, identity=None) -> "Conversation":
+    """The held conversation for `session`, created on first use.
+
+    `session` identifies a THREAD OF TALK, not a person -- two windows belong
+    to two sessions. A caller with no session of its own must pass a stable
+    string of its own choosing rather than a default, so unrelated callers
+    cannot silently share one another's context.
+    """
+    key = str(session)
+    held = _conversations.get(key)
+    if held is None:
+        held = Conversation(db=db, identity=identity)
+        _conversations[key] = held
+        while len(_conversations) > MAX_HELD_CONVERSATIONS:
+            evicted, _ = _conversations.popitem(last=False)
+            logger.info("conversation %s evicted; %d held", evicted,
+                        len(_conversations))
+    _conversations.move_to_end(key)
+    return held
+
+
+def end_conversation(session: str) -> bool:
+    """Forget a thread of talk. Returns whether one was held."""
+    return _conversations.pop(str(session), None) is not None
+
+
+def held_conversations() -> int:
+    """How many threads are currently held. For health reporting."""
+    return len(_conversations)
+
+
+
+# =============================================================================
+# IDENTITY VOCABULARY — the substrate's own account of who it is.
+#
+# Moved here from self_model.py when the Self was collapsed into this
+# coordinator. The substrate IS this coordinator, so its name, its stable
+# identity text, and the SelfState snapshot the coordinator composes belong
+# with it. IDENTITY_CORE is the SINGLE source of the identity — never recite it
+# elsewhere; anything that needs it (this substrate priming the model it
+# consults, a status readout) reads it from here via identity_prompt().
+# =============================================================================
+
+#: The substrate's name. The one authored constant — everything else is derived.
+NAME = "Torin"
+
+#: Who Torin is, model-facing and second-person — the STABLE identity core.
+#: Deliberately model-GENERIC: the specific model name, size, and context window
+#: are deployment facts (they change, belong to continuity/config), not identity.
+#: What IS identity is that a model is a resource consulted only when the
+#: substrate's own machinery cannot represent the question — the model-optional
+#: stance, stated honestly.
+IDENTITY_CORE = (
+    "You are Torin, a cognitive substrate created by Dominion Labs Inc. You are "
+    "not a language model. Your reasoning is symbolic and evidence-based, it "
+    "persists between sessions in a database, and it is the thing that decides. A "
+    "language model is available to you as a resource you consult — it proposes, "
+    "formalises, and reads language for you — and only when your own machinery "
+    "cannot represent the question. When the model is unavailable you lose input "
+    "coverage, not the ability to reason. You run locally, you persist between "
+    "sessions, and your memories carry forward."
+)
+
+
+@dataclass
+class SelfState:
+    """A snapshot of who the substrate is right now, entirely derived.
+
+    Fields that have no live source yet are None, never fabricated. `attitude`,
+    `temperament`, `drives`, `values`, and `disposition` are wired in v1;
+    `competence`, `purpose`, and `continuity` are declared here and populated as
+    their authorities are connected — the shape is honest about what is not yet
+    integrated.
+    """
+
+    name: str
+    #: my read of my own internal state — the interoceptive variables appraisal
+    #: integrates (valence, confidence, control, progress, open-questions, risk…).
+    #: None if nothing has been appraised. This is what the affect is a category OF.
+    interoception: Optional[Dict[str, Any]]
+    #: how I feel now — affective CATEGORIES over the interoceptive state above,
+    #: not selected words. None if nothing appraised.
+    attitude: Optional[Dict[str, Any]]
+    #: what I am disposed toward — from the standing motivation weights
+    temperament: Dict[str, float]
+    #: how strongly each drive is active now — from the motivation state
+    drives: Optional[Dict[str, float]]
+    #: what I am bound by — the constitutional laws (names)
+    values: List[str]
+    #: how disposition applies to the situation now — from the arbiter over appraisal
+    disposition: Dict[str, Any]
+    #: what I am actually good at / made of — UDM competence, component registry (later)
+    competence: Optional[Dict[str, Any]] = None
+    #: what I am for — active directives (later)
+    purpose: Optional[List[str]] = None
+    #: who I have been, carried forward — memory + persisted profile + deployment (later)
+    continuity: Optional[Dict[str, Any]] = None
+    #: how I feel now, carried between sessions — the persistent affect STATE
+    #: (named emotion + cause + intensity + the mood it sits on), owned by the
+    #: motivation system and rehydrated on startup. None until an affect has been
+    #: established; never a fabricated feeling.
+    affect: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        from dataclasses import asdict
+        return asdict(self)

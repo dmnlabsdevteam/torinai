@@ -418,16 +418,12 @@ class GenerateFunctionTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_function"
-        self.description = "Generate a Python function from natural language description using LLM"
+        self.description = ("Synthesize a Python function from I/O examples by verification "
+                            "(model-free). A candidate program is returned only if it reproduces "
+                            "every example; a prose description alone has no model-free path")
         self.category = ToolCategory.CODE_GENERATION
-        self.safety_level = ToolSafety.MODERATE
+        self.safety_level = ToolSafety.SAFE
         self.parameters = [
-            ToolParameter(
-                name="description",
-                type="string",
-                description="Description of what the function should do",
-                required=True
-            ),
             ToolParameter(
                 name="function_name",
                 type="string",
@@ -435,90 +431,70 @@ class GenerateFunctionTool(Tool):
                 required=True
             ),
             ToolParameter(
-                name="parameters",
+                name="examples",
                 type="array",
-                description="Function parameters (list of names)",
+                description="I/O examples: [{input: ..., output: ...}, ...] (>= 2)",
+                required=True
+            ),
+            ToolParameter(
+                name="description",
+                type="string",
+                description="Optional human note recorded with the result",
                 required=False
             )
-        ] + _common_llm_knobs(default_max_tokens=1024, default_temperature=0.3)
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_function",
             capabilities=[
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
-                    risk_level=RiskLevel.MEDIUM,
-                    description="Generate Python functions from natural language descriptions",
+                    risk_level=RiskLevel.LOW,
+                    description="Synthesize functions from I/O examples by verification",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"code_generation", "llm", "function"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"code_generation", "synthesis", "function", "model_free"}
         )
 
-    async def execute(self, description: str, function_name: str, parameters: List[str] = None, **kwargs) -> ToolResult:
+    async def execute(self, **kwargs) -> ToolResult:
+        """Synthesize a function from I/O examples by verification (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            from core.tools.synthesis_faculty import synthesize
 
-            llm = get_llm_service()
+            function_name = kwargs.get("function_name") or "synthesized_function"
+            examples = kwargs.get("examples") or []
+            description = kwargs.get("description", "")
 
-            params_str = ", ".join(parameters) if parameters else ""
-            prompt = f"""Generate a Python function with the following specifications:
+            if not examples:
+                return ToolResult(
+                    success=False, output=None,
+                    error=("model-free function synthesis needs I/O examples "
+                           "([{input, output}, ...]); a prose description alone has no "
+                           "model-free path"))
 
-Function name: {function_name}
-Parameters: {params_str if params_str else "none specified - infer from description"}
-Description: {description}
+            result, why = synthesize(examples, function_name)
+            if result is None:
+                return ToolResult(success=False, output=None,
+                                  error=f"cannot synthesize this model-free: {why}")
 
-Requirements:
-- Include type hints
-- Include docstring
-- Include error handling
-- Return meaningful values
-- Keep it simple and focused
-
-Generate only the function code, no explanations."""
-
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 1024))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior software engineer. "
-                "Return ONLY valid Python code. No markdown, no backticks, no explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
-            is_valid = bool(gen.get("valid_python"))
-            syntax_error = gen.get("syntax_error")
-
+            code = result["code"]
+            ok, err = _validate_python_syntax(code)
             return ToolResult(
                 success=True,
                 output={
                     'function_name': function_name,
                     'code': code,
-                    'valid_python': is_valid,
-                    'syntax_error': syntax_error,
-                    'attempts': gen.get('attempts', []),
-                    'description': description
+                    'expression': result["expression"],
+                    'examples_count': result["examples_count"],
+                    'alternatives': result["alternatives"],
+                    'valid_python': ok,
+                    'syntax_error': err if not ok else None,
+                    'verified': True,
+                    'model_free': True,
+                    'description': description,
                 }
             )
 
@@ -527,28 +503,29 @@ Generate only the function code, no explanations."""
 
 
 class RefactorCodeTool(Tool):
-    """Refactor code to improve quality"""
+    """Refactor Python code by dispatching to the substrate's own AST transforms."""
 
     def __init__(self):
         super().__init__()
         self.name = "refactor_code"
-        self.description = "Refactor Python code using LLM to improve quality and maintainability"
+        self.description = ("Refactor Python code using the substrate's own AST transforms "
+                            "(format, optimize, async, rename, inline, extract method, add "
+                            "logging), selected and chained by goal")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.MODERATE
         self.parameters = [
-            ToolParameter(
-                name="code",
-                type="string",
-                description="Code to refactor",
-                required=True
-            ),
-            ToolParameter(
-                name="goals",
-                type="array",
-                description="Refactoring goals (e.g., 'reduce complexity', 'improve naming')",
-                required=False
-            )
-        ] + _common_llm_knobs(default_max_tokens=2048, default_temperature=0.3)
+            ToolParameter(name="code", type="string", description="Code to refactor", required=True),
+            ToolParameter(name="goals", type="array",
+                          description="Goals, e.g. ['format','optimize','async','rename','inline','extract','logging']",
+                          required=False),
+            ToolParameter(name="old_name", type="string", description="'rename' goal: symbol to rename", required=False),
+            ToolParameter(name="new_name", type="string", description="'rename' goal: new symbol name", required=False),
+            ToolParameter(name="variable_name", type="string", description="'inline' goal: variable to inline", required=False),
+            ToolParameter(name="method_name", type="string", description="'extract' goal: name for the extracted method", required=False),
+            ToolParameter(name="start_line", type="number", description="'extract' goal: first line (1-indexed)", required=False),
+            ToolParameter(name="end_line", type="number", description="'extract' goal: last line (1-indexed)", required=False),
+            ToolParameter(name="log_level", type="string", description="'logging' goal: DEBUG/INFO/WARNING/ERROR", required=False, default="INFO"),
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="refactor_code",
@@ -556,82 +533,109 @@ class RefactorCodeTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.REFACTOR_CODE,
                     risk_level=RiskLevel.MEDIUM,
-                    description="Refactor code to improve quality and maintainability",
+                    description="Refactor code via owned AST transforms",
                     priority=8
                 )
             ],
-            requires_network=True,
+            requires_network=False,
             is_idempotent=False,
-            tags={"code_generation", "refactoring", "llm"}
+            tags={"code_generation", "refactoring", "ast", "model_free"}
         )
+
+    @staticmethod
+    def _extract_code(result) -> Optional[str]:
+        """Pull the transformed source out of a transform tool's ToolResult."""
+        if not result or not getattr(result, "success", False):
+            return None
+        out = result.output or {}
+        return out.get("code") or out.get("formatted_code")
+
+    def _plan_goal(self, g: str, kwargs: dict):
+        """Map one goal string to (tool_instance, extra_params, skip_reason)."""
+        def has(*words):
+            return any(w in g for w in words)
+
+        if has("format", "pep8", "pep 8", "style", "black"):
+            return FormatCodeTool(), {}, None
+        if has("optimiz", "performance", "dead code", "constant", "simplif", "speed"):
+            return OptimizeCodeTool(), {}, None
+        if has("async", "await", "asynchron"):
+            return ConvertToAsyncTool(), {}, None
+        if has("logging", "log "):
+            return AddLoggingTool(), {"log_level": str(kwargs.get("log_level", "INFO"))}, None
+        if has("rename"):
+            old, new = kwargs.get("old_name"), kwargs.get("new_name")
+            if not old or not new:
+                return None, None, "rename goal needs old_name and new_name"
+            return (RenameSymbolTool(),
+                    {"old_name": old, "new_name": new, "symbol_type": kwargs.get("symbol_type", "auto")},
+                    None)
+        if has("inline"):
+            var = kwargs.get("variable_name")
+            if not var:
+                return None, None, "inline goal needs variable_name"
+            params = {"variable_name": var}
+            if kwargs.get("line_number") is not None:
+                params["line_number"] = kwargs["line_number"]
+            return InlineVariableTool(), params, None
+        if has("extract"):
+            mn, sl, el = kwargs.get("method_name"), kwargs.get("start_line"), kwargs.get("end_line")
+            if not mn or sl is None or el is None:
+                return None, None, "extract goal needs method_name, start_line, end_line"
+            return ExtractMethodTool(), {"method_name": mn, "start_line": sl, "end_line": el}, None
+        return None, None, f"no owned AST transform maps to goal {g!r}"
 
     async def execute(self, code: str, goals: List[str] = None, **kwargs) -> ToolResult:
         try:
-            from core.services.unified_llm import get_llm_service
+            if not code or not code.strip():
+                return ToolResult(success=False, output=None, error="no code provided")
 
-            llm = get_llm_service()
+            ok, err = _validate_python_syntax(code)
+            if not ok:
+                return ToolResult(success=False, output=None,
+                                  error=f"input is not valid Python: {err}")
 
-            goals_str = "\n- ".join(goals) if goals else "improve code quality and maintainability"
-            prompt = f"""Refactor the following Python code:
+            # No goals -> behavior-preserving default: format, then safe optimize.
+            resolved_goals = goals or ["format", "optimize"]
 
-```python
-{code}
-```
+            current = code
+            report: List[Dict[str, Any]] = []
+            for goal in resolved_goals:
+                g = str(goal).strip().lower()
+                tool, params, reason = self._plan_goal(g, kwargs)
+                if tool is None:
+                    report.append({"goal": goal, "applied": False, "reason": reason})
+                    continue
+                result = await tool.execute(**{**params, "code": current})
+                new_code = self._extract_code(result)
+                if new_code is None:
+                    report.append({"goal": goal, "applied": False,
+                                   "reason": (getattr(result, "error", None) or "transform failed")})
+                    continue
+                # Never accept a transform that broke the code.
+                ok_t, err_t = _validate_python_syntax(new_code)
+                if not ok_t:
+                    report.append({"goal": goal, "applied": False,
+                                   "reason": f"{tool.name} produced invalid Python ({err_t}); change discarded"})
+                    continue
+                current = new_code
+                report.append({"goal": goal, "applied": True, "transform": tool.name})
 
-Refactoring goals:
-- {goals_str}
-
-Requirements:
-- Preserve functionality
-- Improve readability
-- Reduce complexity
-- Follow PEP 8
-- Add type hints if missing
-- Improve variable names
-
-Return only the refactored code, no explanations."""
-
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 2048))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code. No markdown, no backticks, no explanations. "
-                f"Target Python {python_version}. Preserve behavior unless explicitly asked."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            refactored_code = gen["code"]
-            is_valid = bool(gen.get("valid_python"))
-            syntax_error = gen.get("syntax_error")
+            applied_any = any(r["applied"] for r in report)
+            ok2, err2 = _validate_python_syntax(current)
 
             return ToolResult(
-                success=True,
+                success=applied_any,
                 output={
-                    'original_code': code,
-                    'refactored_code': refactored_code,
-                    'valid_python': is_valid,
-                    'syntax_error': syntax_error,
-                    'attempts': gen.get('attempts', []),
-                    'goals': goals
-                }
+                    "original_code": code,
+                    "refactored_code": current,
+                    "valid_python": ok2,
+                    "syntax_error": err2 if not ok2 else None,
+                    "goals": resolved_goals,
+                    "report": report,
+                    "method": "ast_dispatch",
+                },
+                error=None if applied_any else "no refactoring goal could be applied; see report",
             )
 
         except Exception as e:
@@ -662,7 +666,7 @@ class AddDocstringTool(Tool):
                 default="google",
                 enum=["google", "numpy", "sphinx"]
             )
-        ] + _common_llm_knobs(default_max_tokens=1024, default_temperature=0.2)
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="add_docstring",
@@ -670,71 +674,104 @@ class AddDocstringTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.DOCUMENT_CODE,
                     risk_level=RiskLevel.LOW,
-                    description="Add docstrings to Python functions and classes",
+                    description="Add structural docstrings from the signature",
                     priority=7
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"documentation", "llm", "code_generation"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"documentation", "ast", "model_free"}
         )
 
+    @staticmethod
+    def _humanize(name: str) -> str:
+        words = name.strip("_").replace("_", " ").strip()
+        if not words:
+            return "This function."
+        return words[0].upper() + words[1:] + "."
+
+    @staticmethod
+    def _type_str(arg, default) -> str:
+        import ast
+        if arg.annotation is not None:
+            return ast.unparse(arg.annotation)
+        return AddTypeHintsTool._infer_from_default(default) or ""
+
+    def _return_str(self, node) -> str:
+        import ast
+        if node.returns is not None:
+            return ast.unparse(node.returns)
+        return AddTypeHintsTool()._infer_return(node) or ""
+
+    def _build_docstring(self, node, style: str) -> str:
+        import ast
+        summary = self._humanize(node.name)
+        a = node.args
+        params = [p for p in (list(getattr(a, 'posonlyargs', [])) + list(a.args)) if p.arg not in ("self", "cls")]
+        defaults = [None] * (len(params) - len(a.defaults)) + list(a.defaults)
+        typed = [(p.arg, self._type_str(p, d)) for p, d in zip(params, defaults)]
+        ret = self._return_str(node)
+
+        if style == "numpy":
+            lines = [summary]
+            if typed:
+                lines += ["", "Parameters", "----------"]
+                for name, t in typed:
+                    lines.append(f"{name} : {t}".rstrip(" :") if t else f"{name}")
+            if ret and ret != "None":
+                lines += ["", "Returns", "-------", ret]
+        elif style == "sphinx":
+            lines = [summary, ""]
+            for name, t in typed:
+                lines.append(f":param {name}:")
+                if t:
+                    lines.append(f":type {name}: {t}")
+            if ret and ret != "None":
+                lines.append(f":rtype: {ret}")
+        else:  # google
+            lines = [summary]
+            if typed:
+                lines += ["", "Args:"]
+                for name, t in typed:
+                    lines.append(f"    {name} ({t}):" if t else f"    {name}:")
+            if ret and ret != "None":
+                lines += ["", "Returns:", f"    {ret}:"]
+        return "\n".join(lines)
+
     async def execute(self, code: str, style: str = "google", **kwargs) -> ToolResult:
+        """Insert structural docstrings derived from each signature (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            import ast
+            if not code or not code.strip():
+                return ToolResult(success=False, output=None, error="no code provided")
+            try:
+                tree = ast.parse(code)
+            except SyntaxError as se:
+                return ToolResult(success=False, output=None, error=f"input is not valid Python: {se}")
 
-            llm = get_llm_service()
+            added = []
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if ast.get_docstring(node) is not None:
+                        continue  # never overwrite an existing docstring
+                    doc = self._build_docstring(node, style)
+                    node.body.insert(0, ast.Expr(value=ast.Constant(value=doc)))
+                    added.append(node.name)
 
-            prompt = f"""Add a comprehensive docstring to this Python code using {style} style:
-
-```python
-{code}
-```
-
-Include:
-- Brief description
-- Args section with types
-- Returns section with type
-- Raises section if applicable
-- Example usage if helpful
-
-Return the complete code with docstring, nothing else."""
-
-            temperature = float(kwargs.get("temperature", 0.2))
-            max_tokens = int(kwargs.get("max_tokens", 1024))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code with docstrings. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code_with_docstring = gen["code"]
+            ast.fix_missing_locations(tree)
+            code_with_docstring = ast.unparse(tree)
+            ok, err = _validate_python_syntax(code_with_docstring)
 
             return ToolResult(
                 success=True,
                 output={
                     'original_code': code,
                     'code_with_docstring': code_with_docstring,
-                    'style': style
+                    'style': style,
+                    'docstrings_added': added,
+                    'valid_python': ok,
+                    'syntax_error': err if not ok else None,
+                    'method': 'signature_derived',
                 }
             )
 
@@ -748,7 +785,9 @@ class AddTypeHintsTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "add_type_hints"
-        self.description = "Add type hints to Python function parameters and return values"
+        self.description = ("Add type hints to Python functions by static inference over the "
+                            "AST (literal defaults and return expressions). Conservative: it "
+                            "annotates only what it can prove and leaves the rest untouched")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.SAFE
         self.parameters = [
@@ -758,7 +797,7 @@ class AddTypeHintsTool(Tool):
                 description="Python code to add type hints to",
                 required=True
             )
-        ] + _common_llm_knobs(default_max_tokens=1024, default_temperature=0.2)
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="add_type_hints",
@@ -766,71 +805,151 @@ class AddTypeHintsTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
                     risk_level=RiskLevel.LOW,
-                    description="Add type hints to Python code",
+                    description="Add type hints by static AST inference",
                     priority=7
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"type_hints", "llm", "code_generation"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"type_hints", "ast", "model_free"}
         )
 
+    @staticmethod
+    def _infer_from_default(default):
+        """Type a parameter from a literal default value; None if not provable."""
+        import ast
+        if default is None:
+            return None
+        if isinstance(default, ast.Constant):
+            v = default.value
+            if isinstance(v, bool):
+                return "bool"
+            if isinstance(v, int):
+                return "int"
+            if isinstance(v, float):
+                return "float"
+            if isinstance(v, str):
+                return "str"
+            if isinstance(v, bytes):
+                return "bytes"
+            return None  # e.g. None default -> inner type unknown, don't guess
+        return {ast.List: "list", ast.Dict: "dict", ast.Set: "set", ast.Tuple: "tuple"}.get(type(default))
+
+    @staticmethod
+    def _own_returns(node):
+        """Return statements in this function's own scope (not nested defs)."""
+        import ast
+        found = []
+
+        def visit(n):
+            for child in ast.iter_child_nodes(n):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                    continue
+                if isinstance(child, ast.Return):
+                    found.append(child)
+                visit(child)
+
+        visit(node)
+        return found
+
+    def _infer_return(self, node):
+        """Type a function's return from its return expressions; None if not provable."""
+        import ast
+        returns = self._own_returns(node)
+        if not returns:
+            return "None"  # falls off the end
+        types = set()
+        for r in returns:
+            v = r.value
+            if v is None:
+                types.add("None")
+            elif isinstance(v, ast.Constant):
+                cv = v.value
+                if cv is None:
+                    types.add("None")
+                elif isinstance(cv, bool):
+                    types.add("bool")
+                elif isinstance(cv, int):
+                    types.add("int")
+                elif isinstance(cv, float):
+                    types.add("float")
+                elif isinstance(cv, str):
+                    types.add("str")
+                elif isinstance(cv, bytes):
+                    types.add("bytes")
+                else:
+                    return None
+            elif isinstance(v, (ast.Compare, ast.BoolOp)):
+                types.add("bool")
+            elif isinstance(v, (ast.List, ast.ListComp)):
+                types.add("list")
+            elif isinstance(v, (ast.Dict, ast.DictComp)):
+                types.add("dict")
+            elif isinstance(v, (ast.Set, ast.SetComp)):
+                types.add("set")
+            elif isinstance(v, ast.Tuple):
+                types.add("tuple")
+            else:
+                return None  # unknown expression -> don't guess
+        # Only annotate when every path agrees on one concrete type.
+        return types.pop() if len(types) == 1 else None
+
+    def _annotate_function(self, node, added):
+        import ast
+        args = node.args
+        positional = list(getattr(args, 'posonlyargs', [])) + list(args.args)
+        defaults = list(args.defaults)
+        padded = [None] * (len(positional) - len(defaults)) + defaults
+        for arg, default in zip(positional, padded):
+            if arg.annotation is not None or arg.arg in ("self", "cls"):
+                continue
+            t = self._infer_from_default(default)
+            if t:
+                arg.annotation = ast.Name(id=t, ctx=ast.Load())
+                added["params"].append(f"{node.name}.{arg.arg}: {t}")
+        for arg, default in zip(args.kwonlyargs, args.kw_defaults):
+            if arg.annotation is not None:
+                continue
+            t = self._infer_from_default(default)
+            if t:
+                arg.annotation = ast.Name(id=t, ctx=ast.Load())
+                added["params"].append(f"{node.name}.{arg.arg}: {t}")
+        if node.returns is None:
+            rt = self._infer_return(node)
+            if rt:
+                node.returns = ast.Name(id=rt, ctx=ast.Load())
+                added["returns"].append(f"{node.name} -> {rt}")
+
     async def execute(self, code: str, **kwargs) -> ToolResult:
+        """Add type hints by conservative static inference (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            import ast
+            if not code or not code.strip():
+                return ToolResult(success=False, output=None, error="no code provided")
+            try:
+                tree = ast.parse(code)
+            except SyntaxError as se:
+                return ToolResult(success=False, output=None, error=f"input is not valid Python: {se}")
 
-            llm = get_llm_service()
+            added = {"params": [], "returns": []}
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    self._annotate_function(node, added)
 
-            prompt = f"""Add comprehensive type hints to this Python code:
-
-```python
-{code}
-```
-
-Requirements:
-- Add type hints to all parameters
-- Add return type hints
-- Use typing module for complex types (List, Dict, Optional, etc.)
-- Don't change functionality
-- Keep existing docstrings
-
-Return only the code with type hints, no explanations."""
-
-            temperature = float(kwargs.get("temperature", 0.2))
-            max_tokens = int(kwargs.get("max_tokens", 1024))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code with type hints. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            typed_code = gen["code"]
+            ast.fix_missing_locations(tree)
+            typed_code = ast.unparse(tree)
+            ok, err = _validate_python_syntax(typed_code)
 
             return ToolResult(
                 success=True,
                 output={
-                    'original_code': code,
-                    'typed_code': typed_code
-                }
+                    "original_code": code,
+                    "typed_code": typed_code,
+                    "annotations_added": added,
+                    "valid_python": ok,
+                    "syntax_error": err if not ok else None,
+                    "method": "static_inference",
+                },
             )
 
         except Exception as e:
@@ -1078,102 +1197,171 @@ class GenerateTestTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_test"
-        self.description = "Generate pytest test cases for Python code using LLM"
+        self.description = ("Generate tests by OBSERVING behavior: the tool executes each "
+                            "function on generated inputs and emits assertions from the real "
+                            "outputs, so every test passes against the code as written. It "
+                            "runs the provided code in a fresh namespace")
         self.category = ToolCategory.CODE_GENERATION
-        self.safety_level = ToolSafety.SAFE
+        self.safety_level = ToolSafety.MODERATE
         self.parameters = [
-            ToolParameter(
-                name="code",
-                type="string",
-                description="Code to generate tests for",
-                required=True
-            ),
-            ToolParameter(
-                name="framework",
-                type="string",
-                description="Test framework",
-                required=False,
-                default="pytest",
-                enum=["pytest", "unittest"]
-            )
-        ] + _common_llm_knobs(default_max_tokens=2048, default_temperature=0.3)
+            ToolParameter(name="code", type="string", description="Code to generate tests for", required=True),
+            ToolParameter(name="framework", type="string", description="Test framework", required=False, default="pytest", enum=["pytest", "unittest"]),
+            ToolParameter(name="module", type="string", description="Module name the tests import from", required=False, default="solution"),
+            ToolParameter(name="max_cases", type="number", description="Max cases per function", required=False, default=5),
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_test",
             capabilities=[
                 CapabilityMetadata(
                     capability=Capability.GENERATE_TESTS,
-                    risk_level=RiskLevel.LOW,
-                    description="Generate test cases for Python code",
+                    risk_level=RiskLevel.MEDIUM,
+                    description="Generate tests from observed behavior",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"testing", "llm", "code_generation"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"testing", "behavior_observation", "model_free"}
         )
 
+    # Probe inputs by annotation/inferred type; None key = unannotated (numeric probe).
+    _PROBES = {
+        "int": [0, 1, -1, 2], "float": [0.0, 1.5, -2.0], "str": ["", "a", "hello"],
+        "bool": [True, False], "list": [[], [1, 2, 3]], "dict": [{}, {"k": 1}],
+        "tuple": [(), (1, 2)], "bytes": [b"", b"x"], None: [0, 1, 2, 3],
+    }
+    _SIMPLE = (int, float, str, bool, bytes, type(None), list, dict, tuple)
+
+    def _probes_for(self, arg, default):
+        import ast
+        ann = None
+        if arg.annotation is not None and isinstance(arg.annotation, ast.Name):
+            ann = arg.annotation.id
+        if ann in self._PROBES:
+            base = list(self._PROBES[ann])
+        elif default is not None and isinstance(default, ast.Constant):
+            base = [default.value]
+        else:
+            base = list(self._PROBES[None])
+        return base
+
+    def _cases_for_function(self, fnode, fn, max_cases):
+        """Observe (inputs -> output) pairs by calling the real function."""
+        import ast
+        a = fnode.args
+        if a.vararg or a.kwarg or a.kwonlyargs:
+            return []  # keep to simple positional signatures
+        params = list(getattr(a, 'posonlyargs', [])) + list(a.args)
+        # Skip self/cls (module-level only, but be safe).
+        params = [p for p in params if p.arg not in ("self", "cls")]
+        defaults = list(a.defaults)
+        padded = [None] * (len(params) - len(defaults)) + defaults
+        probe_lists = [self._probes_for(p, d) for p, d in zip(params, padded)]
+
+        observed = []
+        seen = set()
+        width = max(len(pl) for pl in probe_lists) if probe_lists else 1
+        for i in range(min(width * 2, 12)):
+            inputs = tuple(pl[i % len(pl)] for pl in probe_lists)
+            if inputs in seen:
+                continue
+            seen.add(inputs)
+            try:
+                result = fn(*inputs)
+            except Exception:
+                continue  # a raising probe is a wrong-typed guess, not a spec
+            if not isinstance(result, self._SIMPLE):
+                continue
+            observed.append((inputs, result))
+            if len(observed) >= max_cases:
+                break
+        return observed
+
+    @staticmethod
+    def _render_pytest(module, cases_by_fn) -> str:
+        names = ", ".join(sorted(cases_by_fn))
+        lines = [f"from {module} import {names}", ""]
+        for fname in sorted(cases_by_fn):
+            for idx, (inputs, result) in enumerate(cases_by_fn[fname]):
+                arglist = ", ".join(repr(x) for x in inputs)
+                lines.append(f"def test_{fname}_{idx}():")
+                lines.append(f"    assert {fname}({arglist}) == {result!r}")
+                lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
+
+    @staticmethod
+    def _render_unittest(module, cases_by_fn) -> str:
+        names = ", ".join(sorted(cases_by_fn))
+        lines = ["import unittest", f"from {module} import {names}", "",
+                 "class TestObservedBehavior(unittest.TestCase):"]
+        for fname in sorted(cases_by_fn):
+            for idx, (inputs, result) in enumerate(cases_by_fn[fname]):
+                arglist = ", ".join(repr(x) for x in inputs)
+                lines.append(f"    def test_{fname}_{idx}(self):")
+                lines.append(f"        self.assertEqual({fname}({arglist}), {result!r})")
+        lines += ["", "if __name__ == '__main__':", "    unittest.main()"]
+        return "\n".join(lines) + "\n"
+
     async def execute(self, code: str, framework: str = "pytest", **kwargs) -> ToolResult:
+        """Generate tests from observed behavior by executing the code (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            import ast
+            if not code or not code.strip():
+                return ToolResult(success=False, output=None, error="no code provided")
+            try:
+                tree = ast.parse(code)
+            except SyntaxError as se:
+                return ToolResult(success=False, output=None, error=f"input is not valid Python: {se}")
 
-            llm = get_llm_service()
+            module = str(kwargs.get("module", "solution"))
+            max_cases = int(kwargs.get("max_cases", 5))
+            functions = [n for n in tree.body if isinstance(n, ast.FunctionDef) and not n.name.startswith("_")]
+            if not functions:
+                return ToolResult(success=False, output=None,
+                                  error="no module-level public functions to test")
 
-            prompt = f"""Generate comprehensive {framework} test cases for this Python code:
+            # Execute the code in a fresh namespace to observe behavior.
+            ns: Dict[str, Any] = {}
+            try:
+                exec(compile(tree, "<code>", "exec"), ns)
+            except Exception as e:
+                return ToolResult(success=False, output=None, error=f"code failed to import: {e}")
 
-```python
-{code}
-```
+            cases_by_fn: Dict[str, list] = {}
+            for fnode in functions:
+                fn = ns.get(fnode.name)
+                if not callable(fn):
+                    continue
+                cases = self._cases_for_function(fnode, fn, max_cases)
+                if cases:
+                    cases_by_fn[fnode.name] = cases
 
-Requirements:
-- Test normal cases
-- Test edge cases
-- Test error handling
-- Use fixtures if appropriate (pytest)
-- Include docstrings in tests
-- Aim for high coverage
+            if not cases_by_fn:
+                return ToolResult(success=False, output=None,
+                                  error="could not observe any assertable behavior (functions raised on all probes or returned non-simple values)")
 
-Return only the test code, no explanations."""
+            if framework == "unittest":
+                test_code = self._render_unittest(module, cases_by_fn)
+            else:
+                test_code = self._render_pytest(module, cases_by_fn)
 
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 2048))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python test engineer. "
-                "Return ONLY valid Python test code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            test_code = gen["code"]
+            ok, err = _validate_python_syntax(test_code)
+            total = sum(len(v) for v in cases_by_fn.values())
 
             return ToolResult(
                 success=True,
                 output={
-                    'original_code': code,
-                    'test_code': test_code,
-                    'valid_python': bool(gen.get('valid_python')),
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
-                    'framework': framework
-                }
+                    "original_code": code,
+                    "test_code": test_code,
+                    "framework": framework,
+                    "module": module,
+                    "cases_generated": total,
+                    "functions_covered": sorted(cases_by_fn),
+                    "valid_python": ok,
+                    "syntax_error": err if not ok else None,
+                    "method": "behavior_observation",
+                },
             )
 
         except Exception as e:
@@ -1209,7 +1397,7 @@ class MigrateCodeTool(Tool):
                 description="Custom migration instructions (if migration_type is 'custom')",
                 required=False
             )
-        ] + _common_llm_knobs(default_max_tokens=2048, default_temperature=0.2)
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="migrate_code",
@@ -1227,17 +1415,15 @@ class MigrateCodeTool(Tool):
                     priority=6
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"migration", "refactoring", "llm"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"migration", "refactoring", "ast", "model_free"}
         )
 
     async def execute(self, code: str, migration_type: str, custom_instructions: str = None, **kwargs) -> ToolResult:
         try:
-            migrated_code = code
-
             if migration_type == "python2to3":
-                # Basic Python 2 to 3 migrations
+                migrated_code = code
                 migrated_code = re.sub(r'\bprint\s+([^(].*)', r'print(\1)', migrated_code)  # print statement
                 migrated_code = migrated_code.replace('raw_input(', 'input(')
                 migrated_code = migrated_code.replace('xrange(', 'range(')
@@ -1245,56 +1431,20 @@ class MigrateCodeTool(Tool):
                 migrated_code = re.sub(r'\.iterkeys\(\)', '.keys()', migrated_code)
                 migrated_code = re.sub(r'\.itervalues\(\)', '.values()', migrated_code)
 
-            elif migration_type in ["async_conversion", "modernize_syntax", "custom"]:
-                # Use LLM for complex migrations
-                from core.services.unified_llm import get_llm_service
-                llm = get_llm_service()
+            elif migration_type == "async_conversion":
+                # Dispatch to the file's own AST-based async converter.
+                result = await ConvertToAsyncTool().execute(code=code)
+                migrated_code = (result.output or {}).get("code") if result.success else None
+                if migrated_code is None:
+                    return ToolResult(success=False, output=None,
+                                      error=(getattr(result, "error", None) or "async conversion failed"))
 
-                if migration_type == "async_conversion":
-                    instructions = "Convert synchronous code to async/await pattern"
-                elif migration_type == "modernize_syntax":
-                    instructions = "Modernize Python syntax (f-strings, type hints, walrus operator, etc.)"
-                else:
-                    instructions = custom_instructions or "Migrate the code"
-
-                prompt = f"""Migrate this Python code:
-
-```python
-{code}
-```
-
-Migration task: {instructions}
-
-Return only the migrated code, no explanations."""
-
-                temperature = float(kwargs.get("temperature", 0.2))
-                max_tokens = int(kwargs.get("max_tokens", 2048))
-                max_repairs = int(kwargs.get("max_repairs", 1))
-                format_black = bool(kwargs.get("format_black", False))
-                black_line_length = int(kwargs.get("black_line_length", 88))
-                python_version = str(kwargs.get("python_version", "3.11"))
-                model = str(kwargs.get("model", "qwen:32b"))
-
-                system_prompt = (
-                    "You are a senior Python engineer. "
-                    "Return ONLY valid Python code. No markdown/backticks/explanations. "
-                    f"Target Python {python_version}. Preserve behavior unless instructed otherwise."
+            else:  # modernize_syntax, custom
+                return ToolResult(
+                    success=False, output=None,
+                    error=(f"{migration_type} has no model-free migration path; "
+                           "only python2to3 and async_conversion are supported without a model"),
                 )
-
-                gen = await _llm_generate_python_code(
-                    llm=llm,
-                    prompt=prompt,
-                    system_prompt=system_prompt,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    model=model,
-                    max_repairs=max_repairs,
-                    validate_syntax=True,
-                    format_black=format_black,
-                    black_line_length=black_line_length,
-                )
-
-                migrated_code = gen["code"]
 
             valid_python, syntax_error = _validate_python_syntax(migrated_code)
 
@@ -1307,6 +1457,7 @@ Return only the migrated code, no explanations."""
                     'changed': code != migrated_code,
                     'valid_python': valid_python,
                     'syntax_error': syntax_error,
+                    'method': 'deterministic',
                 }
             )
 
@@ -1320,16 +1471,19 @@ class GenerateClassTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_class"
-        self.description = "Generate a complete Python class from specification using LLM"
+        self.description = ("Assemble a Python class from a structural spec: __init__ that binds "
+                            "fields, real getters/setters/__repr__ where inferable, and an honest "
+                            "NotImplementedError for methods whose behavior was not specified")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.MODERATE
         self.parameters = [
             ToolParameter(name="class_name", type="string", description="Name of the class", required=True),
-            ToolParameter(name="description", type="string", description="Class description and purpose", required=True),
-            ToolParameter(name="methods", type="array", description="List of method specifications (e.g., ['__init__(name, age)', 'get_info() -> str'])", required=False),
-            ToolParameter(name="base_classes", type="array", description="List of base classes to inherit from", required=False),
-            ToolParameter(name="include_docstrings", type="boolean", description="Include docstrings (default: True)", required=False, default=True)
-        ] + _common_llm_knobs(default_max_tokens=2048, default_temperature=0.3)
+            ToolParameter(name="description", type="string", description="Class docstring/purpose", required=False),
+            ToolParameter(name="fields", type="array", description="Field names, e.g. ['name', 'age'] (used to build __init__ and __repr__)", required=False),
+            ToolParameter(name="methods", type="array", description="Method signatures, e.g. ['__init__(name, age)', 'get_name() -> str']", required=False),
+            ToolParameter(name="base_classes", type="array", description="Base classes to inherit from", required=False),
+            ToolParameter(name="include_docstrings", type="boolean", description="Include the class docstring (default: True)", required=False, default=True)
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_class",
@@ -1337,104 +1491,115 @@ class GenerateClassTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
                     risk_level=RiskLevel.MEDIUM,
-                    description="Generate complete Python classes from specifications",
+                    description="Assemble Python classes from a structural spec",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"code_generation", "llm", "class"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"code_generation", "ast", "class", "model_free"}
         )
 
+    @staticmethod
+    def _parse_method_spec(spec: str):
+        """Parse 'name(a, b) -> ret' into (name, [args], ret)."""
+        m = re.match(r'^\s*(\w+)\s*\((.*?)\)\s*(?:->\s*(.+?))?\s*$', spec)
+        if not m:
+            return None
+        name = m.group(1)
+        raw = m.group(2).strip()
+        args = [a.strip() for a in raw.split(",") if a.strip()] if raw else []
+        ret = (m.group(3) or "").strip() or None
+        return name, args, ret
+
+    def _build_class(self, class_name, description, methods, base_classes, fields, include_docstrings):
+        bases = ", ".join(base_classes) if base_classes else ""
+        header = f"class {class_name}({bases}):" if bases else f"class {class_name}:"
+        body: List[str] = []
+        if include_docstrings and description:
+            body.append(f'    """{description}"""')
+
+        field_names = [f.split(":")[0].strip() for f in (fields or []) if f.split(":")[0].strip().isidentifier()]
+
+        specs = [s for s in (self._parse_method_spec(m) for m in (methods or [])) if s]
+        defined = {name for name, _, _ in specs}
+
+        # __init__ : bind each parameter (or each field) to self.
+        init = next((s for s in specs if s[0] == "__init__"), None)
+        if init:
+            _, args, _ = init
+            params = [a for a in args if a.split(":")[0].strip() != "self"]
+            pnames = [p.split(":")[0].split("=")[0].strip() for p in params]
+            body.append("    def __init__(self" + ("".join(f", {p}" for p in params)) + "):")
+            if pnames:
+                for pn in pnames:
+                    body.append(f"        self.{pn} = {pn}")
+                field_names = list(dict.fromkeys(field_names + pnames))
+            else:
+                body.append("        pass")
+        elif field_names:
+            body.append("    def __init__(self" + "".join(f", {f}" for f in field_names) + "):")
+            for f in field_names:
+                body.append(f"        self.{f} = {f}")
+
+        # other methods
+        for name, args, ret in specs:
+            if name == "__init__":
+                continue
+            params = args if (args and args[0].split(":")[0].strip() == "self") else (["self"] + args)
+            sig = ", ".join(params)
+            ret_ann = f" -> {ret}" if ret else ""
+            body.append(f"    def {name}({sig}){ret_ann}:")
+            gm = re.match(r'get_(\w+)$', name)
+            sm = re.match(r'set_(\w+)$', name)
+            if gm and gm.group(1) in field_names:
+                body.append(f"        return self.{gm.group(1)}")
+            elif sm and sm.group(1) in field_names and len(params) >= 2:
+                val = params[1].split(':')[0].split('=')[0].strip()
+                body.append(f"        self.{sm.group(1)} = {val}")
+            else:
+                body.append(f'        raise NotImplementedError("{name} is specified but its behavior was not provided")')
+
+        # __repr__ from known fields
+        if field_names and "__repr__" not in defined:
+            parts = ", ".join(f"{f}={{self.{f}!r}}" for f in field_names)
+            body.append("    def __repr__(self):")
+            body.append(f'        return f"{class_name}({parts})"')
+
+        doc_lines = 1 if (include_docstrings and description) else 0
+        if len(body) == doc_lines:
+            body.append("    pass")
+
+        return header + "\n" + "\n".join(body) + "\n"
+
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate a complete Python class"""
+        """Assemble a class from a structural spec (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
-
-            llm = get_llm_service()
-
             class_name = kwargs.get("class_name", "MyClass")
             description = kwargs.get("description", "")
-            methods = kwargs.get("methods", [])
-            base_classes = kwargs.get("base_classes", [])
+            methods = kwargs.get("methods", []) or []
+            base_classes = kwargs.get("base_classes", []) or []
+            fields = kwargs.get("fields", []) or []
             include_docstrings = kwargs.get("include_docstrings", True)
 
             if not class_name.isidentifier():
                 return ToolResult(success=False, output=None, error=f"'{class_name}' is not a valid Python class name")
 
-            # Build method specifications
-            methods_str = ""
-            if methods:
-                methods_str = "\n".join(f"- {method}" for method in methods)
-            else:
-                methods_str = "Infer appropriate methods from the description"
-
-            # Build inheritance
-            inheritance = ""
-            if base_classes:
-                inheritance = f"Inherits from: {', '.join(base_classes)}"
-
-            prompt = f"""Generate a Python class with the following specifications:
-
-Class name: {class_name}
-Description: {description}
-{inheritance}
-
-Methods needed:
-{methods_str}
-
-Requirements:
-- Include type hints for all parameters and return values
-- {'Include comprehensive docstrings (Google style)' if include_docstrings else 'Minimal or no docstrings'}
-- Include proper error handling
-- Follow PEP 8 style guidelines
-- Include __init__ method if needed
-- Add __repr__ and __str__ if appropriate
-- Make it production-ready
-
-Return only the class code, no explanations or markdown."""
-
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 2048))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
-            is_valid = bool(gen.get("valid_python"))
+            code = self._build_class(class_name, description, methods, base_classes, fields, include_docstrings)
+            ok, err = _validate_python_syntax(code)
+            if not ok:
+                return ToolResult(success=False, output={"code": code}, error=f"assembled class is invalid: {err}")
 
             return ToolResult(
                 success=True,
                 output={
                     'code': code,
                     'class_name': class_name,
-                    'description': description,
-                    'valid_python': is_valid,
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
+                    'valid_python': True,
                     'methods_specified': methods,
-                    'base_classes': base_classes
+                    'base_classes': base_classes,
+                    'fields': fields,
+                    'method': 'ast_assembly',
                 }
             )
 
@@ -1448,14 +1613,18 @@ class GenerateModuleTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_module"
-        self.description = "Generate a complete Python module with multiple classes and functions"
+        self.description = ("Assemble a Python module from structured components: a docstring, "
+                            "imports, classes (real assembly), and functions (with provided bodies, "
+                            "else an honest NotImplementedError), plus an __all__ export list")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.MODERATE
         self.parameters = [
             ToolParameter(name="module_name", type="string", description="Module name", required=True),
-            ToolParameter(name="description", type="string", description="Module purpose and functionality", required=True),
-            ToolParameter(name="components", type="array", description="List of classes/functions to include", required=False)
-        ] + _common_llm_knobs(default_max_tokens=3072, default_temperature=0.3)
+            ToolParameter(name="description", type="string", description="Module docstring", required=False),
+            ToolParameter(name="imports", type="array", description="Import lines, e.g. ['import os', 'from typing import List']", required=False),
+            ToolParameter(name="classes", type="array", description="Class specs (dicts with class_name/fields/methods/base_classes)", required=False),
+            ToolParameter(name="functions", type="array", description="Function specs (dicts with 'signature' and optional 'body')", required=False),
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_module",
@@ -1463,87 +1632,82 @@ class GenerateModuleTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
                     risk_level=RiskLevel.MEDIUM,
-                    description="Generate complete Python modules with multiple components",
+                    description="Assemble Python modules from structured components",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"code_generation", "llm", "module"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"code_generation", "ast", "module", "model_free"}
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate a complete Python module"""
+        """Assemble a module from structured components (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
-
-            llm = get_llm_service()
-
             module_name = kwargs.get("module_name", "module")
             description = kwargs.get("description", "")
-            components = kwargs.get("components", [])
+            imports = kwargs.get("imports", []) or []
+            classes = kwargs.get("classes", []) or []
+            functions = kwargs.get("functions", []) or []
 
-            components_str = "\n".join(f"- {comp}" for comp in components) if components else "Infer from description"
+            parts: List[str] = []
+            if description:
+                parts.append(f'"""{description}"""')
+            for imp in imports:
+                parts.append(str(imp))
+            if description or imports:
+                parts.append("")
 
-            prompt = f"""Generate a complete Python module with the following specifications:
+            public: List[str] = []
+            builder = GenerateClassTool()
+            for c in classes:
+                if isinstance(c, str):
+                    c = {"class_name": c}
+                cname = c.get("class_name")
+                if not cname or not str(cname).isidentifier():
+                    continue
+                code = builder._build_class(cname, c.get("description", ""), c.get("methods", []),
+                                            c.get("base_classes", []), c.get("fields", []),
+                                            c.get("include_docstrings", True))
+                parts.append(code.rstrip())
+                parts.append("")
+                public.append(cname)
 
-Module name: {module_name}
-Purpose: {description}
+            for f in functions:
+                if isinstance(f, str):
+                    f = {"signature": f}
+                spec = GenerateClassTool._parse_method_spec(f.get("signature", ""))
+                if not spec:
+                    continue
+                name, args, ret = spec
+                ret_ann = f" -> {ret}" if ret else ""
+                parts.append(f"def {name}({', '.join(args)}){ret_ann}:")
+                body = f.get("body")
+                if body:
+                    body_lines = body.splitlines() if isinstance(body, str) else list(body)
+                    for line in body_lines:
+                        parts.append(f"    {line}")
+                else:
+                    parts.append(f'    raise NotImplementedError("{name} is specified but its behavior was not provided")')
+                parts.append("")
+                public.append(name)
 
-Components to include:
-{components_str}
+            if public:
+                parts.append("__all__ = [" + ", ".join(repr(p) for p in public) + "]")
 
-Requirements:
-- Include module-level docstring
-- Add appropriate imports
-- Include type hints
-- Add comprehensive docstrings for all classes and functions
-- Include __all__ list for public API
-- Add example usage in module docstring
-- Follow PEP 8 style
-
-Return only the module code, no explanations."""
-
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 3072))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python module code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
-            is_valid = bool(gen.get("valid_python"))
+            code = "\n".join(parts).rstrip() + "\n"
+            ok, err = _validate_python_syntax(code)
+            if not ok:
+                return ToolResult(success=False, output={"code": code}, error=f"assembled module is invalid: {err}")
 
             return ToolResult(
                 success=True,
                 output={
                     'code': code,
                     'module_name': module_name,
-                    'description': description,
-                    'valid_python': is_valid,
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
-                    'components': components
+                    'valid_python': True,
+                    'exports': public,
+                    'method': 'ast_assembly',
                 }
             )
 
@@ -2050,12 +2214,13 @@ class ConvertToAsyncTool(Tool):
                             should_await = True
 
                     if should_await:
-                        # Wrap in await
-                        await_node = ast.Expr(
-                            value=ast.Await(value=node)
-                        )
+                        # Await is an EXPRESSION, so wrap the call in place — an
+                        # ast.Expr statement here would corrupt any call used as a
+                        # sub-expression (e.g. the RHS of `x = fetch()`).
+                        await_expr = ast.Await(value=node)
+                        ast.copy_location(await_expr, node)
                         self.conversions["calls_awaited"] += 1
-                        return await_node
+                        return await_expr
 
                     return node
 
@@ -2620,100 +2785,62 @@ class ImplementAlgorithmTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "implement_algorithm"
-        self.description = "Implement a specific algorithm with proper data structures and complexity"
+        self.description = ("Return a correct, canonical implementation of a named algorithm from "
+                            "the tool's curated registry (sorts, searches, graph traversal, "
+                            "number theory). Unknown names return the list of what is available")
         self.category = ToolCategory.CODE_GENERATION
-        self.safety_level = ToolSafety.MODERATE
+        self.safety_level = ToolSafety.SAFE
         self.parameters = [
-            ToolParameter(name="algorithm", type="string", description="Algorithm name or description (e.g., 'quicksort', 'Dijkstra's shortest path')", required=True),
-            ToolParameter(name="language", type="string", description="Programming language", required=False, default="python"),
-            ToolParameter(name="optimize_for", type="string", description="Optimization target", required=False, default="readability", enum=["readability", "performance", "memory"])
-        ] + _common_llm_knobs(default_max_tokens=2048, default_temperature=0.2)
+            ToolParameter(name="algorithm", type="string", description="Algorithm name (e.g. 'quicksort', 'dijkstra', 'binary_search')", required=True),
+            ToolParameter(name="language", type="string", description="Only 'python' is available", required=False, default="python"),
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="implement_algorithm",
             capabilities=[
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
-                    risk_level=RiskLevel.MEDIUM,
-                    description="Implement algorithms from specifications",
+                    risk_level=RiskLevel.LOW,
+                    description="Provide canonical algorithm implementations from a registry",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"algorithms", "llm", "code_generation"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"algorithms", "registry", "model_free"}
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Implement algorithm with LLM"""
+        """Look up a canonical algorithm implementation from the registry (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            from core.tools.algorithm_registry import lookup, available
 
-            llm = get_llm_service()
+            algorithm = (kwargs.get("algorithm") or "").strip()
+            language = str(kwargs.get("language", "python")).lower()
 
-            algorithm = kwargs.get("algorithm", "")
-            language = kwargs.get("language", "python")
-            optimize_for = kwargs.get("optimize_for", "readability")
+            if language not in ("python", "py"):
+                return ToolResult(success=False, output={"available": available()},
+                                  error=f"the registry provides Python implementations; {language!r} is not available")
+            if not algorithm:
+                return ToolResult(success=False, output=None, error="no algorithm specified")
 
-            prompt = f"""Implement the following algorithm: {algorithm}
+            entry = lookup(algorithm)
+            if not entry:
+                return ToolResult(success=False, output={"available": available()},
+                                  error=f"{algorithm!r} is not in the registry; available: {', '.join(available())}")
 
-Requirements:
-- Use {language} programming language
-- Optimize for {optimize_for}
-- Include type hints (if Python)
-- Add comprehensive docstring explaining:
-  * Algorithm description
-  * Time complexity (Big-O)
-  * Space complexity
-  * Parameters and return value
-- Include edge case handling
-- Add inline comments for complex steps
-- Provide example usage
-
-Return only the code implementation, no markdown formatting."""
-
-            temperature = float(kwargs.get("temperature", 0.2))
-            max_tokens = int(kwargs.get("max_tokens", 2048))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            is_python = str(language).lower() in {"python", "py"}
-            format_black = bool(kwargs.get("format_black", False)) if is_python else False
-            black_line_length = int(kwargs.get("black_line_length", 88))
-
-            system_prompt = (
-                "You are a senior software engineer. "
-                "Return ONLY code. No markdown, no backticks, no explanations. "
-                f"If Python, target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=is_python,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
-            is_valid = bool(gen.get("valid_python")) if is_python else None
-
+            code = entry["code"]
+            ok, err = _validate_python_syntax(code)
             return ToolResult(
                 success=True,
                 output={
                     'code': code,
-                    'algorithm': algorithm,
-                    'language': language,
-                    'optimize_for': optimize_for,
-                    'valid_python': is_valid,
-                    'syntax_error': gen.get('syntax_error') if is_python else None,
-                    'attempts': gen.get('attempts', []),
+                    'algorithm': entry["name"],
+                    'language': 'python',
+                    'time_complexity': entry["time"],
+                    'space_complexity': entry["space"],
+                    'valid_python': ok,
+                    'method': 'registry',
                 }
             )
 
@@ -2727,13 +2854,18 @@ class GenerateSymbolicMathTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_symbolic_math"
-        self.description = "Generate symbolic mathematics code using SymPy"
+        self.description = ("Perform symbolic mathematics with the substrate's CAS faculty "
+                            "(simplify/expand/factor/differentiate/integrate/solve/limit/series) "
+                            "and return both the computed result and reproducing SymPy code")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.SAFE
         self.parameters = [
-            ToolParameter(name="description", type="string", description="Mathematical problem description", required=True),
-            ToolParameter(name="operations", type="array", description="Operations needed (e.g., ['solve', 'differentiate', 'integrate'])", required=False)
-        ] + _common_llm_knobs(default_max_tokens=1024, default_temperature=0.2)
+            ToolParameter(name="expression", type="string", description="Math expression, or 'lhs = rhs' for solve", required=True),
+            ToolParameter(name="operation", type="string", description="One of: simplify, expand, factor, differentiate, integrate, solve, limit, series", required=True),
+            ToolParameter(name="variable", type="string", description="Variable to act on (inferred if the expression has exactly one)", required=False),
+            ToolParameter(name="point", type="string", description="For limit/series: the point (default 0; oo for limit at infinity)", required=False),
+            ToolParameter(name="order", type="number", description="For series: number of terms (default 6)", required=False, default=6),
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_symbolic_math",
@@ -2741,85 +2873,52 @@ class GenerateSymbolicMathTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
                     risk_level=RiskLevel.LOW,
-                    description="Generate symbolic math code using SymPy",
+                    description="Symbolic math via the substrate CAS faculty",
                     priority=7
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"mathematics", "sympy", "llm"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"mathematics", "sympy", "cas", "model_free"}
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate symbolic math code with SymPy"""
+        """Compute a symbolic-math operation with the CAS faculty (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            from core.tools.symbolic_math_faculty import get_symbolic_math, OPERATIONS
 
-            llm = get_llm_service()
+            # Back-compat: earlier callers passed `description` + `operations`.
+            expression = (kwargs.get("expression") or kwargs.get("description") or "").strip()
+            operation = kwargs.get("operation")
+            if not operation:
+                ops = kwargs.get("operations") or []
+                operation = ops[0] if ops else None
 
-            description = kwargs.get("description", "")
-            operations = kwargs.get("operations", [])
+            if not expression:
+                return ToolResult(success=False, output=None, error="no expression provided")
+            if not operation:
+                return ToolResult(success=False, output=None,
+                                  error=f"no operation given; choose one of: {', '.join(OPERATIONS)}")
 
-            ops_str = ", ".join(operations) if operations else "infer from description"
-
-            prompt = f"""Generate Python code using SymPy for the following mathematical problem:
-
-Problem: {description}
-Operations: {ops_str}
-
-Requirements:
-- Use SymPy library
-- Include proper symbol definitions
-- Show intermediate steps
-- Include result evaluation
-- Add comments explaining the math
-- Return both symbolic and numerical results where appropriate
-
-Return only Python code."""
-
-            temperature = float(kwargs.get("temperature", 0.2))
-            max_tokens = int(kwargs.get("max_tokens", 1024))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
+            r = get_symbolic_math().compute(
+                expression=expression,
+                operation=operation,
+                variable=kwargs.get("variable"),
+                point=kwargs.get("point"),
+                order=int(kwargs.get("order", 6)),
             )
 
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
+            if not r.ok:
+                return ToolResult(success=False, output=r.as_dict(), error=r.error)
 
-            code = gen["code"]
-
-            return ToolResult(
-                success=True,
-                output={
-                    'code': code,
-                    'description': description,
-                    'operations': operations,
-                    'valid_python': bool(gen.get('valid_python')),
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
-                }
-            )
+            out = r.as_dict()
+            # The emitted SymPy code is a serialization of a real run — verify it parses.
+            ok_code, _ = _validate_python_syntax(out.get("code") or "")
+            out["code_valid"] = ok_code
+            return ToolResult(success=True, output=out)
 
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Symbolic math generation failed: {str(e)}")
+            return ToolResult(success=False, output=None, error=f"Symbolic math failed: {str(e)}")
 
 
 class GenerateNumericalCodeTool(Tool):
@@ -2828,13 +2927,15 @@ class GenerateNumericalCodeTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_numerical_code"
-        self.description = "Generate numerical computation code using NumPy/SciPy"
+        self.description = ("Return a correct NumPy/SciPy implementation of a named numerical "
+                            "operation from the tool's registry (mean/std/matrix ops/solve/lstsq/"
+                            "polyfit/fft/integrate/interpolate). Unknown names list what's available")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.SAFE
         self.parameters = [
-            ToolParameter(name="description", type="string", description="Numerical computation description", required=True),
-            ToolParameter(name="library", type="string", description="Numerical library preference", required=False, default="numpy", enum=["numpy", "scipy", "both"])
-        ] + _common_llm_knobs(default_max_tokens=1536, default_temperature=0.2)
+            ToolParameter(name="operation", type="string", description="Operation name (e.g. 'mean', 'solve_linear', 'fft'); 'description' is also accepted", required=True),
+            ToolParameter(name="description", type="string", description="Alias for 'operation'", required=False),
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_numerical_code",
@@ -2842,78 +2943,39 @@ class GenerateNumericalCodeTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
                     risk_level=RiskLevel.LOW,
-                    description="Generate numerical computation code",
+                    description="Provide NumPy/SciPy operation implementations from a registry",
                     priority=7
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"numerical", "numpy", "scipy", "llm"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"numerical", "numpy", "scipy", "registry", "model_free"}
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate numerical computation code"""
+        """Look up a canonical numerical operation from the registry (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            from core.tools.numerical_registry import lookup, available
 
-            llm = get_llm_service()
+            operation = (kwargs.get("operation") or kwargs.get("description") or "").strip()
+            if not operation:
+                return ToolResult(success=False, output=None, error="no operation specified")
 
-            description = kwargs.get("description", "")
-            library = kwargs.get("library", "numpy")
+            entry = lookup(operation)
+            if not entry:
+                return ToolResult(success=False, output={"available": available()},
+                                  error=f"{operation!r} is not in the registry; available: {', '.join(available())}")
 
-            prompt = f"""Generate Python code for the following numerical computation:
-
-Task: {description}
-Preferred library: {library}
-
-Requirements:
-- Use {library} for numerical operations
-- Include error handling
-- Optimize for numerical stability
-- Add type hints
-- Include example usage with sample data
-- Comment on computational complexity if relevant
-
-Return only Python code."""
-
-            temperature = float(kwargs.get("temperature", 0.2))
-            max_tokens = int(kwargs.get("max_tokens", 1536))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
-
+            code = entry["code"]
+            ok, err = _validate_python_syntax(code)
             return ToolResult(
                 success=True,
                 output={
                     'code': code,
-                    'description': description,
-                    'library': library,
-                    'valid_python': bool(gen.get('valid_python')),
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
+                    'operation': entry["name"],
+                    'library': entry["library"],
+                    'valid_python': ok,
+                    'method': 'registry',
                 }
             )
 
@@ -2927,13 +2989,16 @@ class GenerateMathProofTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_math_proof"
-        self.description = "Generate a structured mathematical proof"
+        self.description = ("Prove a theorem with the tool's own Z3-backed prover "
+                            "(propositional entailment and grounded syllogisms) and render "
+                            "the verified derivation as a proof")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.SAFE
         self.parameters = [
-            ToolParameter(name="theorem", type="string", description="Theorem to prove", required=True),
-            ToolParameter(name="proof_style", type="string", description="Proof style", required=False, default="direct", enum=["direct", "contradiction", "induction", "contrapositive"])
-        ] + _common_llm_knobs(default_max_tokens=2048, default_temperature=0.2)
+            ToolParameter(name="theorem", type="string", description="Goal statement to prove", required=True),
+            ToolParameter(name="premises", type="array", description="Premises the proof may assume", required=False),
+            ToolParameter(name="proof_style", type="string", description="Preferred style (the authority selects the actual strategy)", required=False, default="direct", enum=["direct", "contradiction", "induction", "contrapositive"])
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_math_proof",
@@ -2941,56 +3006,61 @@ class GenerateMathProofTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
                     risk_level=RiskLevel.LOW,
-                    description="Generate mathematical proofs",
+                    description="Prove theorems via the substrate reasoning authority",
                     priority=6
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"mathematics", "proof", "llm"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"mathematics", "proof", "reasoning", "model_free"}
         )
 
+    @staticmethod
+    def _render_proof(theorem, premises, steps, proved, reason=None) -> str:
+        """Render the verified derivation as a readable proof."""
+        lines = [f"Theorem. {theorem}", "", "Proof."]
+        for s in steps:
+            lines.append(f"  {s}")
+        lines.append("")
+        if proved:
+            lines.append(f"Therefore, {theorem}.  ∎")
+        else:
+            lines.append(f"The theorem could not be established: {reason or 'not entailed by the premises'}.")
+        return "\n".join(lines)
+
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate mathematical proof"""
+        """Prove with the tool's own Z3 prover (no model, no reasoning authority)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            from core.tools.proof_faculty import prove
 
-            llm = get_llm_service()
-
-            theorem = kwargs.get("theorem", "")
+            theorem = (kwargs.get("theorem") or "").strip()
+            premises = kwargs.get("premises") or []
+            if isinstance(premises, str):
+                premises = [premises]
             proof_style = kwargs.get("proof_style", "direct")
-            temperature = float(kwargs.get("temperature", 0.2))
-            max_tokens = int(kwargs.get("max_tokens", 2048))
-            model = str(kwargs.get("model", "qwen:32b"))
 
-            prompt = f"""Generate a formal mathematical proof for the following theorem:
+            if not theorem:
+                return ToolResult(success=False, output=None, error="no theorem provided")
 
-Theorem: {theorem}
-Proof method: {proof_style} proof
-
-Requirements:
-- Use proper mathematical notation
-- Include all steps clearly
-- State any assumptions or lemmas used
-- Conclude with Q.E.D.
-- Use rigorous mathematical logic
-
-Provide the complete proof."""
-
-            response = await llm.generate(prompt, max_tokens=max_tokens, temperature=temperature, model=model)
-            proof = response.get('content', '').strip()
+            r = prove(theorem, premises)
+            proof_text = self._render_proof(theorem, premises, r.steps, r.proved, reason=r.error)
 
             return ToolResult(
-                success=True,
+                success=r.proved,
                 output={
-                    'proof': proof,
-                    'theorem': theorem,
-                    'proof_style': proof_style
-                }
+                    "theorem": theorem,
+                    "premises": premises,
+                    "proof": proof_text,
+                    "proved": r.proved,
+                    "method": r.method,
+                    "proof_style": proof_style,
+                    "steps": r.steps,
+                },
+                error=None if r.proved else (r.error or "not entailed by the premises"),
             )
 
         except Exception as e:
-            return ToolResult(success=False, output=None, error=f"Math proof generation failed: {str(e)}")
+            return ToolResult(success=False, output=None, error=f"Math proof failed: {str(e)}")
 
 
 class GenerateDesignPatternTool(Tool):
@@ -2999,92 +3069,57 @@ class GenerateDesignPatternTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_design_pattern"
-        self.description = "Generate a complete design pattern implementation"
+        self.description = ("Return a canonical implementation of a Gang-of-Four design pattern "
+                            "from the tool's registry (singleton, observer, factory, strategy, "
+                            "decorator, adapter, builder, command). Unknown names list what's available")
         self.category = ToolCategory.CODE_GENERATION
-        self.safety_level = ToolSafety.MODERATE
+        self.safety_level = ToolSafety.SAFE
         self.parameters = [
-            ToolParameter(name="pattern", type="string", description="Design pattern name (e.g., 'Singleton', 'Observer', 'Factory')", required=True),
-            ToolParameter(name="use_case", type="string", description="Specific use case for the pattern", required=False)
-        ] + _common_llm_knobs(default_max_tokens=2048, default_temperature=0.3)
+            ToolParameter(name="pattern", type="string", description="Pattern name (e.g. 'Singleton', 'Observer', 'Factory')", required=True),
+            ToolParameter(name="use_case", type="string", description="Optional note recorded with the result", required=False)
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_design_pattern",
             capabilities=[
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
-                    risk_level=RiskLevel.MEDIUM,
-                    description="Generate design pattern implementations",
+                    risk_level=RiskLevel.LOW,
+                    description="Provide canonical design-pattern implementations from a registry",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"design_patterns", "llm", "architecture"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"design_patterns", "registry", "model_free"}
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate design pattern implementation"""
+        """Look up a canonical design-pattern implementation (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
+            from core.tools.design_pattern_registry import lookup, available
 
-            llm = get_llm_service()
+            pattern = (kwargs.get("pattern") or "").strip()
+            use_case = kwargs.get("use_case", "")
+            if not pattern:
+                return ToolResult(success=False, output=None, error="no pattern specified")
 
-            pattern = kwargs.get("pattern", "")
-            use_case = kwargs.get("use_case", "general purpose")
+            entry = lookup(pattern)
+            if not entry:
+                return ToolResult(success=False, output={"available": available()},
+                                  error=f"{pattern!r} is not in the registry; available: {', '.join(available())}")
 
-            prompt = f"""Generate a complete implementation of the {pattern} design pattern.
-
-Use case: {use_case}
-
-Requirements:
-- Include all necessary classes and interfaces
-- Add comprehensive docstrings explaining the pattern
-- Include type hints
-- Provide example usage demonstrating the pattern
-- Add comments explaining key aspects of the pattern
-- Follow SOLID principles
-- Make it production-ready
-
-Return only Python code."""
-
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 2048))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
-
+            code = entry["code"]
+            ok, err = _validate_python_syntax(code)
             return ToolResult(
                 success=True,
                 output={
                     'code': code,
-                    'pattern': pattern,
+                    'pattern': entry["name"],
+                    'intent': entry["intent"],
                     'use_case': use_case,
-                    'valid_python': bool(gen.get('valid_python')),
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
+                    'valid_python': ok,
+                    'method': 'registry',
                 }
             )
 
@@ -3098,93 +3133,117 @@ class GenerateAPIClientTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_api_client"
-        self.description = "Generate a complete API client with proper error handling"
+        self.description = ("Assemble a real requests-based API client class from a structured "
+                            "spec: one method per endpoint (path params become arguments), plus "
+                            "auth wiring (bearer/api_key/basic). Deterministic assembly")
         self.category = ToolCategory.CODE_GENERATION
-        self.safety_level = ToolSafety.MODERATE
+        self.safety_level = ToolSafety.SAFE
         self.parameters = [
-            ToolParameter(name="api_name", type="string", description="API name", required=True),
+            ToolParameter(name="api_name", type="string", description="API name (used for the class name)", required=True),
             ToolParameter(name="base_url", type="string", description="API base URL", required=True),
-            ToolParameter(name="endpoints", type="array", description="List of endpoints to implement", required=False),
-            ToolParameter(name="auth_type", type="string", description="Authentication type", required=False, default="bearer", enum=["bearer", "api_key", "basic", "oauth2"])
-        ] + _common_llm_knobs(default_max_tokens=3072, default_temperature=0.3)
+            ToolParameter(name="endpoints", type="array", description="Endpoints: 'GET /users/{id}' strings or {name, method, path} dicts", required=False),
+            ToolParameter(name="auth_type", type="string", description="Authentication type", required=False, default="bearer", enum=["bearer", "api_key", "basic", "none"])
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_api_client",
             capabilities=[
                 CapabilityMetadata(
                     capability=Capability.GENERATE_CODE,
-                    risk_level=RiskLevel.MEDIUM,
-                    description="Generate API client code with authentication and error handling",
+                    risk_level=RiskLevel.LOW,
+                    description="Assemble an API client class from a structured spec",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"api", "client", "llm", "networking"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"api", "client", "assembly", "model_free"}
         )
 
+    @staticmethod
+    def _derive_name(method: str, path: str) -> str:
+        segs = [s for s in path.split('/') if s and not s.startswith('{')]
+        base = "_".join(re.sub(r'[^a-z0-9]', '', s.lower()) for s in segs) or "root"
+        return f"{method.lower()}_{base}"
+
+    def _normalize(self, endpoints):
+        result = []
+        for ep in endpoints:
+            if isinstance(ep, dict):
+                method = str(ep.get("method", "GET")).upper()
+                path = str(ep.get("path", "/"))
+                name = ep.get("name") or self._derive_name(method, path)
+            else:
+                parts = str(ep).split()
+                if len(parts) == 2:
+                    method, path = parts[0].upper(), parts[1]
+                else:
+                    method, path = "GET", str(ep)
+                name = self._derive_name(method, path)
+            result.append((name, method, path))
+        seen, final = {}, []
+        for name, m, p in result:
+            if name in seen:
+                seen[name] += 1
+                name = f"{name}_{seen[name]}"
+            else:
+                seen[name] = 0
+            final.append((name, m, p))
+        return final
+
+    def _build_client(self, api_name, base_url, endpoints, auth_type):
+        cls = (re.sub(r'[^A-Za-z0-9]', '', api_name.title()) or "Api") + "Client"
+        lines = ["import requests", "", f"class {cls}:", f'    """Client for {api_name}."""', ""]
+
+        if auth_type == "bearer":
+            lines += [f"    def __init__(self, base_url={base_url!r}, token=None):",
+                      "        self.base_url = base_url.rstrip('/')",
+                      "        self.session = requests.Session()",
+                      "        if token:",
+                      '            self.session.headers["Authorization"] = f"Bearer {token}"', ""]
+        elif auth_type == "api_key":
+            lines += [f"    def __init__(self, base_url={base_url!r}, api_key=None, api_key_header='X-API-Key'):",
+                      "        self.base_url = base_url.rstrip('/')",
+                      "        self.session = requests.Session()",
+                      "        if api_key:",
+                      "            self.session.headers[api_key_header] = api_key", ""]
+        elif auth_type == "basic":
+            lines += [f"    def __init__(self, base_url={base_url!r}, username=None, password=None):",
+                      "        self.base_url = base_url.rstrip('/')",
+                      "        self.session = requests.Session()",
+                      "        if username is not None:",
+                      "            self.session.auth = (username, password)", ""]
+        else:
+            lines += [f"    def __init__(self, base_url={base_url!r}):",
+                      "        self.base_url = base_url.rstrip('/')",
+                      "        self.session = requests.Session()", ""]
+
+        for name, method, path in self._normalize(endpoints or []):
+            path_params = re.findall(r'\{(\w+)\}', path)
+            sig = ", ".join(["self"] + path_params + ["**kwargs"])
+            lines += [f"    def {name}({sig}):",
+                      f'        url = f"{{self.base_url}}{path}"',
+                      f"        response = self.session.{method.lower()}(url, **kwargs)",
+                      "        response.raise_for_status()",
+                      "        return response.json() if response.content else None", ""]
+
+        return "\n".join(lines).rstrip() + "\n"
+
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate API client code"""
+        """Assemble a requests-based API client from a structured spec (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
-
-            llm = get_llm_service()
-
             api_name = kwargs.get("api_name", "")
             base_url = kwargs.get("base_url", "")
-            endpoints = kwargs.get("endpoints", [])
+            endpoints = kwargs.get("endpoints", []) or []
             auth_type = kwargs.get("auth_type", "bearer")
 
-            endpoints_str = "\n".join(f"- {ep}" for ep in endpoints) if endpoints else "Common CRUD operations"
+            if not api_name.strip() or not base_url.strip():
+                return ToolResult(success=False, output=None, error="api_name and base_url are required")
 
-            prompt = f"""Generate a Python API client for {api_name}.
-
-Base URL: {base_url}
-Authentication: {auth_type}
-Endpoints to implement:
-{endpoints_str}
-
-Requirements:
-- Use requests or httpx library
-- Implement proper authentication
-- Include retry logic with exponential backoff
-- Add comprehensive error handling
-- Include type hints
-- Add docstrings for all methods
-- Implement rate limiting if needed
-- Add request/response logging
-- Include example usage
-
-Return only Python code."""
-
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 3072))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
-
-            system_prompt = (
-                "You are a senior Python engineer. "
-                "Return ONLY valid Python code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
+            code = self._build_client(api_name, base_url, endpoints, auth_type)
+            ok, err = _validate_python_syntax(code)
+            if not ok:
+                return ToolResult(success=False, output={"code": code}, error=f"assembled client is invalid: {err}")
 
             return ToolResult(
                 success=True,
@@ -3192,11 +3251,10 @@ Return only Python code."""
                     'code': code,
                     'api_name': api_name,
                     'base_url': base_url,
-                    'endpoints': endpoints,
+                    'endpoints': self._normalize(endpoints),
                     'auth_type': auth_type,
-                    'valid_python': bool(gen.get('valid_python')),
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
+                    'valid_python': True,
+                    'method': 'assembly',
                 }
             )
 
@@ -3285,31 +3343,21 @@ class ScaffoldApplicationTool(Tool):
 class SynthesizeFromExamplesTool(Tool):
     """Model-free program synthesis from input/output examples.
 
-    The substrate synthesises the program the way it synthesises a reading: it
-    composes LEARNED instructions into a procedure and keeps the one that
-    reproduces every example (``core.execution.list_synthesis``). No model
-    proposes the answer; the examples and the substrate's own verifier decide it.
+    Synthesis is by VERIFICATION (``core.tools.synthesis_faculty``): a candidate
+    program is drawn from a fixed hypothesis space and kept only if it reproduces
+    EVERY example. No model proposes the answer; the examples decide it.
 
-    The reach is exactly the machine that exists -- folds over a list of
-    integers (sum, count, max). Examples outside that reach return an HONEST gap,
-    never a model fallback and never a fabricated function: the caller learns
-    precisely what the substrate can and cannot yet build for itself. New
-    machines widen the reach; nothing here guesses past it.
+    The reach is exactly the hypothesis space that exists -- common single-argument
+    programs over lists, numbers, and strings. Examples outside that reach return
+    an HONEST gap, never a model fallback and never a fabricated function: the
+    caller learns precisely what can and cannot yet be built. Widening the space
+    (adding candidates) widens the reach; nothing here guesses past it.
     """
-
-    #: A synthesised fold rendered back to the language callers expect. This is
-    #: a serialisation of the procedure the substrate DERIVED (which operator it
-    #: chose), not a generated guess -- the kind is read off the verified program.
-    _RENDER = {
-        "sum": "return sum(xs)",
-        "count": "return len(xs)",
-        "maximum": "return max(xs)",
-    }
 
     def __init__(self):
         super().__init__()
         self.name = "synthesize_from_examples"
-        self.description = "Synthesize a program from input/output examples (model-free)"
+        self.description = "Synthesize a program from input/output examples by verification (model-free)"
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.SAFE
         self.parameters = [
@@ -3332,22 +3380,10 @@ class SynthesizeFromExamplesTool(Tool):
             tags={"synthesis", "substrate", "program_synthesis", "model_free"}
         )
 
-    def _render_code(self, function_name: str, result: dict) -> str:
-        body = self._RENDER.get(result["kind"], "return None")
-        steps = " ; ".join(result["steps"])
-        return (
-            f"def {function_name}(xs):\n"
-            f'    """Substrate-synthesised {result["kind"]} '
-            f'({result["examples_count"]} examples, model-free).\n'
-            f"    Derived procedure: {steps}\n"
-            f'    """\n'
-            f"    {body}\n"
-        )
-
     async def execute(self, **kwargs) -> ToolResult:
-        """Synthesize a program from examples, model-free, or report the gap."""
+        """Synthesize a program from examples by verification, or report the gap."""
         try:
-            from core.execution.list_synthesis import synthesize_fold
+            from core.tools.synthesis_faculty import synthesize
 
             examples = kwargs.get("examples", [])
             function_name = kwargs.get("function_name", "synthesized_function")
@@ -3355,24 +3391,26 @@ class SynthesizeFromExamplesTool(Tool):
             if not examples:
                 return ToolResult(success=False, output=None, error="At least one example is required")
 
-            result, why = synthesize_fold(examples)
+            result, why = synthesize(examples, function_name)
             if result is None:
-                # Honest gap. The substrate cannot yet build this from examples;
-                # it does NOT hand off to a model or fabricate a function.
+                # Honest gap. No candidate program reproduces all examples; the
+                # tool does NOT hand off to a model or fabricate a function.
                 return ToolResult(
                     success=False, output=None,
-                    error=f"substrate cannot synthesize this model-free: {why}")
+                    error=f"cannot synthesize this model-free: {why}")
 
-            code = self._render_code(function_name, result)
+            code = result["code"]
+            ok, err = _validate_python_syntax(code)
             return ToolResult(
                 success=True,
                 output={
                     'code': code,
-                    'kind': result["kind"],
-                    'derived_procedure': result["steps"],
+                    'expression': result["expression"],
                     'examples_count': result["examples_count"],
+                    'alternatives': result["alternatives"],
                     'function_name': function_name,
-                    'valid_python': True,
+                    'valid_python': ok,
+                    'verified': True,
                     'model_free': True,
                 }
             )
@@ -3387,13 +3425,17 @@ class GeneratePropertyTestTool(Tool):
     def __init__(self):
         super().__init__()
         self.name = "generate_property_test"
-        self.description = "Generate property-based tests using Hypothesis"
+        self.description = ("Generate Hypothesis property-based tests from a function's signature: "
+                            "strategies are chosen per parameter type, and a real test is emitted "
+                            "for each declared property (idempotent/involution/commutative/"
+                            "associative/deterministic)")
         self.category = ToolCategory.CODE_GENERATION
         self.safety_level = ToolSafety.SAFE
         self.parameters = [
             ToolParameter(name="function_code", type="string", description="Function to test", required=True),
-            ToolParameter(name="properties", type="array", description="Properties to test (e.g., ['idempotent', 'commutative'])", required=False)
-        ] + _common_llm_knobs(default_max_tokens=1536, default_temperature=0.3)
+            ToolParameter(name="properties", type="array", description="Properties: idempotent, involution, commutative, associative, deterministic", required=False),
+            ToolParameter(name="module", type="string", description="Module the tests import from", required=False, default="solution"),
+        ]
 
         self.capability_profile = ToolCapabilityProfile(
             tool_name="generate_property_test",
@@ -3401,82 +3443,129 @@ class GeneratePropertyTestTool(Tool):
                 CapabilityMetadata(
                     capability=Capability.GENERATE_TESTS,
                     risk_level=RiskLevel.LOW,
-                    description="Generate property-based tests using Hypothesis",
+                    description="Generate Hypothesis property tests from a signature",
                     priority=8
                 )
             ],
-            requires_network=True,
-            is_idempotent=False,
-            tags={"testing", "property_based", "hypothesis", "llm"}
+            requires_network=False,
+            is_idempotent=True,
+            tags={"testing", "property_based", "hypothesis", "model_free"}
         )
 
+    _STRATEGY = {
+        "int": "st.integers()", "float": "st.floats(allow_nan=False, allow_infinity=False)",
+        "str": "st.text()", "bool": "st.booleans()", "bytes": "st.binary()",
+        "list": "st.lists(st.integers())", "dict": "st.dictionaries(st.text(), st.integers())",
+    }
+
+    def _strategy_for(self, arg, default):
+        import ast
+        if arg.annotation is not None and isinstance(arg.annotation, ast.Name) and arg.annotation.id in self._STRATEGY:
+            return self._STRATEGY[arg.annotation.id]
+        if default is not None and isinstance(default, ast.Constant):
+            t = type(default.value).__name__
+            if t in self._STRATEGY:
+                return self._STRATEGY[t]
+        return "st.integers()"
+
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate property tests"""
+        """Emit Hypothesis property tests derived from the signature (no model)."""
         try:
-            from core.services.unified_llm import get_llm_service
-
-            llm = get_llm_service()
-
+            import ast
             function_code = kwargs.get("function_code", "")
-            properties = kwargs.get("properties", [])
+            properties = [str(p).strip().lower() for p in (kwargs.get("properties") or [])]
+            module = str(kwargs.get("module", "solution"))
 
-            props_str = ", ".join(properties) if properties else "infer appropriate properties"
+            if not function_code.strip():
+                return ToolResult(success=False, output=None, error="no function_code provided")
+            try:
+                tree = ast.parse(function_code)
+            except SyntaxError as se:
+                return ToolResult(success=False, output=None, error=f"input is not valid Python: {se}")
 
-            prompt = f"""Generate property-based tests using Hypothesis for this function:
+            fn = next((n for n in tree.body if isinstance(n, ast.FunctionDef)), None)
+            if fn is None:
+                return ToolResult(success=False, output=None, error="no function definition found")
 
-```python
-{function_code}
-```
+            a = fn.args
+            params = [p for p in (list(getattr(a, 'posonlyargs', [])) + list(a.args)) if p.arg not in ("self", "cls")]
+            names = [p.arg for p in params]
+            defaults = [None] * (len(params) - len(a.defaults)) + list(a.defaults)
+            strategies = [self._strategy_for(p, d) for p, d in zip(params, defaults)]
+            arity = len(params)
 
-Properties to test: {props_str}
+            if not properties:
+                properties = ["deterministic"]
 
-Requirements:
-- Use hypothesis library
-- Test appropriate properties (idempotence, commutativity, etc.)
-- Include edge cases
-- Use appropriate strategies
-- Add docstrings explaining what each test checks
+            lines = ["from hypothesis import given, strategies as st", f"from {module} import {fn.name}", ""]
+            report = []
 
-Return only Python test code."""
+            def given_decorator(n):
+                return "@given(" + ", ".join(strategies[:n]) + ")"
 
-            temperature = float(kwargs.get("temperature", 0.3))
-            max_tokens = int(kwargs.get("max_tokens", 1536))
-            max_repairs = int(kwargs.get("max_repairs", 1))
-            format_black = bool(kwargs.get("format_black", False))
-            black_line_length = int(kwargs.get("black_line_length", 88))
-            python_version = str(kwargs.get("python_version", "3.11"))
-            model = str(kwargs.get("model", "qwen:32b"))
+            for prop in properties:
+                if prop == "deterministic":
+                    args = ", ".join(names)
+                    lines += [given_decorator(arity),
+                              f"def test_{fn.name}_deterministic({args}):",
+                              f"    assert {fn.name}({args}) == {fn.name}({args})", ""]
+                    report.append({"property": prop, "emitted": True})
+                elif prop == "idempotent":
+                    if arity != 1:
+                        report.append({"property": prop, "emitted": False, "reason": "needs a 1-argument function"})
+                        continue
+                    x = names[0]
+                    lines += [given_decorator(1),
+                              f"def test_{fn.name}_idempotent({x}):",
+                              f"    assert {fn.name}({fn.name}({x})) == {fn.name}({x})", ""]
+                    report.append({"property": prop, "emitted": True})
+                elif prop == "involution":
+                    if arity != 1:
+                        report.append({"property": prop, "emitted": False, "reason": "needs a 1-argument function"})
+                        continue
+                    x = names[0]
+                    lines += [given_decorator(1),
+                              f"def test_{fn.name}_involution({x}):",
+                              f"    assert {fn.name}({fn.name}({x})) == {x}", ""]
+                    report.append({"property": prop, "emitted": True})
+                elif prop == "commutative":
+                    if arity != 2:
+                        report.append({"property": prop, "emitted": False, "reason": "needs a 2-argument function"})
+                        continue
+                    x, y = names
+                    lines += [given_decorator(2),
+                              f"def test_{fn.name}_commutative({x}, {y}):",
+                              f"    assert {fn.name}({x}, {y}) == {fn.name}({y}, {x})", ""]
+                    report.append({"property": prop, "emitted": True})
+                elif prop == "associative":
+                    if arity != 2:
+                        report.append({"property": prop, "emitted": False, "reason": "needs a 2-argument function"})
+                        continue
+                    x, y = names
+                    z = "z_extra"
+                    lines += ["@given(" + ", ".join([strategies[0], strategies[1], strategies[0]]) + ")",
+                              f"def test_{fn.name}_associative({x}, {y}, {z}):",
+                              f"    assert {fn.name}({fn.name}({x}, {y}), {z}) == {fn.name}({x}, {fn.name}({y}, {z}))", ""]
+                    report.append({"property": prop, "emitted": True})
+                else:
+                    report.append({"property": prop, "emitted": False, "reason": "unsupported property"})
 
-            system_prompt = (
-                "You are a senior Python test engineer. "
-                "Return ONLY valid Python test code. No markdown/backticks/explanations. "
-                f"Target Python {python_version}."
-            )
-
-            gen = await _llm_generate_python_code(
-                llm=llm,
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                model=model,
-                max_repairs=max_repairs,
-                validate_syntax=True,
-                format_black=format_black,
-                black_line_length=black_line_length,
-            )
-
-            code = gen["code"]
+            code = "\n".join(lines).rstrip() + "\n"
+            ok, err = _validate_python_syntax(code)
+            emitted_any = any(r["emitted"] for r in report)
 
             return ToolResult(
-                success=True,
+                success=emitted_any,
                 output={
-                    'code': code,
-                    'properties': properties,
-                    'valid_python': bool(gen.get('valid_python')),
-                    'syntax_error': gen.get('syntax_error'),
-                    'attempts': gen.get('attempts', []),
-                }
+                    "code": code,
+                    "function": fn.name,
+                    "module": module,
+                    "properties_report": report,
+                    "valid_python": ok,
+                    "syntax_error": err if not ok else None,
+                    "method": "signature_derived",
+                },
+                error=None if emitted_any else "no property could be emitted for this signature; see properties_report",
             )
 
         except Exception as e:

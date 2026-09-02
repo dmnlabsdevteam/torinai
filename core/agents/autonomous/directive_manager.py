@@ -20,7 +20,6 @@ from core.agents.autonomous.directive_types import (
     ContextType,
     DirectiveEvolution,
     EvolutionType,
-    GovernanceEvaluation,
     GovernanceLaw,
     DirectiveABTest,
     ABTestStatus,
@@ -715,59 +714,12 @@ class DirectiveManager:
     # GOVERNANCE EVALUATIONS
     # =========================================================================
 
-    async def store_governance_evaluation(self, evaluation: GovernanceEvaluation) -> bool:
-        """
-        Store a governance evaluation result.
-
-        Args:
-            evaluation: GovernanceEvaluation object
-
-        Returns:
-            True if successful
-        """
-        async with self.db.get_connection() as conn:
-            await conn.execute(
-                """
-                INSERT INTO directive_governance_evaluations (
-                    evaluation_id, directive_id,
-                    neutral_evaluator_vote, conservative_agent_vote,
-                    moderate_agent_vote, progressive_agent_vote, synthesizer_decision,
-                    law_1_compliance, law_2_compliance, law_3_compliance,
-                    law_4_compliance, law_5_compliance,
-                    minimum_compliance, average_compliance,
-                    approved, consensus_reached, final_confidence,
-                    governance_violation, violated_laws,
-                    evaluation_summary, evaluated_at
-                ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                    $15, $16, $17, $18, $19, $20, $21
-                )
-                """,
-                evaluation.evaluation_id,
-                evaluation.directive_id,
-                json.dumps(vars(evaluation.neutral_evaluator_vote)),
-                json.dumps(vars(evaluation.conservative_agent_vote)),
-                json.dumps(vars(evaluation.moderate_agent_vote)),
-                json.dumps(vars(evaluation.progressive_agent_vote)),
-                json.dumps(vars(evaluation.synthesizer_decision)),
-                evaluation.law_1_compliance,
-                evaluation.law_2_compliance,
-                evaluation.law_3_compliance,
-                evaluation.law_4_compliance,
-                evaluation.law_5_compliance,
-                evaluation.minimum_compliance,
-                evaluation.average_compliance,
-                evaluation.approved,
-                evaluation.consensus_reached,
-                evaluation.final_confidence,
-                evaluation.governance_violation,
-                json.dumps(evaluation.violated_laws),
-                evaluation.evaluation_summary,
-                evaluation.evaluated_at
-            )
-
-        logger.info(f"Stored governance evaluation: {evaluation.evaluation_id}")
-        return True
+    # NOTE (2026-09-02): store_governance_evaluation was REMOVED with the
+    # five-judge vote. Directive governance is now a constitution validation
+    # (model-free) recorded on the directive itself (governance_validated) and in
+    # the evolution log, not a persisted multi-agent GovernanceEvaluation. The
+    # directive_governance_evaluations table is no longer written. Archived in
+    # archive/llm_era_directive_governance_2026-09-02/.
 
     # =========================================================================
     # A/B TESTS

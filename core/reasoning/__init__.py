@@ -50,32 +50,10 @@ def get_quantum_reasoning() -> UnifiedQuantumReasoningSystem:
     """
     return get_quantum_reasoning_system()
 
-# Import checkpoint system for unlimited reasoning chains
-from .checkpoint_manager import (
-    Checkpoint,
-    CheckpointManager
-)
-
-# Backward compatibility aliases
-ReasoningCheckpoint = Checkpoint
-ReasoningCheckpointManager = CheckpointManager
-
-def get_checkpoint_manager():
-    """Get global checkpoint manager instance"""
-    return CheckpointManager()
-
-from .context_compression import (
-    CompressedContext,
-    ContextCompression
-)
-
-# Backward compatibility aliases
-CompressionResult = CompressedContext
-ContextCompressor = ContextCompression
-
-def get_context_compressor():
-    """Get context compressor instance"""
-    return ContextCompression()
+# NOTE (2026-09-01): checkpoint_manager, context_compression, context_manager
+# and context_config were ARCHIVED — they are LLM-era machinery (reasoning-chain
+# checkpoints + LLM context-window compression/management) with no live caller
+# in the model-free substrate. Moved to archive/llm_era_reasoning_2026-09-01/.
 
 # Import Neural Bridge - connects natural language with formal logic
 from .neural_bridge import (
@@ -103,8 +81,6 @@ __all__ = [
     'AdvancedProofEngine', 'ProofMethod', 'create_advanced_proof_engine',
     'QuantumReasoningSystem', 'QuantumReasoningEngine', 'create_quantum_reasoning_system',
     'create_quantum_reasoning_engine', 'quantum_reasoning_system', 'get_quantum_reasoning',
-    'ReasoningCheckpoint', 'ReasoningCheckpointManager', 'get_checkpoint_manager',
-    'CompressionResult', 'ContextCompressor', 'get_context_compressor',
     'NeuralSymbolicBridge', 'ExtractionMode', 'LogicalFormula', 'ExtractionResult',
     'get_neural_bridge', 'extract_logic_from_text'
 ]

@@ -48,6 +48,24 @@ from datetime import datetime
 from .unified_database_postgres import TorinUnifiedDatabasePostgres as TorinUnifiedDatabase
 
 
+#: The chaos_severity enum's members, plus the aliases callers actually pass
+#: that are NOT members. Mapping them keeps a "warning"/"error" event recorded
+#: instead of dropped by a rejected enum cast.
+_CHAOS_SEVERITY = {"info", "low", "medium", "high", "critical"}
+_CHAOS_SEVERITY_ALIASES = {
+    "warning": "medium", "warn": "medium", "notice": "low",
+    "error": "high", "err": "high", "fatal": "critical", "debug": "info",
+}
+
+
+def _normalize_chaos_severity(severity: str) -> str:
+    """A valid chaos_severity value for any caller string, never a rejected cast."""
+    s = str(severity or "info").strip().lower()
+    if s in _CHAOS_SEVERITY:
+        return s
+    return _CHAOS_SEVERITY_ALIASES.get(s, "info")
+
+
 class LoggingDatabase:
     """
     Logging Database for Test Results and System Operations
@@ -748,6 +766,13 @@ class LoggingDatabase:
                 raise RuntimeError(
                     type(self).__name__ + ' could not initialize; refusing to '
                     'continue as though it had')
+
+        # NORMALISE SEVERITY to the chaos_severity enum. Callers (the chaos
+        # orchestrator) pass "warning" and "error", which are NOT enum members
+        # {info, low, medium, high, critical}; the cast then rejected the row and
+        # the except below swallowed it, so every such event was lost and
+        # chaos_events stayed empty. Map the common aliases onto real levels.
+        severity = _normalize_chaos_severity(severity)
 
         try:
             await self.db.execute_query(

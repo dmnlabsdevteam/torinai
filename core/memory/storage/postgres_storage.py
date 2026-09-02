@@ -1371,22 +1371,24 @@ class PostgresStorage:
                 logger.error("Database not initialized")
                 return 0
 
-            # Delete and count
-            result = await self.db.execute_query(
+            # Delete and count for real via RETURNING — a caller must be able to
+            # tell "cleaned 12" from "cleaned none". Returning a hardcoded 0 made
+            # every cleanup look like a no-op even when it deleted rows.
+            rows = await self.db.execute_query(
                 """
                 DELETE FROM memory_hot
                 WHERE created_at < $1
                 AND importance_score < $2
                 AND status IN ('raw', 'processed')
+                RETURNING memory_id
                 """,
                 (cutoff_date, importance_threshold),
                 use_hot_tier=True,
-                commit=True
+                fetch_all=True
             )
-
-            # PostgreSQL doesn't return rowcount from execute, would need fetchval with RETURNING
-            logger.info(f"Cleaned up low-importance memories")
-            return 0  # TODO: get actual count via RETURNING COUNT(*)
+            count = len(rows) if rows else 0
+            logger.info(f"Cleaned up {count} low-importance memories")
+            return count
 
         except Exception as e:
             logger.error(f"Failed to cleanup memories: {e}")

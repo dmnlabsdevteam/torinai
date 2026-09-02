@@ -17,7 +17,6 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from collections import defaultdict
 
-from core.model_policy import ModelClass, guard_model_use, model_use_permitted
 from .security_types import SecurityLevel, ThreatType, AlertSeverity
 
 logger = logging.getLogger(__name__)
@@ -201,12 +200,6 @@ class EmergentMetaCognition:
                 print("Info: Running in offline mode - skipping transformer model download")
                 print("Using fallback neural encoding system for ASI safety")
                 self._transformer_available = False
-            elif not model_use_permitted(
-                ModelClass.CLASSIFIER, "asi_safety.distilbert"
-            ):
-                # Construction happens at import in some paths, well before any
-                # assessment is requested, so the load is gated on its own.
-                self._transformer_available = False
             else:
                 from transformers import AutoTokenizer, AutoModel
                 
@@ -332,11 +325,6 @@ class EmergentMetaCognition:
     def _encode_text(self, text_list):
         """Encode text using transformer or fallback neural network"""
         import torch
-
-        # Both branches below are neural. There is no deterministic fallback
-        # here, so this raises rather than degrading: returning a zero vector
-        # would let a safety assessment be computed from nothing.
-        guard_model_use(ModelClass.CLASSIFIER, "asi_safety._encode_text")
 
         if isinstance(text_list, str):
             text_list = [text_list]

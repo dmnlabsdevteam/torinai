@@ -20,7 +20,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.agents.logical.logical_integration import (  # noqa: E402
+from core.reasoning.logical_integration import (  # noqa: E402
     FormulaSyntaxError,
     InferenceRule,
     LogicalFormulaParser,

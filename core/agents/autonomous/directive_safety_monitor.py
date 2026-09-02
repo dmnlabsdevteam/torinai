@@ -23,7 +23,6 @@ from collections import defaultdict, deque
 from core.agents.autonomous.directive_types import (
     InternalDirective,
     DirectiveApplication,
-    GovernanceEvaluation,
     DirectiveCategory
 )
 from core.agents.autonomous.directive_manager import DirectiveManager
@@ -358,234 +357,13 @@ class DirectiveSafetyMonitor:
             return "random_fluctuation"
 
     # =========================================================================
-    # 3. BIAS AMPLIFICATION DETECTION
+    # NOTE (2026-09-02): detectors 3 (bias amplification) and 4 (evaluator
+    # collusion), plus _calculate_vote_diversity, were REMOVED with the
+    # five-judge governance vote they watched — there are no agent votes to
+    # police any more. The real directive-safety checks (metric gaming, drift,
+    # telemetry security) remain. Archived in
+    # archive/llm_era_directive_governance_2026-09-02/.
     # =========================================================================
-
-    async def detect_bias_amplification(
-        self,
-        recent_evaluations: List[GovernanceEvaluation],
-        lookback_count: int = 50
-    ) -> Optional[SafetyViolation]:
-        """
-        Detect if heterogeneous bias profiles are amplifying harmful preferences.
-
-        Monitors for:
-        - Systematic bias in one direction across agents
-        - Bias profiles converging (losing diversity)
-        - Certain biases consistently winning over neutral analysis
-
-        Args:
-            recent_evaluations: Recent governance evaluations
-            lookback_count: Number of evaluations to analyze
-
-        Returns:
-            SafetyViolation if amplification detected, None otherwise
-        """
-        if len(recent_evaluations) < 20:
-            return None
-
-        # Analyze last N evaluations
-        evaluations = recent_evaluations[-lookback_count:]
-
-        # Track vote patterns by agent type
-        vote_patterns = {
-            'neutral': [],
-            'conservative': [],
-            'moderate': [],
-            'progressive': [],
-            'synthesizer': []
-        }
-
-        for eval in evaluations:
-            vote_patterns['neutral'].append(eval.neutral_evaluator_vote.position)
-            vote_patterns['conservative'].append(eval.conservative_agent_vote.position)
-            vote_patterns['moderate'].append(eval.moderate_agent_vote.position)
-            vote_patterns['progressive'].append(eval.progressive_agent_vote.position)
-            vote_patterns['synthesizer'].append(eval.synthesizer_decision.position)
-
-        amplification_indicators = []
-
-        # Indicator 1: One bias consistently overrides neutral analysis
-        neutral_votes = vote_patterns['neutral']
-        synthesizer_votes = vote_patterns['synthesizer']
-
-        disagreements = sum(
-            1 for n, s in zip(neutral_votes, synthesizer_votes) if n != s
-        )
-
-        if len(neutral_votes) > 0:
-            disagreement_rate = disagreements / len(neutral_votes)
-            if disagreement_rate > 0.60:  # Synthesizer disagrees with neutral >60%
-                amplification_indicators.append(
-                    f"Synthesizer overrides neutral evaluator {disagreement_rate*100:.1f}% of time "
-                    f"(possible bias amplification)"
-                )
-
-        # Indicator 2: Progressive bias wins disproportionately
-        progressive_influence = 0
-        for eval in evaluations:
-            # Check if final decision matches progressive more than others
-            prog_pos = eval.progressive_agent_vote.position
-            synth_pos = eval.synthesizer_decision.position
-
-            if prog_pos == synth_pos:
-                progressive_influence += 1
-
-        if len(evaluations) > 0:
-            prog_influence_rate = progressive_influence / len(evaluations)
-            if prog_influence_rate > 0.70:  # Progressive wins >70%
-                amplification_indicators.append(
-                    f"Progressive agent influences {prog_influence_rate*100:.1f}% of final decisions "
-                    f"(disproportionate bias amplification)"
-                )
-
-        # Indicator 3: Voting diversity decreasing over time
-        # Compare first half vs second half
-        if len(evaluations) >= 30:
-            mid = len(evaluations) // 2
-
-            first_half_diversity = self._calculate_vote_diversity(evaluations[:mid])
-            second_half_diversity = self._calculate_vote_diversity(evaluations[mid:])
-
-            diversity_loss = first_half_diversity - second_half_diversity
-            if diversity_loss > 0.15:  # Lost >15% diversity
-                amplification_indicators.append(
-                    f"Vote diversity decreased by {diversity_loss*100:.1f}% "
-                    f"(agents converging toward monoculture)"
-                )
-
-        # Create violation if indicators found
-        if amplification_indicators:
-            return SafetyViolation(
-                violation_type="bias_amplification",
-                severity="high" if len(amplification_indicators) >= 2 else "medium",
-                description="Governance agents showing signs of bias amplification or monoculture",
-                affected_directives=[],  # Affects whole system
-                evidence={
-                    "indicators": amplification_indicators,
-                    "evaluations_analyzed": len(evaluations),
-                    "vote_distributions": {
-                        agent: {pos: votes.count(pos) for pos in set(votes)}
-                        for agent, votes in vote_patterns.items()
-                    }
-                },
-                detected_at=datetime.now(),
-                recommended_action="Review governance agent prompts for hidden assumptions. "
-                                 "Consider re-randomizing bias levels or expanding agent diversity."
-            )
-
-        return None
-
-    def _calculate_vote_diversity(self, evaluations: List[GovernanceEvaluation]) -> float:
-        """Calculate voting diversity using Shannon entropy"""
-        if not evaluations:
-            return 0.0
-
-        # Collect all votes
-        all_votes = []
-        for eval in evaluations:
-            all_votes.extend([
-                eval.neutral_evaluator_vote.position,
-                eval.conservative_agent_vote.position,
-                eval.moderate_agent_vote.position,
-                eval.progressive_agent_vote.position
-            ])
-
-        # Calculate Shannon entropy
-        vote_counts = defaultdict(int)
-        for vote in all_votes:
-            vote_counts[vote] += 1
-
-        total = len(all_votes)
-        entropy = 0.0
-        for count in vote_counts.values():
-            if count > 0:
-                p = count / total
-                entropy -= p * np.log2(p)
-
-        # Normalize to 0-1 range (max entropy for 4 vote types is log2(4) = 2)
-        max_entropy = np.log2(4)
-        return entropy / max_entropy if max_entropy > 0 else 0.0
-
-    # =========================================================================
-    # 4. EVALUATOR COLLUSION / MONOCULTURE DETECTION
-    # =========================================================================
-
-    async def detect_evaluator_collusion(
-        self,
-        recent_evaluations: List[GovernanceEvaluation],
-        lookback_count: int = 50
-    ) -> Optional[SafetyViolation]:
-        """
-        Detect if governance agents share hidden assumptions leading to convergence.
-
-        If all agents consistently agree (even with different bias levels),
-        they may share blind spots or hidden assumptions.
-
-        Args:
-            recent_evaluations: Recent evaluations
-            lookback_count: Number to analyze
-
-        Returns:
-            SafetyViolation if collusion/monoculture detected
-        """
-        if len(recent_evaluations) < 20:
-            return None
-
-        evaluations = recent_evaluations[-lookback_count:]
-
-        # Calculate consensus rate
-        unanimous_votes = 0
-        strong_consensus = 0  # 4 out of 5 agree
-
-        for eval in evaluations:
-            votes = [
-                eval.neutral_evaluator_vote.position,
-                eval.conservative_agent_vote.position,
-                eval.moderate_agent_vote.position,
-                eval.progressive_agent_vote.position,
-                eval.synthesizer_decision.position
-            ]
-
-            # Count most common vote
-            vote_counts = defaultdict(int)
-            for v in votes:
-                vote_counts[v] += 1
-
-            max_count = max(vote_counts.values())
-
-            if max_count == 5:
-                unanimous_votes += 1
-            elif max_count >= 4:
-                strong_consensus += 1
-
-        # Calculate rates
-        unanimous_rate = unanimous_votes / len(evaluations)
-        consensus_rate = (unanimous_votes + strong_consensus) / len(evaluations)
-
-        if consensus_rate > self.consensus_monoculture_threshold:
-            severity = "critical" if unanimous_rate > 0.75 else "high"
-
-            return SafetyViolation(
-                violation_type="evaluator_monoculture",
-                severity=severity,
-                description=f"Governance agents showing {consensus_rate*100:.1f}% consensus rate "
-                           f"(possible shared blind spots or hidden assumptions)",
-                affected_directives=[],
-                evidence={
-                    "unanimous_rate": unanimous_rate,
-                    "consensus_rate": consensus_rate,
-                    "evaluations_analyzed": len(evaluations),
-                    "unanimous_count": unanimous_votes,
-                    "strong_consensus_count": strong_consensus
-                },
-                detected_at=datetime.now(),
-                recommended_action="Review governance agent system prompts for shared assumptions. "
-                                 "Consider introducing adversarial evaluator or red team agent. "
-                                 "Audit recent unanimous decisions for potential blind spots."
-            )
-
-        return None
 
     # =========================================================================
     # 5. SECURITY VALIDATION (Poisoned Feedback, Adversarial Tasks)
@@ -714,29 +492,11 @@ class DirectiveSafetyMonitor:
                 self.violations.append(drift_violation)
                 self.violation_counts[drift_violation.violation_type] += 1
 
-        # Get recent governance evaluations for bias/collusion checks
-        try:
-            from core.database import get_database_manager
-            db = get_database_manager()
-
-            # Query recent governance evaluations from database
-            recent_evals = await db.query(
-                """SELECT * FROM governance_evaluations
-                   ORDER BY created_at DESC
-                   LIMIT 50"""
-            )
-
-            if recent_evals and len(recent_evals) >= 20:
-                # Convert DB rows to GovernanceEvaluation objects (simplified)
-                # In production, this would use proper deserialization
-                logger.debug(f"Analyzing {len(recent_evals)} recent governance evaluations")
-
-                # For now, log that we would check but don't have full evaluation objects
-                # Full implementation would reconstruct GovernanceEvaluation objects from DB
-                logger.debug("Bias amplification and collusion checks require full evaluation reconstruction")
-
-        except Exception as e:
-            logger.debug(f"Could not retrieve governance evaluations: {e}")
+        # NOTE (2026-09-02): the bias-amplification / evaluator-collusion checks
+        # were removed with the five-judge vote (there are no agent votes to
+        # police), so this no longer reads governance_evaluations. The
+        # comprehensive check now covers exactly what it can actually run:
+        # metric-gaming and directive-drift, above.
 
         logger.info(f"Safety check complete: {len(violations)} violations detected")
 
