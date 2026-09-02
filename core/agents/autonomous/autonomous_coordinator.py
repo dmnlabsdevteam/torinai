@@ -156,6 +156,13 @@ class SelfEventType(Enum):
     #: NOW instead of waiting out the 120s poll. Payload: {path}. The periodic
     #: audit tier stays as the backstop for anything the watcher misses.
     INTEGRITY_REAUDIT = "integrity_reaudit"
+    #: The substrate reconfigured ITSELF — a governance-approved, actually-applied
+    #: self-modification (a memory-config change, a resource reallocation, …).
+    #: Payload: {action_type, category, parameters, rationale}. Emitted ONLY after
+    #: the change was applied (never on a refusal or a no-op). Drives a
+    #: constitutional re-check: after changing itself, the self verifies it has not
+    #: drifted out of alignment.
+    SELF_MODIFIED = "self_modified"
 
 
 @dataclass
@@ -409,6 +416,13 @@ class AutonomousCoordinator:
         # off the acting hot path.
         self.on(SelfEventType.INTEGRITY_REAUDIT, self._react_integrity_reaudit,
                 name="integrity_reaudit", mode="deferred", priority=60)
+
+        # SELF-MODIFICATION — after the substrate reconfigures itself (a
+        # governance-approved, applied change), re-check constitutional alignment:
+        # a change that passed the per-action gate could still move whole-system
+        # drift, so the self verifies it has not drifted. Deferred, off the hot path.
+        self.on(SelfEventType.SELF_MODIFIED, self._react_self_modified,
+                name="self_modified_realign", mode="deferred", priority=55)
 
         # Directive System - High-level guidance for the Singleton
         self.directive_system = DirectiveSystem()
@@ -751,6 +765,13 @@ class AutonomousCoordinator:
             "motivation_refreshes_reactive": 0,
             "motivation_refresh_errors": 0,
             "external_blocker_escalations": 0,
+            # Governed self-modification (honest counts): applied = a change that
+            # was governance-approved AND actually took effect; refused = blocked by
+            # governance; errors/not_applied = approved but could not be applied
+            # (surfaced, never counted as a success).
+            "self_modifications_applied": 0,
+            "self_modifications_refused": 0,
+            "self_modifications_not_applied": 0,
         }
 
         # Register this coordinator as the active runtime instance so other
@@ -2553,313 +2574,237 @@ class AutonomousCoordinator:
 
     # ===== Phase 3: Memory System Architecture Governance =====
 
+    async def _apply_self_modification(
+        self,
+        action_category: Any,
+        action_type: str,
+        parameters: Dict[str, Any],
+        apply: Any,
+        *,
+        rationale: str = "",
+    ) -> Any:
+        """The ONE sanctioned path for the substrate to reconfigure ITSELF, under
+        governance.
+
+        Flow: governance-gate (unified_governance.evaluate_action) → if permitted,
+        actually APPLY the change → emit SELF_MODIFIED → record. `apply` is a
+        callable (sync or async) that performs the REAL mutation and returns either
+        a bool or a (applied: bool, detail) tuple. Nothing is reported as success
+        unless the change actually took effect — the old change_* methods returned
+        success while echoing the params and applying nothing, which this removes.
+
+        A governance refusal (CRITICAL/IMPORTANT tier) applies nothing and emits
+        nothing. An approved change whose `apply` cannot take effect (no plumbing
+        yet) is reported honestly as not-applied, never as success.
+        """
+        from core.tools.tool_registry import ToolResult
+        if not self.governance:
+            from core.governance import get_unified_governance
+            self.governance = get_unified_governance()
+
+        evaluation = await self.governance.evaluate_action(
+            action_category=action_category,
+            action_type=action_type,
+            parameters=parameters,
+        )
+        tier = getattr(getattr(evaluation, "decision_tier", None), "name", "ROUTINE")
+        if tier in ("CRITICAL", "IMPORTANT"):
+            self.stats["self_modifications_refused"] += 1
+            logger.warning("🔒 Self-modification REFUSED by governance: %s (%s, %s)",
+                           action_type, tier, getattr(evaluation, "trigger_id", "?"))
+            return ToolResult(
+                success=False, output=None, error=None, tool_name=action_type,
+                parameters=parameters, requires_approval=True,
+                approval_message=(f"REFUSED_BY_GOVERNANCE: {action_type} triggered "
+                                  f"{getattr(evaluation, 'trigger_id', '?')} ({tier})"))
+
+        # Approved — actually apply.
+        try:
+            res = apply()
+            if asyncio.iscoroutine(res):
+                res = await res
+            applied, detail = res if isinstance(res, tuple) else (bool(res), res)
+        except Exception as e:
+            self.stats["self_modifications_not_applied"] += 1
+            logger.warning("Self-modification %s approved but FAILED to apply: %s",
+                           action_type, e)
+            return ToolResult(success=False, output=None, error=str(e),
+                              tool_name=action_type, parameters=parameters)
+
+        if not applied:
+            # Honest: governance permitted it, but the substrate cannot yet apply
+            # it. Not a success — reported as not-applied with the reason.
+            self.stats["self_modifications_not_applied"] += 1
+            logger.info("Self-modification %s approved but not applied: %s",
+                        action_type, detail)
+            return ToolResult(success=False, output={"applied": False, "detail": detail},
+                              error="not_applied", tool_name=action_type,
+                              parameters=parameters)
+
+        # Applied — record + announce so alignment is re-checked.
+        self.stats["self_modifications_applied"] += 1
+        logger.info("🔧 Self-modification APPLIED: %s %s", action_type, parameters)
+        try:
+            await self.emit(SelfEvent(
+                SelfEventType.SELF_MODIFIED,
+                payload={"action_type": action_type,
+                         "category": getattr(action_category, "value", str(action_category)),
+                         "parameters": parameters, "rationale": rationale},
+                origin="self_modification"))
+        except Exception as e:
+            logger.debug("SELF_MODIFIED emit failed: %s", e)
+        return ToolResult(success=True, output={"applied": True, "detail": detail},
+                          error=None, tool_name=action_type, parameters=parameters,
+                          requires_approval=False)
+
+    async def _react_self_modified(self, event: SelfEvent) -> None:
+        """The substrate changed itself — re-check constitutional alignment.
+
+        A self-modification can pass the per-action governance gate yet still move
+        whole-system drift, so after applying one the self re-runs the
+        constitutional-alignment assessment (the drift authority) rather than
+        waiting for its schedule. Deferred, off the acting hot path.
+        """
+        payload = event.payload or {}
+        logger.info("📜 Re-checking constitutional alignment after self-modification: %s",
+                    payload.get("action_type"))
+        await self._check_constitutional_alignment()
+
     async def upgrade_memory_system(
         self,
         change_type: str,
         parameters: Dict[str, Any],
         reason: Optional[str] = None
     ) -> Any:
-        """
-        Upgrade memory system architecture (governance protected)
+        """Upgrade memory system architecture — GOVERNED self-modification.
 
-        Examples: indexing_algorithm, storage_format, search_optimization
-        """
-        from core.governance.unified_governance_trigger_system import (
-            UnifiedGovernanceTriggerSystem,
-            ActionCategory
-        )
-        from core.tools.tool_registry import ToolResult
+        Examples: indexing_algorithm, storage_format, search_optimization. Routed
+        through the governed self-modification path. The memory system exposes no
+        programmatic architecture-upgrade setter, so an approved upgrade is
+        reported honestly as not-applied (it is NOT falsely reported as completed,
+        which the previous implementation did)."""
+        from core.governance.unified_governance_trigger_system import ActionCategory
 
-        # Evaluate governance triggers
-        # Use injected governance singleton (injected by main.py)
-        if not self.governance:
-            from core.governance import get_unified_governance
-            self.governance = get_unified_governance()
-        governance = self.governance
-        evaluation = await governance.evaluate_action(
-            action_category=ActionCategory.MEMORY_OPERATIONS,
-            action_type="upgrade_memory_system",
-            parameters={
-                "change_type": change_type,
-                **parameters
-            }
-        )
+        def _apply():
+            applier = getattr(self.memory, "apply_architecture_upgrade", None)
+            if callable(applier):
+                return True, applier(change_type, parameters)
+            return False, ("memory system exposes no apply_architecture_upgrade; "
+                           "upgrade approved but not applied")
 
-        # Check decision tier
-        if evaluation.decision_tier.name == "CRITICAL":
-            logger.warning(
-                f"CRITICAL governance triggered for memory upgrade: {evaluation.trigger_id}"
-            )
-            return ToolResult(
-                success=False,
-                output=None,
-                error=None,
-                tool_name="upgrade_memory_system",
-                parameters={"change_type": change_type, **parameters},
-                requires_approval=True,
-                approval_message=(
-                    f"REFUSED_BY_GOVERNANCE: Memory system upgrade ({change_type}) "
-                    f"triggered {evaluation.trigger_id}. "
-                    f"No approval will follow: the governance-session model is retired, so there is no queue and no approver. The refusal is final and recorded."
-                )
-            )
-
-        elif evaluation.decision_tier.name == "IMPORTANT":
-            logger.info(
-                f"IMPORTANT governance triggered for memory upgrade: {evaluation.trigger_id}"
-            )
-            return ToolResult(
-                success=False,
-                output=None,
-                error=None,
-                tool_name="upgrade_memory_system",
-                parameters={"change_type": change_type, **parameters},
-                requires_approval=True,
-                approval_message=(
-                    f"AWAITING_NOTIFICATION_APPROVAL: Memory system upgrade ({change_type}) "
-                    f"triggered {evaluation.trigger_id}."
-                )
-            )
-
-        # ROUTINE tier - execute safely
-        logger.debug(f"ROUTINE tier for memory upgrade ({change_type}) - executing")
-
-        # For now, return success (actual implementation would call memory_agent methods)
-        return ToolResult(
-            success=True,
-            output={"change_type": change_type, "status": "completed"},
-            error=None,
-            tool_name="upgrade_memory_system",
-            parameters={"change_type": change_type, **parameters},
-            requires_approval=False
-        )
+        return await self._apply_self_modification(
+            ActionCategory.MEMORY_OPERATIONS, "upgrade_memory_system",
+            {"change_type": change_type, **parameters}, _apply,
+            rationale=reason or "")
 
     async def change_memory_tier_threshold(
         self,
         threshold_change_days: int,
         reason: Optional[str] = None
     ) -> Any:
-        """Change hot/cold tier threshold (governance protected)"""
-        from core.governance.unified_governance_trigger_system import (
-            UnifiedGovernanceTriggerSystem,
-            ActionCategory
-        )
-        from core.tools.tool_registry import ToolResult
+        """Change hot/cold tier threshold — GOVERNED self-modification.
 
-        # Use injected governance singleton (injected by main.py)
-        if not self.governance:
-            from core.governance import get_unified_governance
-            self.governance = get_unified_governance()
-        governance = self.governance
-        evaluation = await governance.evaluate_action(
-            action_category=ActionCategory.MEMORY_OPERATIONS,
-            action_type="change_memory_tier_threshold",
-            parameters={"threshold_change_days": threshold_change_days}
-        )
+        Applies only if the memory storage exposes a settable threshold; otherwise
+        the approved change is reported honestly as not-applied (the tier threshold
+        is currently fixed in the storage layer)."""
+        from core.governance.unified_governance_trigger_system import ActionCategory
 
-        if evaluation.decision_tier.name in ["CRITICAL", "IMPORTANT"]:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=None,
-                tool_name="change_memory_tier_threshold",
-                parameters={"threshold_change_days": threshold_change_days},
-                requires_approval=True,
-                approval_message=(
-                    f"REFUSED_BY_GOVERNANCE: Tier threshold change triggered {evaluation.trigger_id}"
-                )
-            )
+        def _apply():
+            storage = getattr(self.memory, "postgres_storage", None)
+            setter = getattr(storage, "set_tier_threshold_days", None)
+            if callable(setter):
+                setter(threshold_change_days)
+                return True, {"threshold_days": threshold_change_days}
+            return False, "memory storage exposes no settable tier threshold"
 
-        return ToolResult(
-            success=True,
-            output={"threshold_days": threshold_change_days},
-            error=None,
-            tool_name="change_memory_tier_threshold",
-            parameters={"threshold_change_days": threshold_change_days},
-            requires_approval=False
-        )
+        return await self._apply_self_modification(
+            ActionCategory.MEMORY_OPERATIONS, "change_memory_tier_threshold",
+            {"threshold_change_days": threshold_change_days}, _apply,
+            rationale=reason or "")
 
     async def change_ranking_weights(
         self,
         weights: Dict[str, float],
         reason: Optional[str] = None
     ) -> Any:
-        """Change memory ranking weights (governance protected - shadow suppression prevention)"""
-        from core.governance.unified_governance_trigger_system import (
-            UnifiedGovernanceTriggerSystem,
-            ActionCategory
-        )
-        from core.tools.tool_registry import ToolResult
+        """Change memory ranking weights — GOVERNED self-modification (guards
+        against shadow suppression via ranking manipulation). Applies only if the
+        memory storage exposes a ranking-weights setter; else honest not-applied."""
+        from core.governance.unified_governance_trigger_system import ActionCategory
 
-        # Use injected governance singleton (injected by main.py)
-        if not self.governance:
-            from core.governance import get_unified_governance
-            self.governance = get_unified_governance()
-        governance = self.governance
-        evaluation = await governance.evaluate_action(
-            action_category=ActionCategory.MEMORY_OPERATIONS,
-            action_type="change_ranking_weights",
-            parameters={"weights": weights}
-        )
+        def _apply():
+            storage = getattr(self.memory, "postgres_storage", None)
+            setter = getattr(storage, "set_ranking_weights", None)
+            if callable(setter):
+                setter(weights)
+                return True, {"weights": weights}
+            return False, "memory storage exposes no settable ranking weights"
 
-        if evaluation.decision_tier.name in ["CRITICAL", "IMPORTANT"]:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=None,
-                tool_name="change_ranking_weights",
-                parameters={"weights": weights},
-                requires_approval=True,
-                approval_message=(
-                    f"REFUSED_BY_GOVERNANCE: Ranking weight change triggered {evaluation.trigger_id}. "
-                    f"Prevents shadow suppression via ranking manipulation."
-                )
-            )
-
-        return ToolResult(
-            success=True,
-            output={"weights": weights},
-            error=None,
-            tool_name="change_ranking_weights",
-            parameters={"weights": weights},
-            requires_approval=False
-        )
+        return await self._apply_self_modification(
+            ActionCategory.MEMORY_OPERATIONS, "change_ranking_weights",
+            {"weights": weights}, _apply, rationale=reason or "")
 
     async def change_ttl(
         self,
         new_ttl_days: int,
         reason: Optional[str] = None
     ) -> Any:
-        """Change memory TTL (governance protected)"""
-        from core.governance.unified_governance_trigger_system import (
-            UnifiedGovernanceTriggerSystem,
-            ActionCategory
-        )
-        from core.tools.tool_registry import ToolResult
+        """Change memory TTL — GOVERNED self-modification. Applies only if the
+        memory storage exposes a TTL setter; else honest not-applied."""
+        from core.governance.unified_governance_trigger_system import ActionCategory
 
-        # Use injected governance singleton (injected by main.py)
-        if not self.governance:
-            from core.governance import get_unified_governance
-            self.governance = get_unified_governance()
-        governance = self.governance
-        evaluation = await governance.evaluate_action(
-            action_category=ActionCategory.MEMORY_OPERATIONS,
-            action_type="change_ttl",
-            parameters={"new_ttl_days": new_ttl_days}
-        )
+        def _apply():
+            storage = getattr(self.memory, "postgres_storage", None)
+            setter = getattr(storage, "set_ttl_days", None)
+            if callable(setter):
+                setter(new_ttl_days)
+                return True, {"ttl_days": new_ttl_days}
+            return False, "memory storage exposes no settable TTL"
 
-        if evaluation.decision_tier.name in ["CRITICAL", "IMPORTANT"]:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=None,
-                tool_name="change_ttl",
-                parameters={"new_ttl_days": new_ttl_days},
-                requires_approval=True,
-                approval_message=(
-                    f"REFUSED_BY_GOVERNANCE: TTL change triggered {evaluation.trigger_id}"
-                )
-            )
-
-        return ToolResult(
-            success=True,
-            output={"ttl_days": new_ttl_days},
-            error=None,
-            tool_name="change_ttl",
-            parameters={"new_ttl_days": new_ttl_days},
-            requires_approval=False
-        )
+        return await self._apply_self_modification(
+            ActionCategory.MEMORY_OPERATIONS, "change_ttl",
+            {"new_ttl_days": new_ttl_days}, _apply, rationale=reason or "")
 
     async def change_storage_backend(
         self,
         new_backend: str,
         reason: Optional[str] = None
     ) -> Any:
-        """Change storage backend (governance protected)"""
-        from core.governance.unified_governance_trigger_system import (
-            UnifiedGovernanceTriggerSystem,
-            ActionCategory
-        )
-        from core.tools.tool_registry import ToolResult
+        """Change storage backend — GOVERNED self-modification. Switching the live
+        storage backend is not something the substrate applies to itself at
+        runtime, so an approved request is reported honestly as not-applied (a
+        backend switch is an operator action), never falsely as completed."""
+        from core.governance.unified_governance_trigger_system import ActionCategory
 
-        # Use injected governance singleton (injected by main.py)
-        if not self.governance:
-            from core.governance import get_unified_governance
-            self.governance = get_unified_governance()
-        governance = self.governance
-        evaluation = await governance.evaluate_action(
-            action_category=ActionCategory.MEMORY_OPERATIONS,
-            action_type="change_storage_backend",
-            parameters={"new_backend": new_backend}
-        )
+        def _apply():
+            return False, ("live storage-backend switching is not a runtime "
+                           "self-modification; approved but not applied")
 
-        if evaluation.decision_tier.name in ["CRITICAL", "IMPORTANT"]:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=None,
-                tool_name="change_storage_backend",
-                parameters={"new_backend": new_backend},
-                requires_approval=True,
-                approval_message=(
-                    f"REFUSED_BY_GOVERNANCE: Backend switch triggered {evaluation.trigger_id}"
-                )
-            )
-
-        return ToolResult(
-            success=True,
-            output={"backend": new_backend},
-            error=None,
-            tool_name="change_storage_backend",
-            parameters={"new_backend": new_backend},
-            requires_approval=False
-        )
+        return await self._apply_self_modification(
+            ActionCategory.MEMORY_OPERATIONS, "change_storage_backend",
+            {"new_backend": new_backend}, _apply, rationale=reason or "")
 
     async def change_query_filter_logic(
         self,
         filter_logic: str,
         reason: Optional[str] = None
     ) -> Any:
-        """Change query filter logic (governance protected - shadow suppression prevention)"""
-        from core.governance.unified_governance_trigger_system import (
-            UnifiedGovernanceTriggerSystem,
-            ActionCategory
-        )
-        from core.tools.tool_registry import ToolResult
+        """Change query filter logic — GOVERNED self-modification (guards against
+        shadow suppression via filter manipulation). Applies only if the memory
+        storage exposes a query-filter setter; else honest not-applied."""
+        from core.governance.unified_governance_trigger_system import ActionCategory
 
-        # Use injected governance singleton (injected by main.py)
-        if not self.governance:
-            from core.governance import get_unified_governance
-            self.governance = get_unified_governance()
-        governance = self.governance
-        evaluation = await governance.evaluate_action(
-            action_category=ActionCategory.MEMORY_OPERATIONS,
-            action_type="change_query_filter_logic",
-            parameters={"filter_logic": filter_logic}
-        )
+        def _apply():
+            storage = getattr(self.memory, "postgres_storage", None)
+            setter = getattr(storage, "set_query_filter_logic", None)
+            if callable(setter):
+                setter(filter_logic)
+                return True, {"filter_logic": filter_logic}
+            return False, "memory storage exposes no settable query filter logic"
 
-        if evaluation.decision_tier.name in ["CRITICAL", "IMPORTANT"]:
-            return ToolResult(
-                success=False,
-                output=None,
-                error=None,
-                tool_name="change_query_filter_logic",
-                parameters={"filter_logic": filter_logic},
-                requires_approval=True,
-                approval_message=(
-                    f"REFUSED_BY_GOVERNANCE: Query filter change triggered {evaluation.trigger_id}. "
-                    f"Prevents shadow suppression via filter manipulation."
-                )
-            )
-
-        return ToolResult(
-            success=True,
-            output={"filter_logic": filter_logic},
-            error=None,
-            tool_name="change_query_filter_logic",
-            parameters={"filter_logic": filter_logic},
-            requires_approval=False
-        )
+        return await self._apply_self_modification(
+            ActionCategory.MEMORY_OPERATIONS, "change_query_filter_logic",
+            {"filter_logic": filter_logic}, _apply, rationale=reason or "")
 
     # ===== Phase 3: Resource Allocation Governance =====
 
@@ -3004,6 +2949,7 @@ class AutonomousCoordinator:
 
         # Check decision tier
         if evaluation.decision_tier.name in ["CRITICAL", "IMPORTANT"]:
+            self.stats["self_modifications_refused"] += 1
             logger.warning(
                 f"{evaluation.decision_tier.name} governance triggered for resource allocation: "
                 f"{evaluation.trigger_id}"
@@ -3038,9 +2984,23 @@ class AutonomousCoordinator:
                 metadata=metadata
             )
 
-        # ROUTINE tier - execute allocation
+        # ROUTINE tier - execute allocation (this one genuinely APPLIES).
         logger.debug(f"ROUTINE tier for resource allocation ({resource_type}) - executing")
         self.system_state.resources[resource_type] = amount
+
+        # Governed self-modification that actually took effect — count it and
+        # announce it so constitutional alignment is re-checked.
+        self.stats["self_modifications_applied"] += 1
+        try:
+            await self.emit(SelfEvent(
+                SelfEventType.SELF_MODIFIED,
+                payload={"action_type": "allocate_resources",
+                         "category": "resource_allocation",
+                         "parameters": governance_params,
+                         "rationale": reason or ""},
+                origin="self_modification"))
+        except Exception as _sm_e:
+            logger.debug("SELF_MODIFIED emit failed: %s", _sm_e)
 
         # Build metadata for tracking
         routine_metadata = {
