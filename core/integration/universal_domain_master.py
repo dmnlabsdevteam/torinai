@@ -98,26 +98,6 @@ class CrossDomainQuery:
 
 
 @dataclass
-class KnowledgeTransferRequest:
-    """Request to transfer knowledge from source to target domain"""
-    transfer_id: str
-    source_domain: DomainType
-    target_domain: DomainType
-    concept: str
-    concept_type: ConceptType
-
-    # Transfer parameters
-    transfer_method: ReasoningStrategy = ReasoningStrategy.ANALOGICAL
-    preserve_structure: bool = True
-    adapt_to_context: bool = True
-
-    # Metadata
-    requested_by: str = "system"
-    timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
 class DomainMapping:
     """Mapping between concepts in different domains"""
     mapping_id: str
@@ -396,7 +376,6 @@ class UniversalDomainMaster:
             'total_queries': 0,
             'successful_queries': 0,
             'failed_queries': 0,
-            'total_transfers': 0,
             'total_mappings': 0
         }
 
@@ -626,6 +605,22 @@ class UniversalDomainMaster:
                     domain_id, domain_type.value)
         return domain
 
+    async def _ensure_domain_for_capability(self, domain_id: str) -> None:
+        """Register a domain the substrate has just shown capability in, without
+        letting a registration hiccup break the recording that called this. A
+        structural fault (a real wiring bug) still surfaces via
+        raise_if_structural; only a transient failure degrades to a log, because
+        the competence/controllability evidence is the primary work here and must
+        not be lost to a domain-registry problem."""
+        if not (isinstance(domain_id, str) and domain_id.strip()):
+            return
+        try:
+            await self.ensure_domain(domain_id)
+        except Exception as e:
+            from core.capability import raise_if_structural
+            raise_if_structural(e, "universal_domain_master._ensure_domain_for_capability")
+            logger.info("domain registration for %s deferred: %s", domain_id, e)
+
     # ── DOMAIN COMPETENCE AS AN EPISTEMIC BELIEF ──────────────────────────
     # Operator-learning competence per domain is tracked as a belief so the
     # SAME intrinsic-motivation machinery that chooses every other exploration
@@ -679,6 +674,13 @@ class UniversalDomainMaster:
         """
         if quality is None:
             quality = self.COMPETENCE_EVIDENCE_QUALITY
+        # A learned operator IS the substrate first having real capability in a
+        # domain -- exactly ensure_domain's stated trigger. Register it here so a
+        # domain the substrate can act in is never left without a first-class
+        # identity beliefs/exploration/transfer/concepts can refer to. Idempotent
+        # and off the hot path. (Was the missing wire: learned-operator domains
+        # existed only as rule-store strings, invisible to the domain authority.)
+        await self._ensure_domain_for_capability(domain_id)
         unc = self._uncertainty()
         belief = await self.ensure_competence_belief(domain_id)
         unc.update_belief(
@@ -776,6 +778,10 @@ class UniversalDomainMaster:
         world); the observation counts come from watching the world with NO
         action taken (and how often it moved anyway). Persisted so controllability
         survives a restart, since it is expensive to re-measure."""
+        # Acting in a domain is the substrate having real capability in it, so the
+        # domain becomes first-class here too (idempotent) -- even if the
+        # controllability table write below is skipped for lack of a db.
+        await self._ensure_domain_for_capability(domain_id)
         if not self.db:
             return
         await self._ensure_controllability_table()
@@ -1105,16 +1111,21 @@ class UniversalDomainMaster:
         correspondence does NOT cover is skipped -- importing a source's private
         vocabulary would be inventing, not transferring.
 
-        The projection lands as a CANDIDATE with zero evidence (via
-        `record_projection`): the analogy has PROPOSED that this domain can
-        produce the relation, and only this domain's own observations can raise
-        it to executable. So a successful transfer converts a RELATION_GAP into a
-        CAUSAL_GAP -- a hypothesis to validate -- not a finished capability.
+        The projection lands as a CANDIDATE with zero evidence, and it does so
+        THROUGH THE LEARNING AUTHORITY (`admit_projection`), not by writing to
+        the rule store behind it: the analogy engine is a registered contributor
+        and the authority is the single writer of admitted proposals. The
+        analogy has PROPOSED that this domain can produce the relation, and only
+        this domain's own observations can raise it to executable. So a
+        successful transfer converts a RELATION_GAP into a CAUSAL_GAP -- a
+        hypothesis to validate -- not a finished capability.
         """
         from core.learning.analogical_projection import project, ProjectionOutcome
         from core.learning.rule_store import get_rule_store
+        from core.learning.unified_learning_system import get_learning_authority
 
         store = get_rule_store()
+        authority = get_learning_authority()
         from collections import defaultdict
         by_domain: Dict[str, List[Any]] = defaultdict(list)
         for stored in await store.executable_rules():
@@ -1166,12 +1177,17 @@ class UniversalDomainMaster:
                     source_domain=source_domain, target_domain=target_domain)
                 if result.outcome is not ProjectionOutcome.FULL_PROJECTION:
                     continue
-                projected = await store.record_projection(result)
+                admission = await authority.admit_projection(
+                    result, contributor="analogical_projection")
+                if not admission.accepted:
+                    logger.info("projection %s->%s declined by authority: %s",
+                                source_domain, target_domain, admission.reason)
+                    continue
                 logger.info("transferred relation %s into %s from %s (candidate %s)",
                             relation_predicate, target_domain, source_domain,
-                            projected.rule_id)
+                            admission.rule_id)
                 return {"transferred": True, "source_domain": source_domain,
-                        "source_rule_id": stored.rule_id, "rule_id": projected.rule_id,
+                        "source_rule_id": stored.rule_id, "rule_id": admission.rule_id,
                         "produces": relation_predicate, "mapping": corr}
         return {"transferred": False,
                 "reason": "no source domain has a mappable operator producing the relation"}
@@ -1502,6 +1518,316 @@ class UniversalDomainMaster:
             "merged": sum(1 for o in outcomes if o.get("status") == "merged"),
             "outcomes": outcomes,
         }
+
+    async def discover_concept_domains(self, *, from_field: str = "conversation",
+                                       min_size: int = 3,
+                                       limit: int = 8) -> Dict[str, Any]:
+        """Crystallize DECLARATIVE domains from the concept-relation graph.
+
+        The declarative twin of `discover_domains`. That one mints a domain from
+        a coherent bucket of learned OPERATORS; this one from a coherent cluster
+        of taught CONCEPTS. Taught facts accumulate as concepts under the CHANNEL
+        they arrived through (`conversation`), undifferentiated by subject, so
+        nothing about a subject ever separates into its own domain and the
+        cross-domain analogy engine -- which reads `unified.concepts` grouped by
+        domain -- sees one blob instead of distinct subjects.
+
+        A connected cluster of those concepts (an ISA hierarchy, a web of
+        made_of/part_of edges) IS a subject the substrate has been taught. Each
+        such cluster of at least `min_size` concepts is crystallized into its own
+        domain (named for the cluster's most-connected concept, its hub) via the
+        one registration authority `ensure_domain`, and its concepts are re-filed
+        under that field -- where crystallization, competence beliefs, and the
+        analogy engine can all see it as a distinct subject.
+
+        Coherence is the SAME connected-graph test `_operators_coherent` uses,
+        here over concepts joined by a relation rather than operators sharing a
+        predicate. A cluster too small to be a subject is left in the channel to
+        keep accumulating, never crystallized on one edge.
+        """
+        import json
+        from collections import defaultdict
+
+        if not self.db:
+            from core.database import get_database_manager
+            self.db = get_database_manager()
+            if not self.db.initialized:
+                await self.db.initialize()
+
+        rows = await self.db.execute_query(
+            "SELECT concept_id, name, relationships FROM unified.concepts "
+            "WHERE domain = $1", (from_field,), fetch_all=True) or []
+        if not rows:
+            return {"examined": 0, "crystallized": 0, "outcomes": [],
+                    "note": f"no concepts filed under {from_field!r}"}
+
+        ids = [r["concept_id"] for r in rows]
+        idx = {cid: i for i, cid in enumerate(ids)}
+        by_name = {r["name"]: r["concept_id"] for r in rows}
+        id_to_name = {r["concept_id"]: r["name"] for r in rows}
+
+        parent = list(range(len(ids)))
+
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        degree: Dict[str, int] = defaultdict(int)
+        targets_of: Dict[str, List[str]] = {}   # concept_id -> related concept names
+        for r in rows:
+            rels = r["relationships"]
+            if isinstance(rels, str):
+                try:
+                    rels = json.loads(rels or "[]")
+                except (ValueError, TypeError):
+                    rels = []
+            names: List[str] = []
+            for rel in (rels or ()):
+                if not isinstance(rel, (list, tuple)) or len(rel) < 2:
+                    continue
+                target = str(rel[1])
+                names.append(target)
+                # An edge joins two concepts only when BOTH are concepts here --
+                # a relation to something not yet taught contributes no cluster.
+                if target in by_name and target != r["name"]:
+                    parent[find(idx[r["concept_id"]])] = find(idx[by_name[target]])
+                    degree[r["name"]] += 1
+                    degree[target] += 1
+            targets_of[r["concept_id"]] = names
+
+        # Which EXISTING domain (if any) each relation target already lives in.
+        # A taught fact whose object is a concept in an already-crystallized
+        # subject means this cluster GROWS that subject, rather than minting a
+        # new one -- which is what stops incremental teaching from stranding a
+        # late concept in the channel after its neighbours crystallized.
+        all_targets = sorted({t for ts in targets_of.values() for t in ts})
+        name_domain: Dict[str, str] = {}
+        if all_targets:
+            # Grow only into REAL subject domains. Exclude the `wordnet` bulk
+            # dump (the same unreliable import purged from the lexicon): almost
+            # every English word has a wordnet concept, so without this a taught
+            # cluster whose object happens to be an ordinary word ("bird") would
+            # be pulled into that 5k-row junk domain instead of its own subject.
+            ext_rows = await self.db.execute_query(
+                "SELECT name, domain FROM unified.concepts "
+                "WHERE name = ANY($1) AND domain <> $2 AND domain <> 'wordnet'",
+                (all_targets, from_field), fetch_all=True) or []
+            for er in ext_rows:
+                name_domain.setdefault(er["name"], er["domain"])
+
+        # INCOMING links too. A relation runs one way in the store, so a chain
+        # taught as "wemp is a snod" files the edge under `wemp`; if `wemp` has
+        # already crystallized, `snod` belongs with it even though the edge points
+        # AT snod, not from it. Without this a chain crystallized mid-teaching
+        # splits: the tail, linked to the head only by incoming edges, mints a
+        # second domain. Map each existing-domain concept's targets so a cluster
+        # is grown by a link in either direction.
+        points_to: Dict[str, set] = defaultdict(set)
+        ext_concepts = await self.db.execute_query(
+            "SELECT domain, relationships FROM unified.concepts "
+            "WHERE domain <> $1 AND domain <> 'wordnet'",
+            (from_field,), fetch_all=True) or []
+        for er in ext_concepts:
+            erels = er["relationships"]
+            if isinstance(erels, str):
+                try:
+                    erels = json.loads(erels or "[]")
+                except (ValueError, TypeError):
+                    erels = []
+            for rel in (erels or ()):
+                if isinstance(rel, (list, tuple)) and len(rel) >= 2:
+                    points_to[str(rel[1])].add(er["domain"])
+
+        components: Dict[int, List[str]] = defaultdict(list)
+        for cid in ids:
+            components[find(idx[cid])].append(cid)
+
+        registry = await self._registry()
+        outcomes: List[Dict[str, Any]] = []
+        for members in components.values():
+            # Does this cluster link (either direction) to exactly one existing
+            # domain? Outgoing: a member's relation target lives there. Incoming:
+            # a concept there points at a member.
+            linked = {name_domain[t] for cid in members
+                      for t in targets_of.get(cid, ())
+                      if name_domain.get(t) and name_domain[t] != from_field}
+            linked |= {d for cid in members
+                       for d in points_to.get(id_to_name[cid], ())
+                       if d != from_field}
+            if len(linked) == 1:
+                # GROW that subject: attach the cluster to it, whatever its size
+                # (a single late concept belongs with the subject it names).
+                field = next(iter(linked))
+                domain_id = f"domain_{field}"
+                await self.ensure_domain(
+                    domain_id, name=field.replace("_", " ").title())
+                for cid in members:
+                    await self.db.execute_query(
+                        "UPDATE unified.concepts SET domain = $1 WHERE concept_id = $2",
+                        (field, cid))
+                outcomes.append({"domain_id": domain_id, "field": field,
+                                 "hub": field, "concepts": len(members),
+                                 "grew": True})
+                if len(outcomes) >= limit:
+                    break
+                continue
+            if len(members) < min_size:
+                continue
+            hub = max((id_to_name[c] for c in members),
+                      key=lambda n: degree.get(n, 0))
+            field = hub.strip().lower().replace(" ", "_")
+            if not field or field == from_field:
+                continue
+            domain_id = f"domain_{field}"
+            await self.ensure_domain(domain_id,
+                                     name=hub.replace("_", " ").title())
+            # Re-file the cluster's concepts under their subject's field, so the
+            # registry attaches them to the new domain on its next load and the
+            # analogy engine groups them as a distinct subject.
+            for cid in members:
+                await self.db.execute_query(
+                    "UPDATE unified.concepts SET domain = $1 WHERE concept_id = $2",
+                    (field, cid))
+            outcomes.append({"domain_id": domain_id, "field": field,
+                             "hub": hub, "concepts": len(members)})
+            if len(outcomes) >= limit:
+                break
+
+        # Reload the registry so the newly crystallized domains and their
+        # concept membership are live for reasoning and transfer immediately.
+        if outcomes:
+            await registry.initialize()
+            # Declarative knowledge coverage: now that each domain holds its
+            # concepts, set how well-developed its knowledge is from the graph.
+            for o in outcomes:
+                o["maturity"] = await self.update_knowledge_coverage(o["domain_id"])
+
+        return {"examined": len(components), "crystallized": len(outcomes),
+                "outcomes": outcomes}
+
+    async def update_knowledge_coverage(self, domain_id: str) -> float:
+        """Set a domain's `maturity_score` from the DEVELOPMENT of its concept
+        graph -- the declarative-knowledge-coverage signal.
+
+        `maturity_score` means "how well-developed the domain knowledge is" and
+        was written once at 0.1 and never moved again; `structural_complexity`
+        already computes exactly that from the graph (size, connectedness,
+        relational variety) but was used only inside domain similarity. This
+        connects the two: as a taught domain's concept graph grows, its coverage
+        rises, persisted so it survives a restart. It is SEPARATE from operator
+        competence (`record_competence_evidence`, earned by acting): this
+        measures what the substrate KNOWS about a domain, not what it can DO in
+        it -- so a taught domain can be knowledge-rich and operator-empty, and
+        the two never contaminate each other (the credit invariant holds).
+        """
+        from core.domain.domain_types import structural_complexity
+        registry = await self._registry()
+        domain = registry.domains.get(domain_id)
+        if domain is None:
+            return 0.0
+        domain.maturity_score = structural_complexity(domain)
+        await registry._persist_domain(domain)
+        return domain.maturity_score
+
+    async def detect_knowledge_gap(self, domain_id: str, subject: str,
+                                   relation: str):
+        """Localize a DECLARATIVE knowledge gap in a domain and register it as a
+        known-unknown -- the declarative twin of a CONCEPT_GAP.
+
+        A domain can be MATURE (a rich concept graph, high knowledge coverage) and
+        still be MISSING a specific fact: an in-domain question -- "what does
+        <subject> <relation>?" -- the graph cannot answer because that relation was
+        never taught about that subject. That is the substrate having LITTLE
+        INFORMATION here, which is a different thing from LACKING THE OPERATORS to
+        act here. This registers it as a KNOWN_UNKNOWN scoped to the domain (the
+        epistemic system's account of what the substrate knows it does not know,
+        resolvable by ACQUISITION -- research or teaching -- not by exploring for an
+        operator), and it deliberately does NOT touch the domain's operator
+        competence belief. A knowledge gap is never recorded as a competence loss;
+        the two axes stay orthogonal, which is what lets the substrate answer "I
+        don't have that fact yet" instead of "I am not competent in this domain".
+
+        Returns the KnownUnknown, or None when there is no localized gap here: the
+        subject is not a concept of this domain (a different question entirely), or
+        the relation is already present (no gap to register).
+        """
+        registry = await self._registry()
+        domain = registry.domains.get(domain_id)
+        if domain is None:
+            return None
+        concept = next((c for c in domain.concepts.values() if c.name == subject),
+                       None)
+        if concept is None:
+            return None                     # not an in-domain subject
+        relationships = (concept.properties or {}).get("relationships") or []
+        if any(isinstance(r, (list, tuple)) and r and str(r[0]) == relation
+               for r in relationships):
+            return None                     # the relation is present -- not a gap
+
+        # A localized declarative gap. Register it; competence is untouched.
+        from core.reasoning.bayesian_uncertainty import get_uncertainty_system
+        unc = get_uncertainty_system()
+        return unc.register_known_unknown(
+            question=f"what does {subject} {relation}?",
+            domain=domain_id,
+            blocking_factors=[
+                f"the relation {relation!r} is unrepresented for {subject!r} "
+                f"in {domain_id} (a knowledge gap, not an operator gap)"],
+            required_info=[f"{subject} {relation} <?>"])
+
+    async def knowledge_sparsity_map(self, domain_id: str) -> Dict[str, Any]:
+        """WHICH regions of a domain are thin — the localized complement of the
+        single global `maturity_score`.
+
+        `structural_complexity` reports one number for the whole domain;
+        `detect_knowledge_gap` answers about one specific fact. This sits between:
+        it ranks the domain's concepts by their connectivity (degree = relations
+        the concept participates in, in either direction), so the SPARSE concepts
+        — low degree, typically leaves reached by a single edge — surface as the
+        regions where knowledge is thinnest and a gap most likely sits. It is the
+        map a proactive acquisition step would read to decide WHERE to ask next.
+        A concept's degree is a measurement of knowledge density around it, not a
+        competence claim: a sparse region means "little is held here", never "the
+        substrate cannot act here".
+        """
+        from collections import defaultdict
+
+        registry = await self._registry()
+        domain = registry.domains.get(domain_id)
+        if domain is None:
+            return {"domain_id": domain_id, "error": "unknown domain"}
+        concepts = domain.concepts
+        if not concepts:
+            return {"domain_id": domain_id, "concepts": 0, "sparse_concepts": [],
+                    "sparsest": [], "mean_degree": 0.0,
+                    "maturity": domain.maturity_score}
+
+        incoming: Dict[str, int] = defaultdict(int)
+        for c in concepts.values():
+            for target in (c.related_concepts or ()):
+                incoming[str(target)] += 1
+
+        rows: List[Dict[str, Any]] = []
+        for c in concepts.values():
+            out_deg = len(c.related_concepts or ())
+            in_deg = incoming.get(c.name, 0)
+            rows.append({"concept": c.name, "degree": out_deg + in_deg,
+                         "out": out_deg, "in": in_deg})
+        rows.sort(key=lambda r: (r["degree"], r["concept"]))
+
+        degrees = [r["degree"] for r in rows]
+        mean = sum(degrees) / len(degrees)
+        # Thin = strictly below the mean degree (at least the leaves), so the
+        # threshold is the domain's own distribution, never a tuned constant.
+        threshold = max(1.0, mean)
+        sparse = [r["concept"] for r in rows if r["degree"] < threshold]
+        return {"domain_id": domain_id, "concepts": len(concepts),
+                "mean_degree": round(mean, 2),
+                "sparsest": rows[:5],
+                "sparse_concepts": sparse,
+                "maturity": domain.maturity_score}
 
     async def crystallize(self, provisional_domain_id: str) -> Dict[str, Any]:
         """Decide whether a provisional operational domain is new or already
@@ -2030,48 +2356,6 @@ class UniversalDomainMaster:
             ),
             commit=True
         )
-
-    async def request_knowledge_transfer(
-        self,
-        transfer: KnowledgeTransferRequest
-    ) -> bool:
-        """Request knowledge transfer from source to target domain"""
-        self.stats['total_transfers'] += 1
-
-        logger.info(
-            f"Knowledge transfer: {transfer.concept} "
-            f"({transfer.source_domain.value} → {transfer.target_domain.value})"
-        )
-
-        try:
-            # Store transfer record
-            if self.db:
-                await self.db.execute_query(
-                    """INSERT INTO unified.knowledge_transfers
-                       (transfer_id, source_domain, target_domain, concept,
-                        concept_type, transfer_method, success, requested_by, metadata)
-                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                       ON CONFLICT (transfer_id) DO NOTHING""",
-                    (
-                        transfer.transfer_id,
-                        transfer.source_domain.value,
-                        transfer.target_domain.value,
-                        transfer.concept,
-                        transfer.concept_type.value,
-                        transfer.transfer_method.value,
-                        True,
-                        transfer.requested_by,
-                        json.dumps(transfer.metadata) if transfer.metadata else None
-                    ),
-                    commit=True
-                )
-
-            logger.info(f"✓ Knowledge transfer completed: {transfer.transfer_id}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Knowledge transfer failed: {e}")
-            return False
 
     async def get_statistics(self) -> Dict[str, Any]:
         """Get domain master statistics"""

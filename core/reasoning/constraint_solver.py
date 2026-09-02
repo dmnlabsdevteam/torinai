@@ -69,10 +69,24 @@ class ConstraintSolver:
         if not _Z3_AVAILABLE:
             logger.warning("Z3 is not available; constraint solving will be disabled")
         self._available = _Z3_AVAILABLE
+        #: Real counters so the health monitor can see the solver working, not
+        #: just that it exists. Incremented in solve().
+        self.stats = {"solves": 0, "sat": 0, "unsat": 0, "unavailable": 0}
 
     @property
     def available(self) -> bool:
         return self._available
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Flat scalars for the health probe (was absent — the solver was blind
+        to health). `available` reflects Z3 presence; the counters reflect use."""
+        return {
+            "available": self._available,
+            "solves": self.stats["solves"],
+            "sat": self.stats["sat"],
+            "unsat": self.stats["unsat"],
+            "unavailable": self.stats["unavailable"],
+        }
 
     def create_problem(self) -> ConstraintProblem:
         """Create a new empty constraint problem."""
@@ -109,6 +123,7 @@ class ConstraintSolver:
         Returns a ConstraintSolution indicating satisfiability and model values.
         """
         if not self._available:
+            self.stats["unavailable"] += 1
             return ConstraintSolution(
                 satisfiable=False,
                 model={},
@@ -116,6 +131,7 @@ class ConstraintSolver:
                 error="Z3 solver not available in this environment",
             )
 
+        self.stats["solves"] += 1
         solver = Solver()
 
         # Create Z3 variables
@@ -146,11 +162,13 @@ class ConstraintSolver:
         raw_status = str(status)
 
         if status != sat:
+            self.stats["unsat"] += 1
             return ConstraintSolution(
                 satisfiable=False,
                 model={},
                 raw_status=raw_status,
             )
+        self.stats["sat"] += 1
 
         model = solver.model()
         solution_values: Dict[str, Any] = {}

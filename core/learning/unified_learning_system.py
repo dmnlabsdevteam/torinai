@@ -17,16 +17,6 @@ from enum import Enum
 from typing import Dict, List, Any, Optional
 from core.database.logging_database import LoggingDatabase
 
-# Import unified LLM service - the teacher model
-# Lazy import to avoid circular import during package initialization
-try:
-    from core.services.unified_llm import get_llm_service, LLMRequest, LLMResponse  # type: ignore
-except Exception as _e:
-    # Defer import; resolved inside start() when needed
-    get_llm_service = None  # type: ignore
-    LLMRequest = None  # type: ignore
-    LLMResponse = None  # type: ignore
-
 # Import Slack notifier for learning milestone notifications
 from core.integration.slack_notifier import get_slack_notifier
 
@@ -42,6 +32,20 @@ from .learning_interfaces import (
     LearningResult,
 )
 from .meta_learning import TaskFamily, task_family_for_task_type
+# THE ONE LEARNING AUTHORITY. UnifiedLearningSystem was once the DECLARED
+# authority; a correct model-free ILearningAuthority was then built in a
+# separate learning_authority.py instead of fixing THIS class, leaving two
+# owners of the one concept "learning". That file is now deleted and its whole
+# implementation lives here: UnifiedLearningSystem IS the learning authority
+# (propose -> evidence attests, model-free, one boundary on what may propose,
+# induction + rule store), with the meta-learning strategies as first-class
+# parts of it. These are the imports that implementation needs.
+from core.capability import raise_if_structural
+from core.learning.learning_interfaces import ILearningAuthority
+from core.learning.rule_induction import (CandidateRule, InductionResult,
+                                          InductionStatus, TrainingExample,
+                                          get_rule_inducer)
+from core.learning.rule_store import EpistemicStatus, get_rule_store
 
 # LearningType (how we are learning) -> TaskFamily (what kind of task it is).
 # meta_learning registers and selects strategies by TaskFamily; this system
@@ -129,17 +133,171 @@ def _json_safe(value: Any) -> Any:
     return str(value)
 
 
-class UnifiedLearningSystem(ILearningSystem):
+# ── INDUCTION BASIS BOUNDS (moved from the deleted learning_authority.py) ──────
+# The induction basis is BOUNDED so the hypothesis search stays tractable as
+# demonstrations accumulate (measured: ~0.03s at 12 examples, ~0.9s at 16, ~17s
+# at 20, non-terminating past that), while the information LGG needs saturates
+# early. Held-out validation (reserved separately) remains the correctness guard.
+_BASIS_POSITIVES = 8
+_BASIS_NEGATIVES = 8
+_BASIS_CONTRASTIVE = 6
+
+
+def _bounded_basis(
+    signature_basis: List["TrainingExample"],
+    contrastive: "Sequence[TrainingExample]",
+) -> List["TrainingExample"]:
+    """A bounded, constant-diverse subset of the evidence for one induction.
+
+    Exact-duplicate demonstrations are dropped; among the rest, selection
+    round-robins over distinct ground ACTIONS so a capped sample spans different
+    constants (what LGG needs to variabilise an argument position). Positives,
+    negatives and contrastives are bounded independently.
+    """
+    def _fingerprint(example: "TrainingExample"):
+        return (example.positive, example.action,
+                tuple(sorted((f.predicate, f.args) for f in example.before)),
+                tuple(sorted((f.predicate, f.args) for f in example.after)))
+
+    def _spread(examples: List["TrainingExample"], cap: int) -> List["TrainingExample"]:
+        seen: set = set()
+        unique: List["TrainingExample"] = []
+        for example in examples:
+            key = _fingerprint(example)
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(example)
+        if len(unique) <= cap:
+            return unique
+        buckets: Dict[Any, List["TrainingExample"]] = {}
+        order: List[Any] = []
+        for example in unique:
+            if example.action not in buckets:
+                buckets[example.action] = []
+                order.append(example.action)
+            buckets[example.action].append(example)
+        selected: List["TrainingExample"] = []
+        depth = 0
+        while len(selected) < cap and any(len(buckets[a]) > depth for a in order):
+            for action in order:
+                if depth < len(buckets[action]):
+                    selected.append(buckets[action][depth])
+                    if len(selected) >= cap:
+                        break
+            depth += 1
+        return selected
+
+    positives = _spread([e for e in signature_basis if e.positive], _BASIS_POSITIVES)
+    negatives = _spread([e for e in signature_basis if not e.positive], _BASIS_NEGATIVES)
+    contrastives = _spread(list(contrastive), _BASIS_CONTRASTIVE)
+    return positives + negatives + contrastives
+
+
+def _relevant_frame(basis: List["TrainingExample"]) -> List["TrainingExample"]:
+    """Scope each demonstration to the object the action transforms.
+
+    A full-world observation makes Plotkin LGG explode (w facts of a predicate
+    over n positives -> w**n body literals). An operator is about the object it
+    changes -- the term shared by the action's ADD and DELETE effects -- so each
+    demonstration's LEARNING state is restricted to facts mentioning that object.
+    Held-out validation is left on the FULL world, so a scoped rule must still
+    fire in reality.
+    """
+    tallies: Dict[int, int] = {}
+    acted_positives = 0
+    for example in basis:
+        if example.action is None or not example.positive:
+            continue
+        acted_positives += 1
+        added = set(example.after) - set(example.before)
+        deleted = set(example.before) - set(example.after)
+        persistent = ({t for fact in added for t in fact.args}
+                      & {t for fact in deleted for t in fact.args})
+        for index, arg in enumerate(example.action.args):
+            if arg in persistent:
+                tallies[index] = tallies.get(index, 0) + 1
+    if not tallies:
+        return basis
+    object_positions = {i for i, count in tallies.items()
+                        if count * 2 >= acted_positives}
+    if not object_positions:
+        object_positions = {max(tallies, key=lambda i: tallies[i])}
+
+    def scoped(example: "TrainingExample") -> "TrainingExample":
+        if example.action is None:
+            return example
+        anchors = {example.action.args[i] for i in object_positions
+                   if i < len(example.action.args)}
+        if not anchors:
+            return example
+        before = tuple(f for f in example.before if set(f.args) & anchors)
+        after = tuple(f for f in example.after if set(f.args) & anchors)
+        if not before and not after:
+            return example
+        from dataclasses import replace
+        return replace(example, before=before, after=after)
+
+    return [scoped(example) for example in basis]
+
+
+class ContributionKind(Enum):
+    """What a contributor is offering. None of these are evidence."""
+    HYPOTHESIS = "hypothesis"          # a candidate rule to consider
+    SITUATION = "situation"            # an experiment worth running
+    FORMALIZATION = "formalization"    # a structure read out of unstructured input
+    LESSON = "lesson"                  # teaching material
+
+
+from dataclasses import dataclass as _dataclass, field as _field
+
+
+@_dataclass(frozen=True)
+class Contribution:
+    """An offer from a proposer. Carries no confidence, deliberately: a
+    proposer's certainty about its own output is not a measurement of the world,
+    and admitting one would let a fluent contributor grade its own work."""
+    contributor: str
+    kind: ContributionKind
+    payload: Any
+    rationale: str = ""
+    domain_id: Optional[str] = None
+
+
+@_dataclass
+class Admission:
+    """What the authority did with a contribution, and why."""
+    accepted: bool
+    reason: str
+    contributor: str
+    kind: ContributionKind
+    #: Always CANDIDATE when accepted. A contribution cannot arrive validated.
+    status: Optional["EpistemicStatus"] = None
+    rule_id: Optional[str] = None
+
+    @property
+    def is_knowledge(self) -> bool:
+        """Never true on admission. Present so callers cannot forget to ask."""
+        return self.status is EpistemicStatus.VALIDATED
+
+
+class UnifiedLearningSystem(ILearningAuthority, ILearningSystem):
     """Unified learning system that coordinates all learning components"""
     
     def __init__(self, config: Optional[Dict[str, Any]] = None, domain_master=None):
+        # The authority core: what owns the rule store, the inducer, and the
+        # propose/attest boundary. This class IS the learning authority (its
+        # induction/contribute methods are below), so these back its own state.
+        self._store: Any = None
+        self._inducer: Any = None
+        self._contributors: Dict[str, str] = {}
+        self._admissions: List["Admission"] = []
         self.config = config or {}
         self.domain_master = domain_master
         self.initialized = False
 
         # Initialize components
         self.memory_system = None  # Will be injected by main.py
-        self.llm_service = None  # Will be injected by main.py
         meta_db_path = config.get('meta_learning_db_path', 'meta_learning.db') if config else 'meta_learning.db'
         # Use global MetaLearner singleton so meta-learning is shared
         self.meta_learning = get_meta_learner(config=self.config.get("meta_learning_config"))
@@ -158,9 +316,6 @@ class UnifiedLearningSystem(ILearningSystem):
         # Logging Database - For comprehensive learning activity logging (compliance & accountability)
         self.log_db = LoggingDatabase()
         # Note: Will be initialized in async start() method
-
-        # Initialize the teacher model - Unified LLM Service
-        self.llm_service = None  # Initialized in async start()
 
         # System state. The queue is bounded: it used to grow for the life of
         # the process because nothing ever removed from it.
@@ -261,29 +416,9 @@ class UnifiedLearningSystem(ILearningSystem):
             await self.log_db.initialize()
             logger.info("✅ Logging database initialized for learning activity tracking")
 
-            # CRITICAL: Connect to the teacher model - Unified LLM Service
-            logger.info("🎓 Connecting to Unified LLM Service (the teacher model)...")
-            # Resolve lazy import here to avoid circular import at module load time
-            _get = get_llm_service
-            if _get is None:
-                from core.services.unified_llm import get_llm_service as _resolved_get
-                _get = _resolved_get
-
-            # Check if get_llm_service is async
-            if asyncio.iscoroutinefunction(_get):
-                self.llm_service = await _get()  # Await if async
-            else:
-                self.llm_service = _get()  # Call directly if sync
-
-            # Validate teacher-model connection
-            if self.llm_service is None:
-                raise RuntimeError("LLM service returned None")
-
-            # Check is_initialized if it exists
-            if hasattr(self.llm_service, 'is_initialized') and not self.llm_service.is_initialized:
-                raise RuntimeError("LLM service is not initialized")
-                
-            logger.info("✅ Teacher model connected — it proposes; the substrate decides")
+            # The learning system holds no model handle. A language model is the
+            # TEACHER's alone; learning here is substrate-native (it proposes
+            # candidates; evidence attests). Nothing in this file generates.
 
             # CRITICAL: Get memory system if not already set
             if self.memory_system is None:
@@ -335,18 +470,33 @@ class UnifiedLearningSystem(ILearningSystem):
             # CRITICAL: Initialize meta-learning system
             logger.info("Initializing meta-learning system...")
 
-            # Set LLM service on meta-learner BEFORE calling initialize
-            self.meta_learning.llm_service = self.llm_service
-
             await self.meta_learning.initialize()  # This raises on failure
 
             if not self.meta_learning.active:
                 raise RuntimeError("MetaLearningSystem is not active after initialization")
 
-            if self.meta_learning.llm_service is None:
-                raise RuntimeError("MetaLearningSystem has no LLM service connection")
-                
             logger.info("✅ Meta-learning system initialized")
+
+            # The authority's own recognised proposers. contribute() (and
+            # admit_projection) admit a proposal ONLY from a registered
+            # contributor -- an anonymous proposal has no traceable origin and
+            # is rejected. Registration is provenance, not permission to attest:
+            # what is admitted enters as a CANDIDATE with zero evidence, and only
+            # the world attests.
+            #
+            # Only faculties that propose a RULE HYPOTHESIS are named here. The
+            # analogy engine is the one such proposer today: it used to write
+            # projected operators straight into the store, and now proposes them
+            # through admit_projection(). The teacher (llm_teacher) is NOT here
+            # -- it proposes teaching SITUATIONS whose admitted lessons enter as
+            # evidence through induce(), not rule hypotheses -- and the causal
+            # analyzer is NOT here either: it is a diagnostic that reasons via
+            # the neural bridge and writes no rules. Neither bypasses the store,
+            # so neither is a rule contributor.
+            self._contributors.setdefault(
+                "analogical_projection", "structural-analogy operator proposer")
+            logger.info("✅ Learning contributors registered: %s",
+                        ", ".join(sorted(self._contributors)))
 
             self.initialized = True
             logger.info("✅ Unified learning system started successfully")
@@ -881,7 +1031,6 @@ class UnifiedLearningSystem(ILearningSystem):
             "components": {
                 "memory_system": getattr(self.memory_system, 'initialized', False),
                 "meta_learning": getattr(self.meta_learning, 'initialized', False),
-                "llm_service": self.llm_service is not None
             },
             "metrics": self.system_metrics,
             "active_tasks": len(self.active_learning_tasks)
@@ -928,36 +1077,88 @@ class UnifiedLearningSystem(ILearningSystem):
         return await self.learn_from_data(experience, LearningType.CONTINUAL)
     
     async def learn_from_feedback(self, feedback: Dict[str, Any]) -> Any:
-        """Learn from feedback, reading the outcome the feedback states.
+        """A verdict on a claim the substrate already made and already remembers.
 
-        THE FEEDBACK'S OWN OUTCOME WAS UNREADABLE. This wrapped it as
-        `{'feedback': feedback}`, and learn_from_example reads `success`,
-        `accuracy` and `content` from the TOP level -- so they sat one layer
-        down and were never seen. Verified: feedback stating
-        `success=True, accuracy=0.95` was recorded as `success=False,
-        accuracy=0.0`, i.e. INSUFFICIENT_EVIDENCE. Praise and complaint were
-        indistinguishable, and no feedback could ever credit a strategy.
+        IT DOES NOT STORE A MEMORY OF ITS OWN. The interaction it is about
+        already made one (the ingress `_remember`); a second record of the same
+        thing would double-count it and split its evidence. This FLAGS that
+        existing memory -- annotating it, never overwriting it -- and routes the
+        verdict to the right owner.
 
-        The feedback's fields are lifted to the top level, exactly as
-        learn_from_data does with its payload, and the original is kept intact
-        under `feedback` for anything that wants the raw form.
+        It also does NOT push a taught-fact verdict through the strategy-credit
+        lane. A user agreeing or disagreeing with a fact is not evidence about
+        which LEARNING STRATEGY was a good choice, and crediting an arm for it
+        would teach the meta-learner a false relation (the exact defect the
+        credit invariant exists to prevent). A strategy is credited only when
+        the feedback is about a DECIDED action -- it carries a `decision_id`,
+        and then the verdict is that decision's outcome.
+
+        `feedback` keys: `memory_id` (the memory to flag), `success`
+        (True confirms / False corrects), optional `content`/`about`, and --
+        for action feedback only -- `decision_id`, `task_type`, `strategy_type`.
         """
-        payload: Dict[str, Any] = {'feedback': feedback, 'source': 'feedback'}
-        if isinstance(feedback, dict):
-            payload.update({k: v for k, v in feedback.items() if k != 'feedback'})
-        payload.setdefault('type', LearningType.CONTINUAL)
-        if 'content' not in payload:
-            payload['content'] = str(feedback)[:500]
+        if not isinstance(feedback, dict):
+            return {"event_type": "feedback", "memory_flagged": False,
+                    "error": "feedback must be a dict carrying a memory_id"}
 
-        result = await self.learn_from_example(payload)
+        memory_id = feedback.get("memory_id")
+        verdict = bool(feedback.get("success"))
+
+        # 1. FLAG THE EXISTING MEMORY -- merge only, so the claim's content and
+        #    any prior metadata are untouched. `metadata` without merge, and
+        #    `tags`, both REPLACE their column, so neither is used here.
+        flagged = False
+        if memory_id and self.memory_system and hasattr(self.memory_system, "update_memory"):
+            try:
+                flagged = await self.memory_system.update_memory(memory_id, {
+                    "metadata": {"feedback": {
+                        "verdict": "confirmed" if verdict else "corrected",
+                        "surface": feedback.get("content"),
+                        "about": feedback.get("about"),
+                        "at": time.time(),
+                    }},
+                    "metadata.merge": True,
+                })
+            except Exception as error:
+                raise_if_structural(error, "unified_learning_system.learn_from_feedback")
+                logger.warning("feedback flag failed for %s: %s", memory_id, error)
+
+        # NOTE: importance is a PROTECTED field (MemoryAgent gates
+        # importance_score/confidence_score/memory_type behind a capability
+        # token), so a correction does not silently rewrite the memory's weight
+        # here -- that write would be refused and return False, a silent no-op.
+        # The verdict lives in the flag; making a corrected memory actually
+        # recall LESS is recall's job, reading metadata.feedback.verdict, and is
+        # done there deliberately rather than smuggled through the gate.
+
+        # 2. ACTION feedback (a decision was made) credits that decision's
+        #    strategy; taught-fact feedback does not touch the meta-learner.
+        credited = False
+        decision_id = feedback.get("decision_id")
+        task_type = feedback.get("task_type")
+        strategy_type = feedback.get("strategy_type")
+        if decision_id and task_type and strategy_type and self.meta_learning:
+            from core.learning.meta_learning import OutcomeClass, TaskFamily
+            try:
+                family = task_type if isinstance(task_type, TaskFamily) else TaskFamily(str(task_type).lower())
+                await self.meta_learning.track_learning_outcome(
+                    task_type=family, strategy_type=strategy_type,
+                    success=verdict,
+                    performance_score=1.0 if verdict else 0.0,
+                    time_ms=0.0, decision_id=decision_id,
+                    outcome_class=(OutcomeClass.SUCCESS if verdict
+                                   else OutcomeClass.STRATEGY_FAILURE))
+                credited = True
+            except Exception as error:
+                raise_if_structural(error, "unified_learning_system.learn_from_feedback")
+                logger.warning("feedback strategy credit failed: %s", error)
+
         return {
-            'event_id': f"unified_feedback_{int(time.time())}",
-            'event_type': 'feedback',
-            'data': feedback,
-            'outcome': result,
-            'timestamp': time.time(),
-            # As above: was a literal 0.7 on every feedback envelope.
-            'confidence': feedback.get('confidence') if isinstance(feedback, dict) else None,
+            "event_type": "feedback",
+            "memory_id": memory_id,
+            "memory_flagged": flagged,
+            "verdict": "confirmed" if verdict else "corrected",
+            "strategy_credited": credited,
         }
     
     async def transfer_learning(self, source_domain: str, target_domain: str) -> bool:
@@ -1032,8 +1233,6 @@ class UnifiedLearningSystem(ILearningSystem):
             # so all three reported "active" without checking anything. Each is
             # now asked whether it is actually initialised, and None means the
             # component is absent rather than inactive.
-            'llm_service_active': (None if self.llm_service is None
-                                   else bool(getattr(self.llm_service, 'is_initialized', True))),
             'memory_system_active': (None if self.memory_system is None
                                      else bool(getattr(self.memory_system, 'initialized', False))),
             'meta_learning_active': (None if self.meta_learning is None
@@ -1843,6 +2042,427 @@ class UnifiedLearningSystem(ILearningSystem):
                 if self.domain_learning_stats["cross_domain_transfers"] else None),
         }
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # LEARNING AUTHORITY (moved in from the deleted learning_authority.py).
+    # This class IS the authority: it owns the substrate's learners and the
+    # boundary around what may propose. A contributor may PROPOSE (a hypothesis,
+    # a situation, a formalization); it may NOT ATTEST -- nothing it offers is
+    # evidence. Everything admitted through contribute() enters as CANDIDATE with
+    # zero evidence roots; only world-supplied outcomes move it.
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @property
+    def store(self):
+        if self._store is None:
+            self._store = get_rule_store()
+        return self._store
+
+    @property
+    def inducer(self):
+        if self._inducer is None:
+            self._inducer = get_rule_inducer()
+        return self._inducer
+
+    def register_contributor(self, name: str, role: str) -> None:
+        """Named so provenance survives. An anonymous proposal is untraceable."""
+        self._contributors[name] = role
+        logger.info(f"learning contributor registered: {name} ({role})")
+
+    @property
+    def contributors(self) -> Dict[str, str]:
+        return dict(self._contributors)
+
+    def induce(self, examples, target_predicate: Optional[str] = None):
+        """Learn a rule from demonstrations. The world is the only teacher here."""
+        return self.inducer.induce(examples, target_predicate=target_predicate)
+
+    async def record(self, result, examples, *, domain_id: str,
+                     rule_kind: str = "state_transition"):
+        """Persist what induction produced, against the demonstrations that
+        produced it (keyed on the demonstrations, not a bare list of ids)."""
+        return await self.store.record_induction(
+            result, examples, domain_id=domain_id, rule_kind=rule_kind)
+
+    async def record_demonstration(self, example, *, domain_id: str) -> bool:
+        """Keep one executed demonstration; do NOT induce here.
+
+        The hot-path half of learning: the executor calls it right after acting,
+        so it must be cheap. Induction (a hypothesis search) is left to the
+        always-online learner (`reinduce_operator`). Returns whether a new
+        demonstration was written (False if already recorded).
+        """
+        from core.learning.demonstration_store import get_demonstration_store
+        return await get_demonstration_store().append(example, domain_id=domain_id)
+
+    async def reinduce_operator(self, *, domain_id: str, predicate: str,
+                                arity: int) -> Dict[str, Any]:
+        """Re-induce one operator from its accumulated demonstrations, off the
+        hot path, and promote it to executable when independent experience
+        confirms it. The always-online half of learning."""
+        return await self._induce_signature(
+            domain_id=domain_id, predicate=predicate, arity=arity)
+
+    async def drain_pending_induction(self, *, limit: int = 50) -> Dict[str, Any]:
+        """Induce every signature that gathered demonstrations since it was last
+        induced. Acting only RECORDS (and enqueues); this drains the queue. A
+        pending CONTRASTIVE expands to all the domain's signatures. Returns which
+        domains gained a newly executable operator (learning is what changes
+        competence, not the acting that fed it)."""
+        from core.learning.demonstration_store import get_demonstration_store
+
+        demos = get_demonstration_store()
+        pending = await demos.pending_signatures(limit=limit)
+        induced: List[Dict[str, Any]] = []
+        by_domain: Dict[str, bool] = {}
+
+        async def run(domain_id: str, predicate: str, arity: int):
+            outcome = await self._induce_signature(
+                domain_id=domain_id, predicate=predicate, arity=arity)
+            induced.append(outcome)
+            by_domain[domain_id] = by_domain.get(domain_id, False) or bool(
+                outcome.get("executable"))
+
+        for domain_id, predicate, arity in pending:
+            try:
+                if (predicate, arity) == demos.CONTRASTIVE:
+                    for p, a in await demos.signatures(domain_id=domain_id):
+                        if (p, a) != demos.CONTRASTIVE:
+                            await run(domain_id, p, a)
+                else:
+                    await run(domain_id, predicate, arity)
+            finally:
+                await demos.clear_pending(
+                    domain_id=domain_id, predicate=predicate, arity=arity)
+
+        return {"drained": len(pending), "induced": induced, "by_domain": by_domain}
+
+    async def _induce_signature(self, *, domain_id: str, predicate: str,
+                                arity: int) -> Dict[str, Any]:
+        """Load a signature's demonstrations and re-induce its operator. Off the
+        hot path by construction: this is the expensive half. Contrastive
+        negatives from the whole domain enter the basis; the most recent
+        action-ful demonstrations are held back to validate independently."""
+        from core.learning.demonstration_store import get_demonstration_store
+
+        rule_kind = predicate.lower()
+        demos = get_demonstration_store()
+        signature_examples = await demos.load(
+            domain_id=domain_id, predicate=predicate, arity=arity)
+        contrastive = await demos.load_contrastive(domain_id=domain_id)
+
+        positives = [e for e in signature_examples if e.positive]
+        summary: Dict[str, Any] = {
+            "status": "insufficient_evidence",
+            "demonstrations": len(signature_examples),
+            "contrastive": len(contrastive),
+            "positives": len(positives),
+            "domain_id": domain_id,
+            "signature": f"{predicate}/{arity}",
+            "rule_id": None,
+            "executable": False,
+        }
+        if len(positives) < 2:
+            return summary
+
+        signature_basis = list(signature_examples)
+        held_out: List = []
+        while len(held_out) < 2 and len(signature_basis) > 1:
+            if sum(1 for e in signature_basis[:-1] if e.positive) >= 2:
+                held_out.insert(0, signature_basis.pop())
+            else:
+                break
+
+        basis = _relevant_frame(_bounded_basis(signature_basis, contrastive))
+        result = self.induce(basis)
+        summary["status"] = result.status.value
+        if result.status is not InductionStatus.RULE_LEARNED:
+            return summary
+
+        stored = await self.record(
+            result, basis, domain_id=domain_id, rule_kind=rule_kind)
+        if not stored:
+            return summary
+        record = stored[0]
+        summary["rule_id"] = record.rule_id
+
+        if held_out:
+            try:
+                await self.store.validate(record, held_out)
+            except Exception as e:
+                raise_if_structural(e, "unified_learning_system._induce_signature")
+                logger.info("validation of %s deferred: %s", record.rule_id, e)
+
+        promoted = [r for r in await self.store.executable_rules(domain_id=domain_id)
+                    if r.rule_id == record.rule_id]
+        summary["executable"] = bool(promoted)
+        if promoted:
+            projected = await self._project_operator_to_concepts(
+                promoted[0], basis, domain_id=domain_id)
+            summary["projected_to_concepts"] = projected
+        summary["status"] = "operator_executable" if promoted else "operator_candidate"
+        return summary
+
+    async def _project_operator_to_concepts(self, record, basis, *,
+                                            domain_id: str) -> bool:
+        """Record the operator's induction roots in the concept graph, then
+        project the operator itself as a derivative of them, so the operator and
+        concept learning systems meet. Never fatal to learning."""
+        try:
+            from core.domain.concept_ingestion import EvidenceSourceType
+            from core.domain.evidence_producers import (
+                submit_demonstration, submit_learned_rule)
+
+            roots: List[str] = []
+            for example in basis:
+                if example.action is None or not example.evidence_id:
+                    continue
+                await submit_demonstration(
+                    example, domain_id=domain_id,
+                    source_type=EvidenceSourceType.TASK_ARTIFACT,
+                    producer="operator_learning",
+                    source_id=f"{domain_id}:{example.action.predicate}")
+                roots.append(example.evidence_id)
+
+            if not roots:
+                return False
+            await submit_learned_rule(record, roots, producer="operator_learning")
+            return True
+        except Exception as e:
+            raise_if_structural(e, "unified_learning_system._project_operator_to_concepts")
+            logger.info("operator->concept projection deferred for %s: %s",
+                        getattr(record, "rule_id", "?"), e)
+            return False
+
+    def derive_procedure(self, operators, guards, examples, terminal: str = "RESULT",
+                         max_rules: Optional[int] = None):
+        """Derive a length-general procedure from input/output evidence alone --
+        a SECOND ACQUISITION MODE, not a second learner. It can only compose
+        operators already learned, so nothing derived here widens what the
+        substrate can do -- only what it can do in sequence."""
+        from core.learning.procedure_synthesis import (DEFAULT_MAX_RULES,
+                                                       derive_procedure)
+        return derive_procedure(
+            operators, guards, examples, terminal=terminal,
+            max_rules=DEFAULT_MAX_RULES if max_rules is None else max_rules)
+
+    def induce_causal_structure(self, observations):
+        """Learn which conditions gate an outcome, from trials. Owns
+        ProbabilisticVersionSpace (the learner EDU-10/EDU-11 measured). Returns
+        the fitted version space, or None if the trials are unusable."""
+        from itertools import product
+
+        from core.learning.probabilistic_version_space import (
+            ProbabilisticVersionSpace, StructuralHypothesis)
+
+        trials = [o for o in (observations or [])
+                  if isinstance(o, dict) and isinstance(o.get("conditions"), (list, tuple))
+                  and "outcome" in o]
+        if not trials:
+            return None
+
+        conditions: List[str] = []
+        for trial in trials:
+            for condition in trial["conditions"]:
+                if condition not in conditions:
+                    conditions.append(condition)
+        conditions.sort()
+        if not conditions:
+            return None
+
+        space = ProbabilisticVersionSpace(hypotheses=[
+            StructuralHypothesis(
+                frozenset(c for c, a in zip(conditions, assignment) if a == 1),
+                frozenset(c for c, a in zip(conditions, assignment) if a == 2))
+            for assignment in product((0, 1, 2), repeat=len(conditions))])
+
+        for trial in trials:
+            outcome = trial["outcome"]
+            if outcome is None:
+                space.observe(frozenset(trial["conditions"]), "unknown")
+            else:
+                space.observe(frozenset(trial["conditions"]),
+                              "success" if outcome else "failure")
+        return space
+
+    def induce_sequence_rule(self, terms):
+        """Learn the rule behind a numeric sequence, and what comes next.
+        Delegates to RuleInducer (no second numeric learner). Returns
+        (InductionResult, next_value); next_value is None whenever the induced
+        rule does not determine one (MULTIPLE_HYPOTHESES is a real answer)."""
+        from core.learning.rule_induction import (Fact, InductionStatus,
+                                                  TrainingExample,
+                                                  arithmetic_background,
+                                                  canonical_term, is_number)
+        from core.reasoning.unification import match_body
+
+        values = [canonical_term(str(t)) for t in (terms or [])]
+        if len(values) < 3 or not all(is_number(v) for v in values):
+            return None, None
+
+        examples = []
+        for before, after in zip(values, values[1:]):
+            background = tuple(arithmetic_background([before, after]))
+            examples.append(TrainingExample(
+                before=(Fact("CURRENT", (before,)), Fact("ADVANCE", ())) + background,
+                action=Fact("ADVANCE", ()),
+                after=(Fact("CURRENT", (after,)),) + background,
+                positive=True))
+            wrong = canonical_term(str(float(after) + 1))
+            examples.append(TrainingExample(
+                before=(Fact("CURRENT", (before,)), Fact("ADVANCE", ()))
+                       + tuple(arithmetic_background([before, wrong])),
+                action=Fact("ADVANCE", ()),
+                after=(Fact("CURRENT", (after,)),),
+                positive=False))
+
+        result = self.inducer.induce(examples)
+        if result.status is not InductionStatus.RULE_LEARNED or not result.rule:
+            return result, None
+
+        last = values[-1]
+        state = set(arithmetic_background([last])) | {
+            Fact("CURRENT", (last,)), Fact("ADVANCE", ())}
+        for literal in result.rule.body:
+            if literal.predicate in ("PLUS", "TIMES") and len(literal.args) == 3:
+                step = literal.args[1]
+                if not is_number(step):
+                    continue
+                base, factor = float(last), float(step)
+                nxt = base + factor if literal.predicate == "PLUS" else base * factor
+                state.add(Fact(literal.predicate,
+                               (last, step, canonical_term(str(nxt)))))
+
+        for bindings in match_body(result.rule.body, frozenset(state)):
+            for effect in result.rule.effects.substitute(bindings).add:
+                if effect.predicate == "CURRENT" and effect.is_ground:
+                    return result, effect.args[0]
+        return result, None
+
+    # ---- the contribution boundary --------------------------------------
+
+    async def contribute(self, contribution: "Contribution") -> "Admission":
+        """Admit a proposal -- as a CANDIDATE carrying no evidence, or not at
+        all. A rejected contribution is not an error; declining is the common
+        case. What must never happen is a contribution arriving with any status
+        other than CANDIDATE."""
+        if contribution.contributor not in self._contributors:
+            admission = Admission(
+                False, "contributor is not registered; a proposal with no "
+                       "traceable origin cannot be admitted",
+                contribution.contributor, contribution.kind)
+            self._admissions.append(admission)
+            return admission
+
+        if contribution.kind is not ContributionKind.HYPOTHESIS:
+            admission = Admission(
+                True, "accepted as a proposal; not stored as knowledge",
+                contribution.contributor, contribution.kind)
+            self._admissions.append(admission)
+            return admission
+
+        rule = contribution.payload
+        if not isinstance(rule, CandidateRule):
+            admission = Admission(
+                False, f"hypothesis payload is {type(rule).__name__}, not a CandidateRule",
+                contribution.contributor, contribution.kind)
+            self._admissions.append(admission)
+            return admission
+
+        try:
+            stored = await self.store.record_induction(
+                rule,
+                domain_id=contribution.domain_id or "unassigned",
+                evidence_ids=[],
+            )
+        except Exception as e:
+            raise_if_structural(e, "unified_learning_system.contribute")
+            admission = Admission(False, f"could not record proposal: {e}",
+                                  contribution.contributor, contribution.kind)
+            self._admissions.append(admission)
+            return admission
+
+        admission = Admission(
+            True, "admitted as CANDIDATE with no evidence roots",
+            contribution.contributor, contribution.kind,
+            status=EpistemicStatus.CANDIDATE,
+            rule_id=getattr(stored, "rule_id", None))
+        self._admissions.append(admission)
+        return admission
+
+    async def admit_projection(self, projection, *, contributor: str,
+                               rule_kind: str = "projected") -> "Admission":
+        """Admit an analogically-projected operator through the ONE boundary.
+
+        A projection is a HYPOTHESIS like any other contribution -- analogy
+        proposes, only target-domain evidence attests -- so it enters as a
+        CANDIDATE with zero evidence roots and cannot reach executable authority
+        except through `validate()`. It gets its own entry point rather than
+        going through `contribute()` for one reason: `record_projection` also
+        writes the element-level provenance (`rule_projections`) that lets a
+        later contradiction be blamed on the specific correspondence that was
+        wrong. A bare CandidateRule contribution would drop that, so the
+        authority delegates to the projection recorder while still enforcing the
+        same rule it enforces for contribute(): the proposer must be registered,
+        and nothing arrives above CANDIDATE.
+        """
+        if contributor not in self._contributors:
+            admission = Admission(
+                False, "contributor is not registered; a projection with no "
+                       "traceable origin cannot be admitted",
+                contributor, ContributionKind.HYPOTHESIS)
+            self._admissions.append(admission)
+            return admission
+
+        if not getattr(projection, "is_proposable", False):
+            admission = Admission(
+                False, f"{getattr(projection, 'outcome', '?')} is not proposable; "
+                       "a partial operator would be tested and the world's answer "
+                       "attributed to a rule the analogy never claimed",
+                contributor, ContributionKind.HYPOTHESIS)
+            self._admissions.append(admission)
+            return admission
+
+        try:
+            stored = await self.store.record_projection(projection, rule_kind=rule_kind)
+        except Exception as e:
+            raise_if_structural(e, "unified_learning_system.admit_projection")
+            admission = Admission(False, f"could not record projection: {e}",
+                                  contributor, ContributionKind.HYPOTHESIS)
+            self._admissions.append(admission)
+            return admission
+
+        admission = Admission(
+            True, "projection admitted as CANDIDATE with no evidence roots",
+            contributor, ContributionKind.HYPOTHESIS,
+            status=EpistemicStatus.CANDIDATE,
+            rule_id=getattr(stored, "rule_id", None))
+        self._admissions.append(admission)
+        return admission
+
+    @property
+    def admissions(self) -> List["Admission"]:
+        """The full record, accepted and rejected alike."""
+        return list(self._admissions)
+
+    async def rules(self, domain_id: Optional[str] = None):
+        return await self.store.load(domain_id=domain_id)
+
+    async def metrics(self) -> Dict[str, Any]:
+        accepted = [a for a in self._admissions if a.accepted]
+        return {
+            "contributors": self.contributors,
+            "contributions_seen": len(self._admissions),
+            "contributions_accepted": len(accepted),
+            "contributions_promoted_to_knowledge": sum(
+                1 for a in accepted if a.is_knowledge),
+        }
+
+    async def shutdown(self) -> None:
+        """Lifecycle teardown. The authority owns no long-lived async resources
+        of its own -- persistence is delegated to the demonstration/rule stores,
+        torn down with the database pool. Honest no-op."""
+        return None
+
 
 # Singleton instance
 _unified_learning_system = None
@@ -1854,3 +2474,11 @@ def get_unified_learning_system() -> UnifiedLearningSystem:
     if _unified_learning_system is None:
         _unified_learning_system = UnifiedLearningSystem()
     return _unified_learning_system
+
+
+def get_learning_authority() -> UnifiedLearningSystem:
+    """The one learning authority. `UnifiedLearningSystem` IS the authority now
+    (the model-free ILearningAuthority implementation was folded into this class
+    and learning_authority.py deleted), so this and `get_unified_learning_system`
+    return the same object."""
+    return get_unified_learning_system()

@@ -37,7 +37,6 @@ from datetime import datetime, timedelta
 
 # Memory storage implementations
 from core.memory.storage.postgres_storage import PostgresStorage
-from core.model_policy import ModelUseForbidden
 from core.memory.utils.embedding_service import (
     EmbeddingService,
     get_embedding_service
@@ -117,6 +116,12 @@ class MemoryAgent(IMemoryConsolidation):
             'last_skip_reason':          None,
         }
         self._abstraction_running: bool = False
+        #: EVENT-TRIGGER state for abstraction. Abstraction is no longer a 4h
+        #: poll — it fires when enough NEW episodic memories have accumulated.
+        #: The write path only counts and (past threshold) schedules a
+        #: background job on the queue authority; it never reasons inline.
+        self._new_episodic_since_abstraction: int = 0
+        self._abstraction_trigger_scheduled: bool = False
 
         # Performance metrics
         self.metrics = {
@@ -178,53 +183,28 @@ class MemoryAgent(IMemoryConsolidation):
             except Exception as e:
                 logger.error(f"Failed to initialize embedding service: {e}")
 
-            # Initialize PostgreSQL query agent (hot and cold tier queries)
-            try:
-                from core.memory.query.postgres_query_agent import get_query_agent
-                self.postgres_query_agent = await get_query_agent()
-                logger.info("✓ PostgreSQL query agent initialized")
-            except Exception:
-                logger.error("Failed to initialize PostgreSQL query agent")
+            # NO separate query agent. MemoryAgent IS the query authority --
+            # `retrieve` (multi-strategy recall), `search_memories`, and
+            # `query_by_tags` are its surface. The old `PostgresQueryAgent` was
+            # assigned to `self.postgres_query_agent` here and never read again,
+            # a dead duplicate over the same PostgresStorage; it has been deleted.
 
             # Verify PostgreSQL storage is available
             if not self.postgres_storage:
                 logger.error("PostgreSQL storage not available - MemoryAgent cannot function")
                 return False
 
-            # Initialize hierarchical abstraction pipeline
-            try:
-                from core.reasoning.bayesian_uncertainty import get_bayesian_uncertainty
-                from core.reasoning.hierarchical_abstraction import initialize_abstraction_pipeline
-
-                # ONE BELIEF GRAPH, NOT TWO. This constructed its own
-                # BayesianUncertaintySystem, so the process carried two: the
-                # singleton that epistemic_engine restores from PostgreSQL, and
-                # this private empty one.
-                #
-                # Everything downstream of here used the empty copy. The
-                # reflection loop applied temporal decay, consistency checks and
-                # volatility updates to a belief set with nothing in it, and the
-                # abstraction pipeline was handed the same. Measured: singleton
-                # 10 beliefs after load_from_db, this instance 0 -- while the
-                # real graph held beliefs revised over 333 updates.
-                self.bayesian_beliefs = get_bayesian_uncertainty()
-
-                # Beliefs are persisted but were never read back here, so
-                # epistemic state did not survive a restart on this path.
-                try:
-                    await self.bayesian_beliefs.load_from_db()
-                    logger.info("✓ Restored %d persisted beliefs",
-                                self.bayesian_beliefs.get_statistics()['active_beliefs'])
-                except Exception as e:
-                    logger.warning(f"Belief restore failed: {type(e).__name__}: {e}")
-
-                self.abstraction_pipeline = initialize_abstraction_pipeline(
-                    memory_agent=self,
-                    uncertainty_system=self.bayesian_beliefs
-                )
-                logger.info("✓ Hierarchical abstraction pipeline initialized")
-            except Exception as e:
-                logger.warning(f"Hierarchical abstraction not available: {e}")
+            # Abstraction + belief are REASONING — the reasoning authority owns
+            # and constructs them now (NeuralSymbolicBridge.initialize), not the
+            # memory agent. The memory agent no longer builds its own pipeline or
+            # belief graph (the duplicate-authority defect this used to be). When
+            # it has new episodic memories worth abstracting, it ASKS the
+            # authority (see form_abstractions_if_due -> bridge.abstract_over_memories
+            # and reflect_on_beliefs -> bridge.reflect). Left None here; a lazy
+            # `_reasoning_authority()` reaches the bridge at call time (the bridge
+            # initializes after the memory agent, so it cannot be fetched here).
+            self.bayesian_beliefs = None
+            self.abstraction_pipeline = None
 
             self.initialized = True
             logger.info("MemoryAgent initialized successfully")
@@ -648,9 +628,14 @@ class MemoryAgent(IMemoryConsolidation):
         # description. raw_event, task_state and goal_state stay caller-supplied:
         # only the caller knows them, and inventing them here would be the same
         # error as a constant decision rationale.
-        if self.bayesian_beliefs is not None:
+        # Read the live belief graph via its singleton (the reasoning authority
+        # owns it; the memory agent no longer constructs it, but this is a
+        # reading, not driving).
+        from core.reasoning.bayesian_uncertainty import get_bayesian_uncertainty
+        _beliefs = get_bayesian_uncertainty()
+        if _beliefs is not None:
             try:
-                _bstats = self.bayesian_beliefs.get_statistics()
+                _bstats = _beliefs.get_statistics()
                 if thinking_state is None:
                     thinking_state = {}
                 thinking_state.setdefault("belief_state", {
@@ -785,34 +770,14 @@ class MemoryAgent(IMemoryConsolidation):
                 if _tag not in tags:
                     tags.append(_tag)
 
-        # A REFUSED EMBEDDING IS AN ABSENT EMBEDDING, NOT A FAILED STORE.
-        #
-        # This line already treats "no embedding service" as fine -- it yields
-        # None and the memory is stored unvectorised. What it did not handle was
-        # the service being PRESENT and REFUSING: `generate_embedding` calls
-        # `guard_model_use`, which raises `ModelUseForbidden` under
-        # STRICT_MODEL_FREE, and that propagated out of `store_memory` and lost
-        # the memory entirely.
-        #
-        # Measured: the whole chain succeeded -- worthiness computed, filter
-        # ACCEPTED, no duplicate found, memory id minted -- and then the store
-        # failed at the last step, so a model-free run reasoned normally and
-        # remembered nothing. Memory not depending on a model is the point of
-        # it; an experiment that silently accumulates no record cannot support
-        # any claim about what was remembered.
-        #
-        # The vector is a RETRIEVAL AID, not the memory. Without it the record
-        # is still stored, still readable, still exact-matchable; only semantic
-        # search over it is unavailable until one is backfilled. Losing the
-        # record instead is strictly worse than losing the aid.
+        # AN ABSENT EMBEDDING IS NOT A FAILED STORE. The vector is a RETRIEVAL
+        # AID, not the memory: without it the record is still stored, readable,
+        # and exact-matchable; only semantic search over it waits for a backfill.
+        # generate_embedding returns None on any failure, so the store proceeds
+        # unvectorised rather than losing the record.
         embedding = None
         if self.embedding_service:
-            try:
-                embedding = self.embedding_service.generate_embedding(content)
-            except ModelUseForbidden:
-                logger.info(
-                    "storing %s without a vector: embedding refused by policy",
-                    memory_id)
+            embedding = self.embedding_service.generate_embedding(content)
         logger.debug(f"[EMBEDDING DEBUG] Embedding service available: {self.embedding_service is not None}")
         logger.debug(f"[EMBEDDING DEBUG] Generated embedding: {embedding is not None}, size: {len(embedding) if embedding else 0}")
 
@@ -861,6 +826,11 @@ class MemoryAgent(IMemoryConsolidation):
                 self.metrics["memories_stored"] += 1
                 logger.info(f"Memory {memory_id} stored to hot tier (filtered)")
                 logger.debug(f"[MEMORY_AGENT.STORE_MEMORY] ✓ SUCCESS - Memory {memory_id} stored")
+                # EVENT: a new episodic memory is what abstraction feeds on.
+                # Count it (and, past threshold, schedule abstraction on the
+                # queue authority). Cheap — never reasons on the write path.
+                if memory_type == MemoryType.EPISODIC:
+                    self.note_episodic_stored()
                 return True, memory_id
             else:
                 logger.error(f"Failed to store memory {memory_id}")
@@ -873,6 +843,135 @@ class MemoryAgent(IMemoryConsolidation):
             import traceback
             traceback.print_exc()
             return False, None
+
+    async def capture_task_outcome(
+        self,
+        task: Any,
+        *,
+        result: Optional[Dict[str, Any]] = None,
+        success: bool = True,
+        confidence: float = 1.0,
+    ) -> Optional[str]:
+        """Capture a completed task's outcome as durable memory — the SEMANTIC
+        knowledge it produced and the PROCEDURAL tool-sequence it followed.
+
+        Two distinct, retrievable artifacts, both owned by memory (the authority):
+          • SEMANTIC — WHAT the task learned, found, produced, or concluded. The
+            rich knowledge future tasks retrieve. Distinct from the META
+            performance record the coordinator also stores.
+          • PROCEDURAL — the tool SEQUENCE and which tools were effective vs
+            failed, so similar tasks can replicate or avoid the approach.
+
+        Task execution hands its outcome here; the memory agent composes and
+        stores both. MODEL-FREE: the substrate's executor already produces a
+        structured result (summary, key_findings, tool_results, files_created),
+        so both artifacts are assembled from those fields directly — no
+        compression model, no conversation transcript. Each artifact is skipped
+        honestly when the result carries nothing for it, rather than storing an
+        empty record. Returns the semantic memory id when one was stored, else
+        the procedural id, else None.
+        """
+        try:
+            from core.memory.utils.interfaces import MemoryType
+
+            result = result or {}
+            summary = (result.get("summary") or result.get("result_summary") or "").strip()
+            key_findings = [str(f).strip() for f in (result.get("key_findings") or []) if str(f).strip()]
+            files_created = [str(f) for f in (result.get("files_created") or []) if str(f).strip()]
+            tool_results = result.get("tool_results") or []
+            iterations = int(result.get("iterations", 0) or 0)
+            duration = result.get("duration_seconds", result.get("duration", 0)) or 0
+
+            outcome_label = "SUCCESS" if success else "FAILURE"
+            task_type = getattr(getattr(task, "type", None), "value", None) or getattr(task, "task_type", None)
+            task_type_str = str(task_type) if task_type else "general"
+            description = str(getattr(task, "description", str(task)))
+            task_id = getattr(task, "id", None)
+            tid8 = str(task_id or "?")[:8]
+
+            semantic_id: Optional[str] = None
+            procedural_id: Optional[str] = None
+
+            # ── SEMANTIC: the knowledge produced ──────────────────────────────
+            # Skipped when there is nothing to know (no summary, no findings).
+            if summary or key_findings:
+                lines = [f"Task ({task_type_str}) [{outcome_label}]: {description[:400]}"]
+                lines.append(f"Execution: {iterations} iteration(s), {duration}s, confidence {confidence:.0%}")
+                if summary:
+                    lines.append(f"\nSummary:\n{summary[:1000]}")
+                if key_findings:
+                    lines.append("\nKey findings:\n" + "\n".join(f"- {f}" for f in key_findings[:12]))
+                if files_created:
+                    lines.append("\nFiles produced:\n" + "\n".join(f"- {f}" for f in files_created[:12]))
+                importance = min(0.6 + (0.2 if success else 0.0) + min(iterations * 0.01, 0.1), 1.0)
+                tags = ["semantic", "task_knowledge", "success" if success else "failure"]
+                if task_type:
+                    tags.append(str(task_type).lower())
+                stored, mid = await self.store_memory(
+                    content="\n".join(lines),
+                    memory_type=MemoryType.SEMANTIC,
+                    importance_score=importance,
+                    confidence_score=confidence,
+                    tags=tags,
+                    source_context={
+                        "source": "memory_agent.capture_task_outcome",
+                        "memory_class": "semantic_task_knowledge",
+                        "task_id": task_id, "task_type": task_type_str,
+                        "success": success, "iterations": iterations,
+                        "duration_seconds": duration, "model_free": True,
+                    },
+                )
+                if stored:
+                    semantic_id = mid
+                    logger.info(f"✓ Semantic task knowledge stored: task={tid8} memory_id={mid}")
+
+            # ── PROCEDURAL: the tool sequence followed ────────────────────────
+            # Skipped when no tools were used (nothing procedural to record).
+            tool_names = [str(r.get("tool") or r.get("name")) for r in tool_results
+                          if isinstance(r, dict) and (r.get("tool") or r.get("name"))]
+            if tool_names:
+                effective = [str(r.get("tool") or r.get("name")) for r in tool_results
+                             if isinstance(r, dict) and r.get("success")]
+                failed = [str(r.get("tool") or r.get("name")) for r in tool_results
+                          if isinstance(r, dict) and r.get("success") is False]
+                pcontent = (
+                    f"Task [{outcome_label}]: {description[:400]}\n\n"
+                    f"Tool sequence ({iterations} iteration(s), {duration}s): "
+                    f"{' → '.join(tool_names)}\n"
+                )
+                if effective:
+                    pcontent += f"Effective tools: {', '.join(dict.fromkeys(effective))}\n"
+                if failed:
+                    pcontent += f"Failed tools: {', '.join(dict.fromkeys(failed))}\n"
+                if summary:
+                    pcontent += f"\nOutcome: {summary[:300]}"
+                pimportance = min(0.5 + (0.3 if success else 0.1) + min(len(tool_names) * 0.02, 0.2), 1.0)
+                ptags = ["procedural", "task_execution", outcome_label.lower()]
+                if task_type:
+                    ptags.append(str(task_type).lower())
+                pstored, pmid = await self.store_memory(
+                    content=pcontent,
+                    memory_type=MemoryType.PROCEDURAL,
+                    importance_score=pimportance,
+                    confidence_score=confidence,
+                    tags=ptags,
+                    source_context={
+                        "source": "memory_agent.capture_task_outcome",
+                        "memory_class": "procedural_task_execution",
+                        "task_id": task_id, "task_type": task_type_str,
+                        "success": success, "iterations": iterations,
+                        "tools_used": list(dict.fromkeys(tool_names)), "model_free": True,
+                    },
+                )
+                if pstored:
+                    procedural_id = pmid
+                    logger.debug(f"Procedural task memory stored: task={tid8} memory_id={pmid}")
+
+            return semantic_id or procedural_id
+
+        except Exception as e:
+            logger.error(f"capture_task_outcome failed: {type(e).__name__}: {e}")
+            return None
 
     async def store_batch(self, memories: List[MemoryItem]) -> Tuple[bool, int]:
         """
@@ -2088,34 +2187,32 @@ class MemoryAgent(IMemoryConsolidation):
                     or float(m.similarity_score) >= cut
                 }
 
-        # HOW WELL IT MATCHES OUTRANKS HOW IMPORTANT IT IS.
+        # RELEVANCE FIRST. How well a memory matches THIS question decides its
+        # rank; corroboration and importance only separate memories that match
+        # equally well. This is the one place recall is ordered -- the single
+        # authority for it -- so the ordering is decided here on the evidence
+        # about the question asked, not re-decided downstream on properties of
+        # the memory.
         #
-        # Corroboration first, as documented: a memory two strategies found is
-        # better evidence than one. But the tie-break inside a corroboration
-        # tier was IMPORTANCE, and importance is a property of the memory, not
-        # of the question -- so the most important memory in the store won
-        # every tie regardless of what was asked. Measured on the live store:
-        # "what is a load balancer" returned the load-balancer memory at
-        # similarity 0.839 and ranked it SECOND, beneath an unrelated memory
-        # matching at 0.204 whose importance was 0.82 against 0.70.
-        #
-        # A retrieval that answers with the store's most important memory no
-        # matter the query is not retrieval. Similarity is the evidence about
-        # THIS question and now breaks the tie; importance only separates two
-        # memories that match equally well.
-        #
-        # Strategies that do not produce a similarity (keyword, tags) are
-        # scored at the floor they had to clear: they qualified, and how well
-        # is unknown -- which must not be read as either a strong or a weak
-        # match.
+        # Similarity is that evidence. Corroboration (how many strategies found
+        # it) is a weaker co-signal -- the keyword strategy is a verbatim match,
+        # so it rarely corroborates and cannot be the primary key -- and
+        # importance is a property of the memory, not the question, so the most
+        # important memory in the store must not win a query it barely matches.
+        # Measured on the live store: "what is a load balancer" matched the
+        # load-balancer memory at 0.839 while an unrelated memory matched at
+        # 0.204; relevance-first ranks the right one first, importance-first did
+        # not. Keyword/tags carry no similarity -- they qualified against a floor
+        # and how well is unknown -- so they are scored at that floor, read as
+        # neither a strong nor a weak match.
         def _match_strength(m) -> float:
             score = getattr(m, "similarity_score", None)
             return float(score) if score is not None else float(min_similarity)
 
         ranked = sorted(
             merged.values(),
-            key=lambda m: (len(found_by.get(m.memory_id, ())),
-                           _match_strength(m),
+            key=lambda m: (_match_strength(m),
+                           len(found_by.get(m.memory_id, ())),
                            m.importance_score or 0.0),
             reverse=True,
         )
@@ -3387,17 +3484,17 @@ class MemoryAgent(IMemoryConsolidation):
 
         logger.info("🧠 Starting autonomous memory loops (persistent cognition)")
 
-        # Start all three loops as independent background tasks
+        # Only MAINTENANCE is a timer now — it is memory-store hygiene
+        # (consolidation, hot→cold migration, decay), the memory agent's own
+        # concern. ABSTRACTION and REFLECTION are REASONING: they are owned by
+        # the reasoning authority and fire on EVENTS (episodic-memory
+        # accumulation → abstraction → belief churn → reflection), not on a
+        # 4h/24h clock. See _maybe_trigger_abstraction.
         self.maintenance_loop_active = True
-        self.abstraction_loop_active = True
-        self.reflection_loop_active = True
-
-        # Launch continuous loops in parallel
         asyncio.create_task(self._maintenance_loop())
-        asyncio.create_task(self._abstraction_loop())
-        asyncio.create_task(self._reflection_loop())
 
-        logger.info("✅ Memory loops started: maintenance (1h), abstraction (4h), reflection (24h)")
+        logger.info("✅ Memory maintenance loop started (1h); abstraction + "
+                    "reflection are event-triggered via the reasoning authority")
 
     async def stop_memory_loops(self):
         """Stop all memory loops gracefully"""
@@ -3451,84 +3548,46 @@ class MemoryAgent(IMemoryConsolidation):
                 # Continue after error
                 await asyncio.sleep(maintenance_interval)
 
-    async def _abstraction_loop(self):
-        """
-        Continuous abstraction formation loop (runs every 4 hours)
-
-        Responsibilities:
-        - Extract patterns from episodic memories (Level 0 → Level 1)
-        - Form schemas from patterns (Level 1 → Level 2)
-        - Derive principles from schemas (Level 2 → Level 3)
-        - Apply decay to existing abstractions
-        """
-        logger.info("🧩 Abstraction formation loop started (interval: 4 hours)")
-
-        abstraction_interval = 14400  # 4 hours in seconds
-
-        while self.abstraction_loop_active:
+    def note_episodic_stored(self, n: int = 1) -> None:
+        """Count newly-stored episodic memories and, past the abstraction
+        threshold, SCHEDULE (never run inline) abstraction on the queue
+        authority's background budget. Called from the store path — it must stay
+        cheap: it counts and, at most, submits one bg job. This is the EVENT
+        that drives abstraction, replacing the old 4h poll."""
+        self._new_episodic_since_abstraction += max(1, int(n))
+        if (self._new_episodic_since_abstraction >= self.ABSTRACTION_MIN_NEW_MEMORIES
+                and not self._abstraction_trigger_scheduled
+                and not self._abstraction_running):
+            self._abstraction_trigger_scheduled = True
             try:
-                logger.info("🧩 Running abstraction formation cycle...")
+                from core.agents.autonomous.queue_authority import get_queue_authority
+                get_queue_authority().submit(
+                    self._run_abstraction_then_reflect,
+                    name="memory:abstract_then_reflect")
+            except Exception as e:
+                # If scheduling fails, do not lose the trigger — leave the flag
+                # down so the next episodic store retries. Surfaced, not faked.
+                self._abstraction_trigger_scheduled = False
+                logger.error("could not schedule abstraction trigger: %s", e)
 
-                # Form abstractions
-                await self.form_abstractions()
-
-                # Update metrics
+    async def _run_abstraction_then_reflect(self) -> Dict[str, Any]:
+        """Background job: ask the reasoning authority to abstract over the new
+        episodic memories, and — only if that produced belief churn (new
+        schemas) — ask it to reflect. Event-chained: reflection follows
+        abstraction, not a 24h timer."""
+        try:
+            self._new_episodic_since_abstraction = 0
+            report = await self.form_abstractions_if_due()
+            if report.get('ran'):
                 self.metrics['abstractions_formed'] += 1
-
-                logger.info(f"✅ Abstraction cycle complete (total: {self.metrics['abstractions_formed']})")
-
-                # Wait for next cycle
-                await asyncio.sleep(abstraction_interval)
-
-            except asyncio.CancelledError:
-                logger.info("Abstraction loop cancelled")
-                break
-            except Exception as e:
-                logger.error(f"Abstraction loop error: {e}")
-                import traceback
-                traceback.print_exc()
-                # Continue after error
-                await asyncio.sleep(abstraction_interval)
-
-    async def _reflection_loop(self):
-        """
-        Continuous cognitive reflection loop (runs every 24 hours)
-
-        Responsibilities:
-        - Apply temporal decay to beliefs (prevent epistemic ossification)
-        - Check belief consistency and propagate constraints
-        - Apply decay to schemas and principles
-        - Run counterfactual stress tests on fragile schemas
-        - Update domain volatility metrics
-        """
-        logger.info("🔮 Cognitive reflection loop started (interval: 24 hours)")
-
-        reflection_interval = 86400  # 24 hours in seconds
-
-        while self.reflection_loop_active:
-            try:
-                logger.info("🔮 Running cognitive reflection cycle...")
-
-                # Reflect on beliefs
+            # Reflection follows belief churn: run it when abstraction actually
+            # formed schemas (which create/update beliefs).
+            if report.get('ran') and report.get('schemas_formed', 0) > 0:
                 await self.reflect_on_beliefs()
-
-                # Update metrics
                 self.metrics['beliefs_updated'] += 1
-
-                logger.info(f"✅ Reflection cycle complete (total: {self.metrics['beliefs_updated']})")
-
-                # Wait for next cycle
-                await asyncio.sleep(reflection_interval)
-
-            except asyncio.CancelledError:
-                logger.info("Reflection loop cancelled")
-                break
-            except Exception as e:
-                logger.error(f"Reflection loop error: {e}")
-                import traceback
-                traceback.print_exc()
-                # Continue after error
-                await asyncio.sleep(reflection_interval)
+            return report
+        finally:
+            self._abstraction_trigger_scheduled = False
 
     # ================================================================================================
     # MEMORY MAINTENANCE OPERATIONS
@@ -3557,7 +3616,26 @@ class MemoryAgent(IMemoryConsolidation):
 
             logger.info(f"Consolidating memories (migrating older than {hot_tier_cutoff.date()})...")
 
-            # Migrate old memories from hot to cold tier
+            # Clean up low-importance expired memories FIRST (importance < 0.2,
+            # age > 180 days). This MUST precede migration: migration moves
+            # everything older than 60 days to the cold tier, so if it ran first
+            # the 180-day low-importance rows would already be in cold and
+            # cleanup (which scans the HOT tier) would never find them — the
+            # cleanup was effectively dead. Deleting them from hot first, then
+            # migrating the survivors, is the correct order.
+            try:
+                cleanup_cutoff = now - timedelta(days=180)
+                importance_threshold = 0.2
+                cleaned_count = await self.postgres_storage.cleanup_low_importance_memories(
+                    cutoff_date=cleanup_cutoff,
+                    importance_threshold=importance_threshold
+                )
+                if cleaned_count > 0:
+                    logger.info(f"✓ Cleaned up {cleaned_count} low-importance expired memories")
+            except Exception as e:
+                logger.error(f"Memory cleanup failed: {e}")
+
+            # Then migrate the surviving old memories from hot to cold tier
             try:
                 migrated_count = await self.postgres_storage.migrate_to_cold_tier(
                     cutoff_date=hot_tier_cutoff
@@ -3569,23 +3647,6 @@ class MemoryAgent(IMemoryConsolidation):
 
             except Exception as e:
                 logger.error(f"Hot→cold migration failed: {e}")
-
-            # Clean up low-importance expired memories (importance < 0.2, age > 180 days)
-            try:
-                cleanup_cutoff = now - timedelta(days=180)
-                importance_threshold = 0.2
-
-                # Count memories to be cleaned
-                cleaned_count = await self.postgres_storage.cleanup_low_importance_memories(
-                    cutoff_date=cleanup_cutoff,
-                    importance_threshold=importance_threshold
-                )
-
-                if cleaned_count > 0:
-                    logger.info(f"✓ Cleaned up {cleaned_count} low-importance expired memories")
-
-            except Exception as e:
-                logger.error(f"Memory cleanup failed: {e}")
 
             # Update decay for all memories in hot tier
             try:
@@ -3605,72 +3666,19 @@ class MemoryAgent(IMemoryConsolidation):
             import traceback
             traceback.print_exc()
 
+    def _reasoning_authority(self):
+        """The reasoning authority (NeuralSymbolicBridge) — the owner of
+        abstraction + belief. The memory agent asks IT to reason; it does not
+        reason itself. Lazy: the bridge initializes after the memory agent."""
+        from core.reasoning.neural_bridge import get_neural_bridge
+        return get_neural_bridge()
+
     async def form_abstractions(self):
-        """
-        Abstraction formation: Extract patterns, schemas, and principles
-
-        Process:
-        1. Query recent episodic memories (last 4 hours of activity)
-        2. Run hierarchical abstraction pipeline
-        3. Form patterns from similar memories (Level 1)
-        4. Generate schemas from patterns (Level 2)
-        5. Extract principles from schemas (Level 3)
-        6. Apply decay to existing abstractions
-        """
-        try:
-            if not self.abstraction_pipeline:
-                logger.warning("Abstraction pipeline not available")
-                return
-
-            logger.info("Forming abstractions from episodic memories...")
-
-            # Query recent episodic memories (last 4 hours)
-            cutoff_time = datetime.now() - timedelta(hours=4)
-
-            memories = await self.postgres_storage.query_memories_by_timerange(
-                start_time=cutoff_time,
-                memory_type=MemoryType.EPISODIC,
-                limit=1000  # Process up to 1000 recent memories
-            )
-
-            if not memories:
-                logger.info("No new episodic memories to process")
-                return
-
-            logger.info(f"Processing {len(memories)} episodic memories for abstraction...")
-
-            # Convert memories to format expected by abstraction pipeline
-            memory_dicts = []
-            for mem in memories:
-                memory_dicts.append({
-                    'id': mem.memory_id,
-                    'content': mem.content,
-                    'timestamp': getattr(mem, 'timestamp', None) or getattr(mem, 'created_at', None),
-                    'importance': mem.importance_score,
-                    'tags': mem.tags,
-                    'metadata': mem.metadata
-                })
-
-            # Run abstraction pipeline
-            abstraction_results = await self.abstraction_pipeline.process_memories(memory_dicts)
-
-            # Log results
-            patterns_formed = abstraction_results.get('patterns_formed', 0)
-            schemas_formed = abstraction_results.get('schemas_formed', 0)
-            principles_extracted = abstraction_results.get('principles_extracted', 0)
-
-            logger.info(f"✓ Patterns: {patterns_formed}, Schemas: {schemas_formed}, Principles: {principles_extracted}")
-
-            # Apply decay to existing abstractions
-            await self.abstraction_pipeline.apply_decay_to_abstractions()
-            logger.info("✓ Applied temporal decay to existing abstractions")
-
-            logger.info(f"✅ Abstraction formation complete")
-
-        except Exception as e:
-            logger.error(f"Abstraction formation failed: {e}")
-            import traceback
-            traceback.print_exc()
+        """Back-compat shim: abstraction is now the reasoning authority's, driven
+        through the admission gate. Any legacy caller is routed to
+        form_abstractions_if_due(force=True), which gathers the new memories and
+        ASKS the authority to abstract over them."""
+        return await self.form_abstractions_if_due(force=True)
 
     #: Admission thresholds for abstraction. Deliberately conservative: this
     #: runs on the idle tier, never on the memory write path.
@@ -3697,8 +3705,9 @@ class MemoryAgent(IMemoryConsolidation):
             'schemas_formed': 0,
         }
 
-        if not self.abstraction_pipeline:
-            report['reason'] = 'no_pipeline'
+        bridge = self._reasoning_authority()
+        if getattr(bridge, "abstraction", None) is None:
+            report['reason'] = 'no_reasoning_authority'
             state['last_skip_reason'] = report['reason']
             return report
 
@@ -3764,7 +3773,8 @@ class MemoryAgent(IMemoryConsolidation):
         batch = fresh[:self.ABSTRACTION_BATCH_SIZE]
         self._abstraction_running = True
         try:
-            results = await self.abstraction_pipeline.process_memories(batch)
+            # ASK the reasoning authority to abstract over the new memories.
+            results = await bridge.abstract_over_memories(batch)
         except Exception as e:
             report['reason'] = f'abstraction_failed: {e}'
             state['last_skip_reason'] = 'abstraction_failed'
@@ -3806,64 +3816,11 @@ class MemoryAgent(IMemoryConsolidation):
         return report
 
     async def reflect_on_beliefs(self):
-        """
-        Cognitive reflection: Update beliefs, check consistency, apply decay
-
-        Process:
-        1. Apply temporal decay to all beliefs (prevent epistemic ossification)
-        2. Check belief dependency graph for consistency violations
-        3. Propagate constraint updates through graph
-        4. Apply decay to schemas and principles
-        5. Run counterfactual stress tests on fragile schemas
-        6. Update domain volatility metrics
-        """
-        try:
-            if not self.bayesian_beliefs:
-                logger.warning("Bayesian belief system not available")
-                return
-
-            logger.info("Reflecting on beliefs and knowledge structures...")
-
-            # Apply temporal decay to all beliefs
-            decay_stats = await self.bayesian_beliefs.apply_temporal_decay_to_all_beliefs()
-            beliefs_decayed = decay_stats.get('beliefs_decayed', 0)
-            avg_decay = decay_stats.get('avg_decay_amount', 0.0)
-
-            logger.info(f"✓ Applied decay to {beliefs_decayed} beliefs (avg: {avg_decay:.4f})")
-
-            # Check belief consistency and propagate constraints
-            consistency_results = await self.bayesian_beliefs.check_belief_consistency()
-            violations_found = consistency_results.get('violations_found', 0)
-            constraints_propagated = consistency_results.get('constraints_propagated', 0)
-
-            if violations_found > 0:
-                logger.warning(f"⚠️  Found {violations_found} belief consistency violations")
-                logger.info(f"✓ Propagated {constraints_propagated} constraint updates")
-            else:
-                logger.info(f"✓ No consistency violations found")
-
-            # Update domain volatility metrics
-            volatility_updates = await self.bayesian_beliefs.update_domain_volatility_metrics()
-            domains_updated = volatility_updates.get('domains_updated', 0)
-
-            logger.info(f"✓ Updated volatility metrics for {domains_updated} domains")
-
-            # If abstraction pipeline available, apply decay to schemas
-            if self.abstraction_pipeline:
-                schema_decay_stats = await self.abstraction_pipeline.apply_schema_decay()
-                schemas_decayed = schema_decay_stats.get('schemas_decayed', 0)
-                fragile_schemas = schema_decay_stats.get('fragile_schemas_detected', 0)
-
-                logger.info(f"✓ Applied decay to {schemas_decayed} schemas")
-
-                if fragile_schemas > 0:
-                    logger.info(f"✓ Detected {fragile_schemas} fragile schemas (counterfactual stress testing)")
-
-            logger.info(f"✅ Cognitive reflection complete")
-
-        except Exception as e:
-            logger.error(f"Cognitive reflection failed: {e}")
-            logger.exception("Cognitive reflection failed")
+        """Reflection is belief-graph hygiene — REASONING. The memory agent asks
+        the reasoning authority to do it (bridge.reflect: decay + consistency +
+        volatility + schema decay), rather than driving the belief system itself.
+        Returns the authority's report."""
+        return await self._reasoning_authority().reflect()
 
     def __del__(self):
         """Cleanup on deletion"""

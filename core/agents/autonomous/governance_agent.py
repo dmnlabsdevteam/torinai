@@ -367,7 +367,7 @@ class GovernanceAgent:
             await self.db.execute_query(
                 """
                 INSERT INTO governance_violations
-                (violation_id, action_id, action_description, violated_laws, severity, reason, compliance_scores, detected_at, source_type)
+                (violation_id, action_id, action_description, violated_laws, severity, reason, compliance_scores, created_at, source_type)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8)
                 """,
                 params=(

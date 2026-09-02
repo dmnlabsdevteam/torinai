@@ -180,5 +180,39 @@ def install_filesystem_domain(domain_id: str, root: Path) -> FilesystemWorld:
     return world
 
 
+def ensure_filesystem_domain(domain_id: str, root) -> Optional[FilesystemWorld]:
+    """Install a filesystem domain the FIRST time the substrate ENCOUNTERS it,
+    idempotently — the encounter-driven wire that replaces a blanket startup
+    install.
+
+    A domain becomes real when the substrate actually works in it: a task that
+    declares a filesystem workspace calls this before observing the world, so the
+    domain is bound (observable + actable) and explorable from that point on,
+    scoped to exactly the directory the work named. Nothing is installed until a
+    real encounter, and no fixed directory is registered speculatively.
+
+    Idempotent: a domain already installed this process is left untouched
+    (returns None — nothing to do). Declines (None) when the root is not an
+    existing directory: a domain the substrate would ACT in must be a real place,
+    and inventing one is how the substrate would act on nothing. Returns the new
+    world only when it actually installs one.
+    """
+    from core.learning.exploration import get_proposer
+
+    if not (isinstance(domain_id, str) and domain_id.strip()):
+        logger.warning("cannot install filesystem domain: blank domain_id")
+        return None
+    if get_proposer(domain_id) is not None:
+        return None  # already encountered this process — idempotent no-op
+    root_path = Path(root)
+    if not root_path.is_dir():
+        logger.warning(
+            "cannot install filesystem domain %s: root %s is not an existing "
+            "directory — a domain the substrate acts in must be a real place",
+            domain_id, root_path)
+        return None
+    return install_filesystem_domain(domain_id, root_path)
+
+
 def fresh_evidence_id() -> str:
     return f"explore_{uuid.uuid4().hex[:12]}"

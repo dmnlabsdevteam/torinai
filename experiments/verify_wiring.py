@@ -54,70 +54,6 @@ async def check_perception():
     }
 
 
-async def check_logical_agent():
-    from core.agents.logical import ENHANCED_LOGICAL_STATUS, EnhancedLogicalAgent
-    agent = EnhancedLogicalAgent()
-    await agent.initialize()
-
-    cases = [
-        ("provable", ["All men are mortal", "Socrates is a man"], ["Is Socrates mortal?"]),
-        ("unprovable", ["All men are mortal", "Socrates is a man"], ["Is Socrates immortal?"]),
-        ("no_premises", [], ["Is Socrates mortal?"]),
-        ("unformalizable", ["We report a novel synthesis route for LiFePO4"], ["Is LiFePO4 stable?"]),
-        ("no_goal", ["All men are mortal", "Socrates is a man"], []),
-    ]
-    deduction = {}
-    for label, premises, goals in cases:
-        r = await agent.execute("logical_reasoning", {"input_data": {
-            "premises": premises, "mode": "deductive", "goals": goals}})
-        deduction[label] = {
-            "success": r["success"], "formalized": r.get("formalized"),
-            "requires_model": r.get("requires_model"),
-            "conclusions": r["conclusions"], "error": r.get("error"),
-            "proof_steps": r.get("proof_steps"),
-        }
-    return {
-        "importable": ENHANCED_LOGICAL_STATUS.available,
-        "integration": type(agent.logical_integration).__name__,
-        "protocol_execute": callable(getattr(agent, "execute", None)),
-        "deduction": deduction,
-        "stats": dict(agent.reasoning_stats),
-        # The control that matters: it must be able to fail.
-        "passed": (deduction["provable"]["success"]
-                   and not deduction["unprovable"]["success"]
-                   and not deduction["no_premises"]["success"]
-                   and not deduction["unformalizable"]["success"]
-                   and not deduction["no_goal"]["success"]),
-    }
-
-
-async def check_pattern_learning():
-    from core.agents.logical import EnhancedLogicalAgent
-    agent = EnhancedLogicalAgent()
-    await agent.initialize()
-
-    many = await agent.execute("pattern_learning", {"input_data": {"domain": "syllogism_evidence",
-        "examples": [
-            {"premises": ["Socrates is a man"], "conclusions": ["Socrates is mortal"],
-             "evidence_id": "ev_pat_1"},
-            {"premises": ["Plato is a man"], "conclusions": ["Plato is mortal"],
-             "evidence_id": "ev_pat_2"},
-        ]}})
-    one = await agent.execute("pattern_learning", {"input_data": {"domain": "syllogism_evidence",
-        "examples": [{"premises": ["Rex is a dog"], "conclusions": ["Rex is loud"],
-                      "evidence_id": "ev_pat_3"}]}})
-    return {
-        "two_examples": {"status": many.get("induction_status"),
-                         "learned": many["patterns_learned"],
-                         "rules": many.get("new_patterns", [])},
-        "one_example": {"status": one.get("induction_status"),
-                        "learned": one["patterns_learned"]},
-        "counter": agent.reasoning_stats["patterns_learned"],
-        # A counter that cannot decrease measures nothing.
-        "passed": many["patterns_learned"] >= 1 and one["patterns_learned"] == 0,
-    }
-
-
 async def check_tool_projection():
     from core.tools.tool_registry import get_tool_registry
     registry = get_tool_registry()
@@ -136,8 +72,6 @@ async def main() -> int:
 
     checks = {
         "perception_retention": await check_perception(),
-        "logical_agent_deduction": await check_logical_agent(),
-        "pattern_learning": await check_pattern_learning(),
         "tool_observation_and_projection": await check_tool_projection(),
     }
     evidence = {

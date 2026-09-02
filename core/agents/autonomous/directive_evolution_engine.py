@@ -190,28 +190,25 @@ class DirectiveEvolutionEngine:
         chain.total_evolutions += 1
         chain.latest_version = new_version
 
-        # Update cumulative improvement
+        # Accumulate the improvement scores the CALLER recorded (sourced from the
+        # learning authority — the promotion success rate). This is a descriptive
+        # running total on the event log, not a learning signal.
         if improvement_score is not None:
             chain.cumulative_improvement += improvement_score
 
-        # Check for drift
-        if chain.cumulative_improvement > self.drift_threshold:
-            if not chain.drift_detected:
-                chain.drift_detected = True
-                self.metrics['drift_alerts'] += 1
-
-                logger.warning(
-                    f"DRIFT DETECTED for directive {directive_id}: "
-                    f"cumulative improvement = {chain.cumulative_improvement:.1%} "
-                    f"(threshold: {self.drift_threshold:.1%})"
-                )
+        # NOTE (2026-09-02): the "drift" flag was REMOVED here. It conflated
+        # "improved a lot" (cumulative improvement over 0.30) with "drifted",
+        # emitting a misleading "DRIFT DETECTED" warning on good improvement.
+        # Drift/credit judgements belong to the learning authority (the MetaLearner
+        # arm posteriors), not the event log. The event log only records history.
 
         # Update metrics
         self.metrics['total_evolutions'] += 1
         self.metrics['by_type'][evolution_type.value] += 1
 
         if improvement_score is not None:
-            # Update average improvement
+            # Descriptive running average of the authority-sourced improvement
+            # scores (for the metrics dashboard) — not a learning decision.
             total_improvement = (
                 self.metrics['avg_improvement_per_evolution'] *
                 (self.metrics['total_evolutions'] - 1)
@@ -266,87 +263,16 @@ class DirectiveEvolutionEngine:
         """
         return self.evolution_chains.get(directive_id)
 
-    async def calculate_improvement(
-        self,
-        directive_id: str,
-        baseline_metrics: Dict[str, float],
-        current_metrics: Dict[str, float]
-    ) -> float:
-        """
-        Calculate improvement score
-
-        Args:
-            directive_id: Directive identifier
-            baseline_metrics: Baseline performance metrics
-            current_metrics: Current performance metrics
-
-        Returns:
-            Improvement score [0.0-1.0] or negative for degradation
-        """
-        # Calculate weighted improvement across metrics
-        improvements = []
-
-        for metric_key in baseline_metrics.keys():
-            if metric_key in current_metrics:
-                baseline = baseline_metrics[metric_key]
-                current = current_metrics[metric_key]
-
-                if baseline > 0:
-                    improvement = (current - baseline) / baseline
-                    improvements.append(improvement)
-
-        if not improvements:
-            return 0.0
-
-        # Average improvement
-        avg_improvement = sum(improvements) / len(improvements)
-
-        # Clamp to [-1.0, 1.0]
-        return max(-1.0, min(1.0, avg_improvement))
-
-    async def detect_drift(
-        self,
-        directive_id: str,
-        alert_threshold: Optional[float] = None
-    ) -> Dict[str, Any]:
-        """
-        Detect if directive has drifted significantly
-
-        Args:
-            directive_id: Directive identifier
-            alert_threshold: Optional custom threshold (default: self.drift_threshold)
-
-        Returns:
-            Dict with drift analysis
-        """
-        threshold = alert_threshold or self.drift_threshold
-
-        if directive_id not in self.evolution_chains:
-            return {
-                'drift_detected': False,
-                'reason': 'No evolution history'
-            }
-
-        chain = self.evolution_chains[directive_id]
-
-        # Calculate cumulative change magnitude
-        cumulative_change = chain.cumulative_improvement
-
-        drift_detected = cumulative_change > threshold
-
-        return {
-            'directive_id': directive_id,
-            'drift_detected': drift_detected,
-            'cumulative_improvement': cumulative_change,
-            'threshold': threshold,
-            'total_evolutions': chain.total_evolutions,
-            'latest_version': chain.latest_version,
-            'recommendation': (
-                "Consider creating new baseline directive"
-                if drift_detected else
-                "Within acceptable drift limits"
-            )
-        }
+    # NOTE (2026-09-02): calculate_improvement() and detect_drift() were REMOVED.
+    # They computed their OWN improvement/credit statistics (relative-change
+    # averaging; "drift" = cumulative improvement over a threshold) — LEARNING
+    # that belongs to the learning authority, not embedded in the evolution
+    # engine. Whether a directive works, and whether a new version is better than
+    # the old, is now owned by the MetaLearner (directives are arms;
+    # DirectiveSystem credits outcomes via track_learning_outcome and selects via
+    # select_strategy). The evolution engine is now purely an EVENT LOG of
+    # directive lifecycle changes (created/promoted/deprecated/ab), not a learner.
+    # Archived in archive/llm_era_directive_governance_2026-09-02/.
 
     async def get_version_lineage(
         self,

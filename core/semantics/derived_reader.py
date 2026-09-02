@@ -29,7 +29,8 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, List, Optional, Tuple
 
 from core.semantics.sentence_machine import (AFFIRMS, COPULAS, DENIES,
                                              DETERMINERS, FLAGS, INSTRUCTIONS,
@@ -208,7 +209,7 @@ def derive() -> Tuple[Optional[object], str]:
         if _state["derived"]:
             return _state["reading"], _state["why"]
 
-        from core.learning.learning_authority import get_learning_authority
+        from core.learning.unified_learning_system import get_learning_authority
         from core.learning.procedure_synthesis import IOExample, SynthesisStatus
         from core.learning.rule_induction import Fact
         from core.semantics.reading_registry import DerivedReading
@@ -364,3 +365,334 @@ def read(sentence: str) -> Optional[Tuple[str, str, str]]:
                     "word(s) unaccounted for", sentence, got[0], got[1], residue)
         return None
     return (got[0], got[1], got[2])
+
+
+# ── TYPED READING ─────────────────────────────────────────────────────────
+# The predicate span, typed. The machine binds subject/object and the SPAN
+# between them is the relation (syntax); `relation_types` says what that span
+# MEANS (semantics). Kept here, in the reader, because delimiting the span is a
+# reading job -- the same layer `relation_in` already lives in -- while the type
+# and its inference are owned elsewhere.
+
+_REL_LEADING: Optional[set] = None
+
+
+def _relation_leading_words() -> set:
+    """First tokens of every known relation surface form (minus bare function
+    words). An object beginning with one of these was mis-bound by a machine
+    that has not been taught the construction."""
+    from core.semantics.relation_types import all_surface_forms
+    words = set()
+    for form in all_surface_forms():
+        first = form.split()[0]
+        if first not in COPULAS and first not in DETERMINERS and first not in NEGATORS:
+            words.add(first)
+    return words
+
+
+def _reparse_relation_object(sentence: str, subject: str) -> Optional[Tuple[str, str]]:
+    """Recover (relation_span, object) when the machine over-extended the object.
+
+    The machine has only subject/object registers, so a relation word ('made',
+    'part') with no predicate slot gets glued onto the object. The relation
+    ONTOLOGY is the authority that fixes this, not a per-construction pattern:
+    after the subject, the relation is the LONGEST known relation surface form,
+    and the object is the content that follows it. Determiners are the supplied
+    lexicon and never part of either. Generalises to every relation in the table
+    -- a new relation type extends this for free.
+    """
+    from core.semantics.relation_types import all_surface_forms
+    forms = set(all_surface_forms())
+    if not forms:
+        return None
+    max_form = max(len(f.split()) for f in forms)
+    toks = tokenize(sentence)
+    subj_tokens = subject.split('_')
+
+    end = None
+    for i in range(len(toks) - len(subj_tokens) + 1):
+        if toks[i:i + len(subj_tokens)] == subj_tokens:
+            end = i + len(subj_tokens)
+            break
+    if end is None:
+        return None
+
+    rest = [w for w in toks[end:] if w not in DETERMINERS]
+    for n in range(min(max_form, len(rest)), 0, -1):
+        cand = " ".join(rest[:n])
+        if cand in forms:
+            obj_tokens = [w for w in rest[n:]
+                          if w not in COPULAS and w not in NEGATORS]
+            if obj_tokens:
+                return cand, "_".join(obj_tokens)
+            return None
+    return None
+
+
+def _object_word_class(obj: str) -> Optional[str]:
+    """The lexicon's class for an object's head word, when known -- the hint that
+    disambiguates the bare copula (is + ADJECTIVE = property, is + NOUN = kind)."""
+    try:
+        from core.semantics.lexicon import get_lexicon
+        entry = get_lexicon()._entries.get(obj.split('_')[0].lower())
+        return entry.word_class if entry else None
+    except Exception:
+        return None
+
+
+def predicate_span(sentence: str, subject: str, obj: str) -> str:
+    """The ordered relation span: content words between the ends, in order.
+
+    Unlike `relation_in` (which returns one residue word), this keeps the whole
+    phrase -- 'made of', 'lives in' -- so a multiword relation survives to be
+    typed. Copulas/determiners/negators are the supplied function lexicon and
+    are not part of the relation span."""
+    # Account for the ends BOTH as their underscore-joined token ("hunting_dog",
+    # which is how the sentence tokenises a multi-word lemma) AND as their parts
+    # ("hunting","dog"). Splitting only on '_' left the whole-token form in the
+    # residue, so a multi-word object leaked into the relation span and every
+    # such edge mis-typed as related_to instead of isa -- silently corrupting the
+    # taxonomy at scale.
+    accounted = set(subject.split('_')) | set(obj.split('_')) | {subject, obj}
+    span = [w for w in tokenize(sentence)
+            if w not in accounted and w not in COPULAS
+            and w not in DETERMINERS and w not in NEGATORS]
+    return " ".join(span)
+
+
+def segment_by_class(sentence: str):
+    """Recover (subject, relation_span, object, polarity) of a no-copula sentence
+    from TAUGHT content classes + the supplied function lexicon, or None.
+
+    The derived reading covers the shapes it was taught; a sentence with a
+    multi-word noun phrase (`the quick brown fox`) or a trailing prepositional
+    adjunct (`sells shells by the sea`) is beyond it, and it drops the extra
+    content words. When it has, the phrase structure is still recoverable IF the
+    substrate has been taught the classes: determiners open a noun phrase,
+    adjectives modify up to a noun head, the FIRST verb is the relation (with any
+    particle), and a preposition standing AFTER the object opens an adjunct to
+    drop (before it, the preposition is the relation). A content word whose class
+    has NOT been taught makes this decline -- it never guesses a class, so a
+    sentence only reads once its words have been taught, which is the teaching
+    loop, not a fallback that agrees with everything.
+    """
+    from core.semantics.sentence_machine import (AUXILIARIES, COPULAS,
+                                                  CONJUNCTIONS, DETERMINERS,
+                                                  NEGATORS, PREPOSITIONS,
+                                                  PRONOUNS, WH_OBJECT_OPENERS,
+                                                  _taught_class, tokenize)
+    toks = tokenize(sentence)
+    if any(w in COPULAS for w in toks):
+        return None            # copula sentences belong to the derived reading
+    if any(w in CONJUNCTIONS for w in toks):
+        return None            # coordination makes >1 claim -- needs multi-emit
+    polarity = DENIES if any(w in NEGATORS for w in toks) else AFFIRMS
+    # A wh-question asks for the OBJECT of a relation ("what does a kestrel eat?"):
+    # the reading is (subject, relation, <unknown>). The marker `UNKNOWN` is the
+    # object being asked -- exactly the fact a knowledge-gap check looks for.
+    wh_object = bool(toks) and toks[0] in WH_OBJECT_OPENERS
+
+    def role(w):
+        if w in DETERMINERS: return "DET"
+        if w in NEGATORS:    return "NEG"
+        if w in AUXILIARIES: return "AUX"        # do/does/did -- skipped
+        if w in WH_OBJECT_OPENERS: return "WH"   # what/which -- skipped
+        if w in PREPOSITIONS: return "PREP"
+        if w in PRONOUNS:    return "PRON"
+        return _taught_class(w)          # NOUN / ADJECTIVE / VERB, or None
+
+    roles = [role(w) for w in toks]
+    # A content word with no class is a word never taught -- decline rather than
+    # guess. Function words (DET/NEG/AUX/WH/PREP/PRON) are fine to be "unclassed".
+    if any(r is None for r in roles):
+        return None
+    try:
+        v = next(i for i, r in enumerate(roles) if r == "VERB")
+    except StopIteration:
+        return None                      # no relation verb found
+
+    subj = [w for w, r in zip(toks[:v], roles[:v])
+            if r in ("NOUN", "ADJECTIVE", "PRON")]
+    if not subj:
+        return None
+    rel = [toks[v]]
+    j = v + 1
+    while j < len(toks) and roles[j] == "PREP":
+        rel.append(toks[j]); j += 1
+    obj: List[str] = []
+    while j < len(toks):
+        r = roles[j]
+        if r in ("NOUN", "ADJECTIVE", "PRON"):
+            obj.append(toks[j]); j += 1
+        elif r == "DET":
+            j += 1
+        else:                            # a preposition after the object: adjunct
+            break
+    if not obj:
+        # A wh-question legitimately has no object -- it is asking for one.
+        if wh_object:
+            return ("_".join(subj), " ".join(rel), "UNKNOWN", polarity)
+        return None
+    return ("_".join(subj), " ".join(rel), "_".join(obj), polarity)
+
+
+@dataclass
+class TypedReading:
+    """A read sentence with its relation TYPED. `relation` is a TypedRelation
+    (carrying provenance + generic flag); the caller admits it as a proposition."""
+    subject: str
+    relation: "Any"          # relation_types.TypedRelation
+    obj: str
+    polarity: str
+    #: Set when the machine could not bind the construction (object absorbed the
+    #: relation word). Not a reading -- a request to be TAUGHT this construction.
+    needs_construction: Optional[str] = None
+
+
+def read_typed(sentence: str) -> Optional[TypedReading]:
+    """Read a sentence and TYPE its relation, or decline.
+
+    Declines two ways, both honest: `needs_construction` set when the machine
+    mis-bound the object across an unlearned relation word (the typer's own
+    vocabulary detects it), and None when the leftover is not a recognised
+    relation at all (the misread guard, now keyed on the relation ontology
+    rather than a raw residue count)."""
+    from core.semantics.relation_types import classify, SemanticRelation
+    global _REL_LEADING
+    if _REL_LEADING is None:
+        _REL_LEADING = _relation_leading_words()
+
+    reading, _ = derive()
+    if reading is None:
+        return None
+    got = reading.read(sentence)
+    if not got:
+        return None
+    subject, obj, polarity = got
+
+    # NO-COPULA MULTI-WORD FALLBACK. When the derived reading did not ACCOUNT for
+    # the sentence -- it left content words on the floor, which is a multi-word
+    # noun phrase or a trailing adjunct it was never taught -- recover the phrase
+    # structure from taught classes. Only fires when the reading fell short, so
+    # every shape the derived reading does cover is untouched; declines (falls
+    # through) when a word's class was never taught.
+    accounted, _residue = covers(sentence, subject, obj)
+    if not accounted:
+        seg = segment_by_class(sentence)
+        if seg is not None:
+            s_subj, s_rel, s_obj, s_pol = seg
+            owc = _object_word_class(s_obj)
+            typed = classify(s_rel if s_rel else "is", object_word_class=owc)
+            # The ends are class-confident here, so the misread guard (meant for
+            # the derived machine's junk spans) does not apply: an unknown verb
+            # types as related_to, honestly reading the ends while licensing no
+            # inference.
+            return TypedReading(s_subj, typed, s_obj, s_pol)
+
+    # OVER-EXTENSION RECOVERY. An untaught construction makes the machine extend
+    # the object across the relation ("is made of brass" -> obj 'made_brass').
+    # The typer's vocabulary both DETECTS it (object leads with a relation word)
+    # and REPAIRS it (re-delimit relation vs object by the longest known form).
+    # If the ontology cannot name the relation, decline honestly as unlearned.
+    obj_lead = obj.split('_')[0]
+    if obj_lead in _REL_LEADING:
+        reparsed = _reparse_relation_object(sentence, subject)
+        if reparsed is not None:
+            rel_span, new_obj = reparsed
+            owc = _object_word_class(new_obj)
+            retyped = classify(rel_span, object_word_class=owc)
+            if retyped.relation is not SemanticRelation.RELATED_TO:
+                return TypedReading(subject, retyped, new_obj, polarity)
+        logger.info("read_typed %r: object %r absorbed relation word %r and the "
+                    "relation could not be named; construction unlearned",
+                    sentence, obj, obj_lead)
+        return TypedReading(subject, None, obj, polarity, needs_construction=obj_lead)
+
+    span = predicate_span(sentence, subject, obj)
+    owc = _object_word_class(obj)
+    typed = classify(span if span else "is", object_word_class=owc)
+
+    # Misread guard, now via the ontology: an unrecognised MULTIword leftover is
+    # not a relation, it is dropped noun-phrase words -- decline.
+    if typed.relation is SemanticRelation.RELATED_TO and len(span.split()) > 1:
+        logger.info("read_typed %r: leftover %r is not a recognised relation",
+                    sentence, span)
+        return None
+
+    return TypedReading(subject, typed, obj, polarity)
+
+
+# ── MULTI-EMIT ────────────────────────────────────────────────────────────────
+# One surface sentence can carry more than one proposition. A relative clause
+# ("a robin, WHICH is small, is a bird") makes two claims about robin; a
+# predicate conjunction ("the vault is cold AND heavy") makes two about the
+# vault. The machine emits ONE reading, so those were mangled or declined. Rather
+# than teach the machine to hold several readings, a sentence that carries
+# several is DECOMPOSED into the simpler sentences it is equivalent to, each read
+# by the one reader -- the relative clause becomes "robin is small", the
+# conjunction becomes "the vault is heavy". No new machine: the same reader, run
+# once per proposition the surface actually states.
+
+_REL_CLAUSE = None
+_PRED_CONJ = None
+
+
+def _np_head(phrase: str) -> str:
+    """The head word a relative 'which/who/that' refers back to: the last word of
+    the antecedent noun phrase that is not a determiner. 'a robin' -> 'robin'."""
+    toks = [w for w in tokenize(phrase) if w not in DETERMINERS]
+    return toks[-1] if toks else phrase.strip()
+
+
+def decompose(sentence: str) -> Optional[List[str]]:
+    """The simpler sentences a multi-proposition surface is equivalent to, or None.
+
+    Handles the two forms that carry more than one claim without a second finite
+    clause of their own: a comma-delimited relative clause, and a predicate
+    coordinated with 'and'. Anything else returns None and is read whole.
+    """
+    import re
+    global _REL_CLAUSE, _PRED_CONJ
+    if _REL_CLAUSE is None:
+        # SUBJ , (which|who|that) CLAUSE , REST   -> "SUBJ REST" + "HEAD CLAUSE"
+        _REL_CLAUSE = re.compile(
+            r"^(?P<subj>.*?),\s*(?:which|who|that)\b\s+(?P<clause>.*?)\s*,\s*"
+            r"(?P<rest>.*)$", re.I)
+        # SUBJ (is|are) A and B   ->  "SUBJ is A" + "SUBJ is B"
+        _PRED_CONJ = re.compile(
+            r"^(?P<head>.*\b(?:is|are))\s+(?P<a>.+?)\s+and\s+(?P<b>.+)$", re.I)
+
+    s = sentence.strip().rstrip(".").strip()
+
+    m = _REL_CLAUSE.match(s)
+    if m:
+        subj, clause, rest = m.group("subj"), m.group("clause"), m.group("rest")
+        main = f"{subj} {rest}".strip()
+        relative = f"{_np_head(subj)} {clause}".strip()
+        return [main, relative]
+
+    m = _PRED_CONJ.match(s)
+    if m:
+        head, a, b = m.group("head"), m.group("a"), m.group("b")
+        return [f"{head} {a}".strip(), f"{head} {b}".strip()]
+
+    return None
+
+
+def read_all(sentence: str) -> List["TypedReading"]:
+    """Every proposition a sentence states, typed. One reading for a plain
+    sentence; several when it decomposes (relative clause, conjunction). Empty
+    when nothing in it reads -- an honest 'this said nothing I could read'."""
+    parts = decompose(sentence)
+    if parts:
+        out: List[TypedReading] = []
+        for part in parts:
+            tr = read_typed(part)
+            if tr is not None and tr.needs_construction is None:
+                out.append(tr)
+        # A decomposition that yields nothing readable is not better than reading
+        # the whole; fall through so the caller still sees the honest single try.
+        if out:
+            return out
+    tr = read_typed(sentence)
+    return [tr] if tr is not None else []

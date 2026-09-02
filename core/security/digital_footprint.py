@@ -3579,10 +3579,6 @@ class AIFootprintDetector:
     - Production-ready with no stubs
     """
 
-    # Singleton pattern for shared intelligence service
-    _llm_service = None
-    _llm_lock = asyncio.Lock()
-
     def __init__(self, browser_engine: Optional[BrowserAutomationEngine] = None):
         self.browser = browser_engine
         self.sensitive_patterns = self._load_sensitive_patterns()
@@ -3595,22 +3591,6 @@ class AIFootprintDetector:
             "analysis_time": 0.0,
             "scraping_time": 0.0
         }
-
-    @classmethod
-    async def get_llm_service(cls):
-        """Get or initialize LLM service (Singleton pattern)"""
-        if cls._llm_service is None:
-            async with cls._llm_lock:
-                if cls._llm_service is None:
-                    try:
-                        from core.services.lightweight_llm import get_lightweight_llm_service
-                        cls._llm_service = get_lightweight_llm_service()
-                        await cls._llm_service.initialize()
-                        logger.info("✅ LLM service initialized for AI footprint detection")
-                    except Exception as e:
-                        logger.error(f"Failed to initialize LLM service: {e}")
-                        cls._llm_service = None
-        return cls._llm_service
 
     def _load_sensitive_patterns(self) -> List[str]:
         """Load sensitive data patterns"""
@@ -3698,83 +3678,38 @@ class AIFootprintDetector:
                 "context": "No patterns matched"
             }
 
-        # Use AI to analyze context and determine sensitivity
-        llm_service = await self.get_llm_service()
+        # Grade the finding's sensitivity from breach/leak context in the
+        # content, through the language-ops classifier. This domain owns the
+        # cue vocabulary (what a genuine exposure reads like); the faculty owns
+        # only the scoring. A pattern already matched to reach here — the cues
+        # decide how sensitive, and corroborating breach context raises both the
+        # grade and the confidence.
+        from core.semantics.language_ops import classify
 
-        if llm_service:
-            try:
-                from core.services.lightweight_llm import LightweightRequest
-
-                # Prepare analysis prompt
-                analysis_prompt = f"""Analyze this content found on {source} for a query "{query}":
-
-CONTENT SNIPPET:
-{snippets[0][:500]}
-
-QUESTION: Is this a genuine data exposure/leak of sensitive information?
-
-Consider:
-1. Is this real leaked data or just a random match?
-2. Is there context suggesting a breach, dump, or leak?
-3. What is the sensitivity level (critical/high/moderate/low)?
-4. What is your confidence (0.0-1.0)?
-
-Respond with JSON:
-{{
-    "is_genuine_leak": true/false,
-    "confidence": 0.0-1.0,
-    "sensitivity": "critical/high/moderate/low",
-    "reasoning": "brief explanation",
-    "context_keywords": ["breach", "dump", etc.]
-}}"""
-
-                request = LightweightRequest(
-                    prompt=analysis_prompt,
-                    system_prompt="You are a cybersecurity analyst evaluating potential data breaches. Be precise and analytical.",
-                    agent_type="sensitivity_classifier",
-                    max_tokens=300,
-                    temperature=0.3
-                )
-
-                response = await llm_service.process_request(request)
-
-                # Parse LLM response
-                import json
-                try:
-                    analysis = json.loads(response.text.strip())
-
-                    self.stats["analysis_time"] += time.time() - start_time
-
-                    return {
-                        "found": analysis.get("is_genuine_leak", True),
-                        "confidence": float(analysis.get("confidence", 0.7)),
-                        "sensitivity": analysis.get("sensitivity", "high"),
-                        "snippet": snippets[0][:200],
-                        "patterns_matched": patterns_found,
-                        "context": analysis.get("reasoning", "AI analysis completed")
-                    }
-                except json.JSONDecodeError:
-                    logger.warning("Failed to parse LLM JSON response, using pattern-based assessment")
-
-            except Exception as e:
-                logger.error(f"AI analysis error: {e}")
-
-        # Fallback: pattern-based analysis
-        context_keywords = ["breach", "dump", "leak", "exposed", "database", "leaked", "stolen", "pwned"]
-        context_found = [kw for kw in context_keywords if kw in content.lower()]
-
-        # High confidence if context keywords found
-        confidence = 0.9 if context_found else 0.6
+        sensitivity_cues = {
+            "critical": ["breach", "dump", "leaked", "stolen", "pwned", "password",
+                         "passwd", "credential", "ssn", "social security",
+                         "credit card", "private key", "api key", "secret"],
+            "high": ["exposed", "database", "email", "phone", "address",
+                     "personal", "dob", "date of birth", "account", "login"],
+            "moderate": ["profile", "username", "handle", "listing", "mention"],
+        }
+        graded = classify(content, sensitivity_cues, default="high")
+        matched = [c for cues in graded["matched"].values() for c in cues]
+        sensitivity = graded["label"]
+        # A bare pattern hit is a weaker signal than one corroborated by breach
+        # context; scale confidence with how strongly the cues concentrate.
+        confidence = round(min(0.95, 0.6 + 0.35 * graded["confidence"]), 3) if matched else 0.6
 
         self.stats["analysis_time"] += time.time() - start_time
 
         return {
             "found": True,
             "confidence": confidence,
-            "sensitivity": "critical" if context_found else "high",
+            "sensitivity": sensitivity,
             "snippet": snippets[0][:200],
             "patterns_matched": patterns_found,
-            "context": f"Context keywords: {', '.join(context_found)}" if context_found else "Pattern match only"
+            "context": f"Context cues: {', '.join(matched)}" if matched else "Pattern match only"
         }
 
     async def detect_across_platforms(self, query: str, deep: bool = False) -> Dict[str, Any]:

@@ -1596,19 +1596,21 @@ class HealthMonitor:
     _PROBED_SUBCOMPONENTS: Dict[str, Dict[str, tuple]] = {
         'agents': {
             'agent_coordinator':   ('core.agents.agents', 'get_agent_coordinator', 'get_statistics'),
-            'task_execution_pool': ('core.agents.autonomous.task_execution_pool', 'get_task_execution_pool', 'get_stats'),
-            'logical_integration': ('core.agents.logical.logical_integration', 'get_logical_integration', 'get_statistics'),
-            'research_agent':      ('core.agents.research.agent', 'get_research_agent', 'get_metrics'),
+            'queue_authority':     ('core.agents.autonomous.queue_authority', 'get_queue_authority', 'get_statistics'),
         },
         'reasoning': {
             'proof_engine':        ('core.reasoning.advanced_proof_engine', 'get_proof_engine', 'get_statistics'),
             'analogy_discovery':   ('core.reasoning.analogy_discovery', 'get_analogy_discovery', 'get_statistics'),
-            'checkpoint_manager':  ('core.reasoning.checkpoint_manager', 'get_checkpoint_manager', 'get_statistics'),
-            'context_compression': ('core.reasoning.context_compression', 'get_context_compression', 'get_statistics'),
-            'context_manager':     ('core.reasoning.context_manager', 'get_context_manager', 'get_statistics'),
             'formal_argumentation':('core.reasoning.formal_argumentation', 'get_argumentation_system', 'get_statistics'),
             'hypothesis_testing':  ('core.reasoning.hypothesis_testing', 'get_hypothesis_system', 'get_statistics'),
             'temporal_reasoning':  ('core.reasoning.temporal_reasoning', 'get_temporal_system', 'get_statistics'),
+            # Previously BLIND to health despite doing real work: the abstract
+            # reasoning engine (the coordinator's primary kind-reasoner), the
+            # abstraction pipeline, and the constraint solver now each expose
+            # get_statistics and are probed here.
+            'abstract_reasoning':  ('core.reasoning.abstract_reasoning_engine', 'get_abstract_reasoning_engine', 'get_statistics'),
+            'hierarchical_abstraction': ('core.reasoning.hierarchical_abstraction', 'get_hierarchical_abstraction', 'get_statistics'),
+            'constraint_solver':   ('core.reasoning.constraint_solver', 'get_constraint_solver', 'get_statistics'),
         },
         'security': {
             # The substrate's request-validation controller and the policy that
@@ -1628,7 +1630,6 @@ class HealthMonitor:
             'interaction_learner': ('core.learning.interaction_meta_learning', 'get_interaction_learner', 'get_statistics'),
         },
         'memory': {
-            'query_agent':         ('core.memory.query.postgres_query_agent', 'get_query_agent', 'get_statistics'),
             'embedding_service':   ('core.memory.utils.embedding_service', 'get_embedding_service', 'get_metrics'),
             'memory_filter':       ('core.memory.utils.memory_filter', 'get_memory_filter', 'get_metrics'),
             'memory_injector':     ('core.memory.utils.memory_injector', 'get_memory_injector', 'get_statistics'),

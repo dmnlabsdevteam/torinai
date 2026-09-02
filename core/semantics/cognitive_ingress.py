@@ -61,6 +61,12 @@ class Admission:
     concepts_reinforced: List[str] = field(default_factory=list)
     aliases_bound: int = 0
     memories: int = 0
+    #: The id of the SEMANTIC memory this admission created (via `_remember`),
+    #: or None if nothing was retained. Surfaced so a later turn can point back
+    #: at the exact memory this interaction made -- which is what lets
+    #: conversational feedback ("no, that's wrong") FLAG the memory the claim
+    #: already produced rather than mint a second, parallel record of it.
+    memory_id: Optional[str] = None
     evidence_id: str = ""
     polarity: str = "positive"
     #: Set when this admission puts the store in conflict with itself. Surfaced,
@@ -356,28 +362,49 @@ class CognitiveIngress:
 
     async def _remember(self, proposition: str, surface: str,
                         provenance: Provenance, result: Admission) -> int:
-        """The episode. What was said, how it was read, and by whom."""
+        """Remember the claim as recallable knowledge -- what was said, findable later by meaning."""
         try:
             from core.memory import get_memory_agent
             from core.memory.utils.interfaces import MemoryType
 
             agent = await get_memory_agent()
+            # KNOWLEDGE, not an event. What was learned has to be findable later
+            # by MEANING the same as anything else -- that is the whole point of
+            # storing it, and the substrate's alternative to baking knowledge
+            # into weights. So it is stored as a semantic claim:
+            #
+            #   * content is the claim AS SAID -- the reading it was admitted as
+            #     ("subject|relation|object") is a fact ABOUT the sentence, not
+            #     part of it; splicing it in diluted the embedding so a real
+            #     question scored the memory low. It lives in source_context;
+            #   * it is NOT marked as an observation event. A raw_event exempts a
+            #     memory from the worthiness filter but by the SAME token
+            #     classifies it as an event, which recall excludes -- so a taught
+            #     fact stored that way was invisible to the recall it exists for;
+            #   * being user-supplied it carries real importance, so it clears the
+            #     filter as the worthy knowledge it is, not via the event exemption.
             stored, memory_id = await agent.store_memory(
-                content=f"{surface} — read as {proposition}",
-                memory_type=MemoryType.EPISODIC,
+                content=surface,
+                memory_type=MemoryType.SEMANTIC,
+                importance_score=0.75,
+                confidence_score=0.9,
                 tags=["language", "admitted_proposition"],
-                source_context={"producer": provenance.producer,
-                                "source_id": provenance.source_id},
-                thinking_state={"raw_event": {
-                    "event": "proposition_admitted",
-                    "surface": surface, "proposition": proposition,
+                source_context={
                     "producer": provenance.producer,
-                    "source_id": provenance.source_id}},
+                    "source_id": provenance.source_id,
+                    # surface IS the claim, so recall hands it back directly.
+                    "conclusion": surface,
+                    "reading": proposition,
+                },
             )
             if not stored:
                 # The memory filter can decline. That is a real answer, not a
                 # failure, but it must be visible rather than counted as a write.
                 result.refusals.append(f"episode not retained: {memory_id}")
+            else:
+                # The memory this interaction MADE, kept referenceable so a later
+                # feedback turn can flag THIS record rather than store another.
+                result.memory_id = memory_id
             return 1 if stored else 0
         except Exception as error:
             result.refusals.append(f"episode not retained: {error}")

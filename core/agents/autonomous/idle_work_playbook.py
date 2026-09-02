@@ -10,7 +10,8 @@ execute the steps — creating tasks, calling recovery handlers, storing memory,
 and sending notifications — without ad-hoc if/else chains scattered through
 the coordinator.
 
-Priority tiers (mirrors _run_idle_work ordering):
+Priority tiers (the tiers scheduled on the queue authority by
+_register_idle_subsystems):
   1. Security  — (AuditCategory, AuditSeverity) → RemediationPlan
   2. Health    — (component_name, health_status) → RemediationPlan
   3. Self-improvement — selects target components from health + failure data

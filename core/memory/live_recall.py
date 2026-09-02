@@ -114,12 +114,23 @@ class Recalled:
     memory_id: str
     text: str
     importance: float
+    #: The relevance the MEMORY AGENT scored this at -- carried, not recomputed.
+    #: Recall is ordered by the agent (its one authority); this holds the score
+    #: so a merge across waves preserves the agent's order rather than inventing
+    #: a second one. The best score seen across the wordings that reached it.
+    similarity: float = 0.0
     reached_by: Set[str] = field(default_factory=set)
     #: True where this memory asserts the same polarity as what was asked,
     #: False where it asserts the opposite, None where either is unreadable.
     #: A CONTRADICTION IS NOT A MISS -- it is the most relevant thing memory
     #: can offer, and reporting it as a match is what makes it dangerous.
     agrees: Optional[bool] = None
+    #: The user told the substrate this claim was WRONG (conversational feedback
+    #: flagged the memory `metadata.feedback.verdict == "corrected"`). A
+    #: corrected memory is not offered as knowledge -- recalling a fact its own
+    #: teacher retracted is worse than recalling nothing. Reversible: feedback
+    #: merges newest-wins, so a later "yes, that's right" clears it.
+    corrected: bool = False
 
     @property
     def corroboration(self) -> int:
@@ -224,11 +235,27 @@ class LiveRecall:
             text = _text_of(item)
             if not text:
                 continue
+            score = float(getattr(item, "similarity_score", 0) or 0)
+            # A verdict the user left on this memory. metadata carries the flag
+            # (feedback merged newest-wins), so the CURRENT verdict decides:
+            # "corrected" means the teacher retracted this claim.
+            meta = getattr(item, "metadata", None)
+            corrected = bool(
+                isinstance(meta, dict)
+                and isinstance(meta.get("feedback"), dict)
+                and meta["feedback"].get("verdict") == "corrected")
             existing = found.get(memory_id)
             if existing is None:
-                existing = Recalled(memory_id=memory_id, text=text,
-                                    importance=float(getattr(item, "importance_score", 0) or 0))
+                existing = Recalled(
+                    memory_id=memory_id, text=text,
+                    importance=float(getattr(item, "importance_score", 0) or 0),
+                    similarity=score, corrected=corrected)
                 found[memory_id] = existing
+            else:
+                existing.similarity = max(existing.similarity, score)
+                # A fresh read can flip the verdict either way (a later
+                # re-confirmation clears it, a correction sets it).
+                existing.corrected = corrected
             existing.reached_by.add(query)
 
     async def harvest(self, limit: int = 3, about: str = "",
@@ -255,7 +282,12 @@ class LiveRecall:
         still = sum(1 for q, s in self._wave_subject.items()
                     if q in self._waves and s == subject)
 
-        own = self._landed.get(subject, {})
+        # A CORRECTED memory is withheld from recall entirely. The user told the
+        # substrate this claim was wrong; offering it as knowledge -- even ranked
+        # low -- is offering a fact its teacher retracted. Reversible: the flag
+        # follows the latest feedback, so a re-confirmation brings it back.
+        own = {mid: m for mid, m in self._landed.get(subject, {}).items()
+               if not m.corrected}
         if claim:
             from core.semantics.claim_shape import read_claim
 
@@ -264,7 +296,8 @@ class LiveRecall:
                 recalled.agrees = asked_shape.agrees_with(read_claim(recalled.text))
 
         ranked = sorted(own.values(),
-                        key=lambda m: (m.corroboration, m.importance), reverse=True)
+                        key=lambda m: (m.similarity, m.corroboration, m.importance),
+                        reverse=True)
 
         # INHERITED CONTEXT, RANKED BENEATH ITS OWN. A branch may lean on what
         # the subject it came from gathered, and must never outrank it: what
@@ -274,9 +307,11 @@ class LiveRecall:
         while parent and parent not in seen and len(ranked) + len(inherited) < limit:
             seen.add(parent)
             for recalled in sorted(self._landed.get(parent, {}).values(),
-                                   key=lambda m: (m.corroboration, m.importance),
+                                   key=lambda m: (m.similarity, m.corroboration,
+                                                  m.importance),
                                    reverse=True):
-                if recalled.memory_id not in own and len(ranked) + len(inherited) < limit:
+                if (not recalled.corrected and recalled.memory_id not in own
+                        and len(ranked) + len(inherited) < limit):
                     inherited.append(recalled)
             parent = self._arose_from.get(parent)
 

@@ -212,7 +212,8 @@ class TorinAISystem:
         self.learning_system = None
 
         # PHASE 6: Research & Intelligence
-        self.research_agent = None
+        # (no `research_agent` — research is the `conduct_research` TOOL, not an
+        # agent; the factory deploys agents that share it.)
         self.agent_coordinator = None
         self.predictive_intelligence = None
 
@@ -241,8 +242,6 @@ class TorinAISystem:
 
         # PHASE 12: Additional Services
         self.cloud_storage_agent = None
-        # Delegates to unified_llm by default; loads no model of its own.
-        self.lightweight_llm_service = None  # context compression front-end
 
         # Additional core systems
         self.quantum_reasoning = None
@@ -330,33 +329,10 @@ class TorinAISystem:
                 return
 
             # ================================================================
-            # PHASE 1b: INITIALIZE THE CONTEXT COMPRESSION SERVICE
-            # Must be initialized immediately after the teacher model — required for
-            # context compression, security screening, and sensitivity
-            # classification throughout the rest of startup.
-            # ================================================================
-            logger.info("")
-            logger.info("PHASE 1b: Initializing context compression service")
-            logger.info("-" * 80)
-
-            await self._initialize_lightweight_llm()
-
-            if not self.lightweight_llm_service:
-                logger.error(
-                    "CRITICAL FAILURE: context compression service failed to initialize!\n"
-                    "Context compression and fast screening will be unavailable."
-                )
-                try:
-                    from core.utils.notification_publisher import send_system_notification
-                    await send_system_notification(
-                        title="🚨 CRITICAL: Context compression service failed",
-                        message="**Context compression service failed to initialize.**\n\nSystem will run degraded.\n\n**Action Required:** check the unified LLM endpoint; the service delegates to it and loads no model of its own unless TORIN_LIGHTWEIGHT_LLM_INPROCESS=1.",
-                        severity="critical"
-                    )
-                except:
-                    pass
-                # Do not abort — system can still run without it, but log loudly
-
+            # (Former PHASE 1b — the context-compression LLM front-end — is
+            # retired. Context compression, security screening, and sensitivity
+            # classification are now done by the language-ops faculty
+            # (core/semantics/language_ops.py), which loads no model.)
             # ================================================================
             # PHASE 2: INITIALIZE DATABASE SYSTEMS
             # ================================================================
@@ -503,7 +479,7 @@ class TorinAISystem:
                 if getattr(self, 'predictive_intelligence', None): intelligence_services.append("Predictive")
                 if getattr(self, 'quantum_reasoning', None): intelligence_services.append("Quantum Reasoning")
                 if getattr(self, 'cross_domain_reasoner', None): intelligence_services.append("Cross-Domain")
-                if getattr(self, 'research_agent', None): intelligence_services.append("Research")
+                if getattr(self, 'agent_coordinator', None): intelligence_services.append("Agents-of-Self")
 
                 # Autonomous operations
                 if getattr(self, 'autonomous_coordinator', None): autonomous_services.append("Coordinator")
@@ -623,46 +599,6 @@ class TorinAISystem:
             self.stats['services_failed'] += 1
         except Exception as e:
             logger.error(f"❌ Failed to initialize the teacher model: {e}", exc_info=True)
-            self.stats['services_failed'] += 1
-
-    # ========================================================================
-    # PHASE 1b: CONTEXT COMPRESSION SERVICE — required before heavy context use
-    # ========================================================================
-
-    async def _initialize_lightweight_llm(self):
-        """Initialize the context compression service.
-
-        NAMED FOR WHAT IT DOES, NOT FOR A MODEL IT DOES NOT LOAD. Every line
-        here announced "Qwen3-8B", but the service delegates to unified_llm --
-        the process holds exactly one llama context, and inference goes to the
-        Qwen3.6-35B server. Nothing opens an 8B file. Reading the startup log
-        gave a model that is not running, and no mention of the one that is.
-        """
-        try:
-            from core.services.lightweight_llm import get_lightweight_llm_service
-
-            logger.info("⚡ Initializing context compression service...")
-
-            async def init_lightweight():
-                svc = get_lightweight_llm_service()
-                success = await svc.initialize()
-                return svc if success else None
-
-            self.lightweight_llm_service = await self.service_init.initialize_service(
-                "lightweight_llm_service",
-                init_lightweight,
-                timeout=60,  # Model loads in ~5s on MPS, generous margin
-            )
-
-            if self.lightweight_llm_service:
-                logger.info("✅ Context compression active")
-                self.stats['services_initialized'] += 1
-            else:
-                logger.error("❌ Context compression service failed — compression unavailable")
-                self.stats['services_failed'] += 1
-
-        except Exception as e:
-            logger.error(f"❌ Context compression service initialization failed: {e}", exc_info=True)
             self.stats['services_failed'] += 1
 
     # ========================================================================
@@ -876,7 +812,7 @@ class TorinAISystem:
     async def _initialize_learning_system(self):
         """Initialize complete learning system with dependency injection"""
         try:
-            from core.learning.learning_authority import get_learning_authority
+            from core.learning.unified_learning_system import get_learning_authority
             from core.learning.unified_learning_system import get_unified_learning_system
             from core.learning.enhanced_asi_self_improvement import get_asi_self_improvement
             from core.learning.improvement_monitor import get_improvement_monitor
@@ -894,29 +830,29 @@ class TorinAISystem:
                 #    CONTRIBUTOR to this, and contributes proposals rather than
                 #    knowledge.
                 logger.info("🧭 Establishing learning authority (substrate)...")
+                # ONE learning authority. `get_learning_authority()` and
+                # `get_unified_learning_system()` return the SAME object now: the
+                # UnifiedLearningSystem IS the authority (it inherits the correct
+                # model-free ILearningAuthority and carries the meta-learning
+                # strategies as first-class parts). So there is no separate
+                # "contributor" to register -- the strategies are the authority's
+                # own. Other proposers (exploration, teacher, transfer) still
+                # register as contributors elsewhere.
                 authority = get_learning_authority()
                 await authority.store.ensure_schema()
                 self.learning_authority = authority
-                logger.info("   ✅ Learning authority ready")
+                learning = authority  # same object; kept for the injection below
 
-                # 1. Initialize UnifiedLearningSystem -- a contributor to the above.
-                logger.info("📚 Initializing Unified Learning System (contributor)...")
-                learning = get_unified_learning_system()
-                authority.register_contributor(
-                    "unified_learning_system",
-                    "model-based proposer; may propose, may not attest")
-
-                # Inject dependencies into UnifiedLearningSystem
+                # Inject dependencies into the authority.
                 if self.llm_service:
                     learning.llm_service = self.llm_service
                     logger.info("   ✅ Teacher model injected")
-
                 if self.memory_system:
                     learning.memory_system = self.memory_system
                     logger.info("   ✅ Memory system injected")
 
                 await learning.initialize()
-                logger.info("   ✅ Unified Learning System ready")
+                logger.info("   ✅ Learning authority ready (strategies integrated)")
 
                 # 2. Initialize ImprovementMonitor
                 logger.info("📊 Initializing Improvement Monitor...")
@@ -1004,19 +940,15 @@ class TorinAISystem:
         try:
             from core.agents.agents import get_agent_coordinator
 
-            logger.info("🤖 Initializing Agent Coordinator (research/logical/memory)...")
+            logger.info("🤖 Initializing agent factory...")
 
             async def init_agent_coordinator():
-                coordinator = await get_agent_coordinator(
-                    enable_monitoring=False, enable_safety=True
-                )
-                # Inject the teacher model into every agent that can use it.
-                if self.llm_service:
-                    for agent in coordinator.agents.values():
-                        if hasattr(agent, "llm_service"):
-                            agent.llm_service = self.llm_service
-                    logger.info("   🎓 Teacher model injected into agents")
-                return coordinator
+                # The factory spawns agents on demand; there are no
+                # pre-built agents to inject a model into. Each agent
+                # shares the substrate's deputies — the executor is bound below,
+                # once the autonomous coordinator exists.
+                return await get_agent_coordinator(
+                    enable_monitoring=False, enable_safety=True)
 
             self.agent_coordinator = await self.service_init.initialize_service(
                 "agent_coordinator",
@@ -1025,20 +957,10 @@ class TorinAISystem:
             )
 
             if self.agent_coordinator:
-                agents = list(self.agent_coordinator.agents.keys())
-                logger.info(
-                    f"✅ Agent Coordinator ready — {len(agents)} agents: "
-                    f"{[a.split('_')[0] for a in agents]}"
-                )
-                # Keep the legacy attribute pointing at a REAL agent so any
-                # existing reader gets something that works.
-                self.research_agent = next(
-                    (a for aid, a in self.agent_coordinator.agents.items()
-                     if aid.startswith("research")), None
-                )
+                logger.info("✅ agent factory ready")
                 self.stats['services_initialized'] += 1
             else:
-                logger.error("Agent Coordinator failed to initialize — delegation unavailable")
+                logger.error("agent factory failed to initialize — delegation unavailable")
                 self.stats['services_failed'] += 1
 
         except Exception as e:
@@ -1299,23 +1221,11 @@ class TorinAISystem:
             logger.error(f"Memory injector initialization failed: {e}")
             self.stats['services_failed'] += 1
 
-        # Logical Integration
-        try:
-            from core.agents.logical.logical_integration import get_logical_integration
-
-            logger.info("Initializing logical integration...")
-            self.logical_integration = get_logical_integration()
-
-            # Connect proof engine to logical integration
-            if self.proof_engine:
-                self.logical_integration.proof_engine = self.proof_engine
-
-            logger.info("✓ Logical integration initialized")
-            self.stats['services_initialized'] += 1
-
-        except Exception as e:
-            logger.error(f"Logical integration initialization failed: {e}")
-            self.stats['services_failed'] += 1
+        # NOTE (2026-09-01): the LogicalIntegrationSystem construction/wiring
+        # was removed — it was a dead, redundant wrapper over the Z3 proof engine
+        # (already live as self.proof_engine). The live logical kernel,
+        # LogicalFormulaParser, is imported directly where it's used (the proof
+        # engine, the neural bridge formalizer, abduction); nothing to init here.
 
     # ========================================================================
     # PHASE 10: AUTONOMOUS COORDINATOR (THE SINGLETON)
@@ -1337,11 +1247,13 @@ class TorinAISystem:
                 if self.proof_engine:
                     coordinator.proof_engine = self.proof_engine
 
-                # Inject learning systems (SINGLETON pattern - only ONE instance)
-                if self.learning_system:
-                    coordinator.unified_learning = self.learning_system
-                    logger.info("✓ Unified Learning System injected into coordinator")
-
+                # No learning injection: the coordinator already holds the ONE
+                # learning authority as `self.learning` (get_learning_authority()
+                # in its __init__ returns the same singleton this phase
+                # initialized). The old `coordinator.unified_learning =
+                # self.learning_system` set a SECOND name for that same object;
+                # it is gone. `self.learning_system` here and coordinator.learning
+                # are identical, and this phase already ran .initialize() on it.
                 if hasattr(self, 'asi_self_improvement') and self.asi_self_improvement:
                     coordinator.asi_self_improvement = self.asi_self_improvement
                 # Inject the INITIALIZED singleton. The coordinator otherwise
@@ -1367,15 +1279,22 @@ class TorinAISystem:
                     coordinator.recovery_manager = self.recovery_manager
                     logger.info("✓ Recovery Manager injected into coordinator")
 
-                # The agent router. Previously the autonomous coordinator read
-                # self.research_agent from config, which main.py never passed --
-                # so it was always None, and unused even so.
+                # The agent factory. The substrate holds it so it can
+                # deploy copies of itself; the factory shares the substrate's ONE
+                # executor, bound after initialize() creates it (below).
                 if getattr(self, 'agent_coordinator', None):
                     coordinator.agent_coordinator = self.agent_coordinator
-                    coordinator.research_agent = self.research_agent
-                    logger.info("✓ Agent Coordinator injected into coordinator")
+                    logger.info("✓ agent factory injected into coordinator")
 
                 await coordinator.initialize()
+
+                # Share the substrate's executor with the factory now that it
+                # exists, so a deployed agent runs through the same
+                # executor and authorities the substrate uses — not a private copy.
+                if getattr(self, 'agent_coordinator', None) and getattr(coordinator, 'executor', None):
+                    self.agent_coordinator.bind_executor(coordinator.executor)
+                    logger.info("✓ Shared executor bound to agent factory")
+
                 return coordinator
 
             self.autonomous_coordinator = await self.service_init.initialize_service(
@@ -1972,11 +1891,6 @@ class TorinAISystem:
             if self.backup_scheduler:
                 await self.backup_scheduler.stop_scheduler()
                 logger.info("✓ Backup scheduler stopped")
-
-            # Shutdown Lightweight LLM (before VLM)
-            if self.lightweight_llm_service:
-                await self.lightweight_llm_service.shutdown()
-                logger.info("✓ Context compression service stopped")
 
             # Shutdown the teacher model
             if self.llm_service:

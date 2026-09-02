@@ -61,14 +61,17 @@ async def _coordinator():
     """A coordinator carrying only what this chain needs, wired to the real systems."""
     from core.agents.autonomous.autonomous_coordinator import AutonomousCoordinator
     from core.agents.memory_agent import get_memory_agent
-    from core.learning.unified_learning_system import get_unified_learning_system
+    from core.learning.unified_learning_system import get_learning_authority
 
     coord = AutonomousCoordinator.__new__(AutonomousCoordinator)
     coord.config = {}
     coord.memory = await get_memory_agent()
     await coord.memory.initialize()
-    coord.unified_learning = get_unified_learning_system()
-    await coord.unified_learning.start()
+    # ONE learning attribute now: `coord.learning` (the coordinator's methods
+    # read self.learning; `unified_learning` was a second name for the same
+    # singleton and is gone). get_learning_authority() == get_unified_learning_system().
+    coord.learning = get_learning_authority()
+    await coord.learning.start()
     return coord
 
 

@@ -23,10 +23,6 @@ from typing import List, Optional, Union
 from sentence_transformers import SentenceTransformer
 import time
 
-from core.model_policy import (
-    ModelClass, guard_model_use, model_use_permitted, record_model_executed,
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -93,14 +89,6 @@ class EmbeddingService:
             return False  # Don't retry after MPS/pipe failure — avoid log spam
 
         # Loading is not inference, but get_embedding_service() initializes
-        # eagerly, so without this a strict run still materialises 384-dim
-        # MiniLM weights into the process. Reported as an unavailable capability
-        # (the established False return) rather than raised, since every caller
-        # already handles a failed load.
-        if not model_use_permitted(ModelClass.EMBEDDING, "embedding_service.initialize"):
-            self._init_failed = True
-            return False
-
         try:
             logger.info(f"Loading embedding model: {self.model_name}")
             start_time = time.time()
@@ -134,11 +122,6 @@ class EmbeddingService:
         Returns:
             List of float values (384-dimensional vector) or None if failed
         """
-        # Declared before the try: the handler below returns None on failure, so
-        # a forbidden call caught there would be indistinguishable from an
-        # embedding that legitimately could not be produced.
-        guard_model_use(ModelClass.EMBEDDING, "embedding_service.generate_embedding")
-
         if not self.initialized:
             if not self.initialize():
                 return None
@@ -152,7 +135,6 @@ class EmbeddingService:
 
             # Generate embedding
             embedding = self.model.encode(text, convert_to_numpy=True)
-            record_model_executed(ModelClass.EMBEDDING, "embedding_service.generate_embedding")
 
             # Convert to list for JSON serialization
             embedding_list = embedding.tolist()
@@ -180,8 +162,6 @@ class EmbeddingService:
         Returns:
             List of embedding vectors or None if failed
         """
-        guard_model_use(ModelClass.EMBEDDING, "embedding_service.batch_embed")
-
         if not self.initialized:
             if not self.initialize():
                 return None
@@ -201,7 +181,6 @@ class EmbeddingService:
 
             # Batch encode for efficiency
             embeddings = self.model.encode(valid_texts, convert_to_numpy=True, batch_size=32)
-            record_model_executed(ModelClass.EMBEDDING, "embedding_service.batch_embed")
 
             # Convert to list of lists
             embeddings_list = embeddings.tolist()

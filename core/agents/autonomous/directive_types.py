@@ -60,13 +60,13 @@ class ABTestStatus(Enum):
     INSUFFICIENT_DATA = "insufficient_data"
 
 
-class GovernanceAgentType(Enum):
-    """Types of governance agents"""
-    NEUTRAL_EVALUATOR = "neutral_evaluator"
-    CONSERVATIVE_AGENT = "conservative_agent"
-    MODERATE_AGENT = "moderate_agent"
-    PROGRESSIVE_AGENT = "progressive_agent"
-    SYNTHESIZER = "synthesizer"
+# NOTE (2026-09-02): GovernanceAgentType (the five-judge panel:
+# neutral/conservative/moderate/progressive/synthesizer) was REMOVED. Directive
+# governance is no longer a multi-agent LLM-style vote — a proposed directive is
+# validated against the CONSTITUTION (the single, model-free governance authority,
+# singleton_constitution) before activation. The removed vote types
+# (GovernanceAgentType/GovernanceAgentVote/GovernanceEvaluation) and their dead
+# persistence sink are archived in archive/llm_era_directive_governance_2026-09-02/.
 
 
 # ==========================
@@ -327,153 +327,6 @@ class DirectiveEvolution:
 
 
 # ==========================
-# GOVERNANCE EVALUATION
-# ==========================
-
-@dataclass
-class GovernanceAgentVote:
-    """
-    Single governance agent's vote on a directive proposal.
-
-    All scores are normalized [0.0, 1.0] and validated for mathematical integrity.
-    """
-    agent_type: GovernanceAgentType
-    position: str  # "approve", "reject", "approve_with_modification", etc.
-    reasoning: str
-    confidence: float  # MUST be [0.0, 1.0]
-    bias_level: Optional[float] = None  # MUST be [0.0, 1.0] when set (None for neutral and synthesizer)
-
-    # Law compliance scores (MUST be [0.0, 1.0] per law)
-    law_compliance: Dict[int, float] = field(default_factory=dict)  # {law_number: score}
-
-    def __post_init__(self):
-        """Validate all scores are properly bounded [0.0, 1.0]"""
-        if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(
-                f"confidence must be in [0.0, 1.0], got {self.confidence}. "
-                f"This is a critical metric bound violation."
-            )
-
-        if self.bias_level is not None and not 0.0 <= self.bias_level <= 1.0:
-            raise ValueError(
-                f"bias_level must be in [0.0, 1.0], got {self.bias_level}. "
-                f"This is a critical metric bound violation."
-            )
-
-        # Validate all law compliance scores
-        for law_num, score in self.law_compliance.items():
-            if not 0.0 <= score <= 1.0:
-                raise ValueError(
-                    f"law_compliance[{law_num}] must be in [0.0, 1.0], got {score}. "
-                    f"This is a critical metric bound violation."
-                )
-
-    def minimum_law_compliance(self) -> float:
-        """Get minimum law compliance score"""
-        if not self.law_compliance:
-            return 0.0
-        return min(self.law_compliance.values())
-
-    def average_law_compliance(self) -> float:
-        """Get average law compliance score"""
-        if not self.law_compliance:
-            return 0.0
-        return sum(self.law_compliance.values()) / len(self.law_compliance)
-
-
-@dataclass
-class GovernanceEvaluation:
-    """
-    Complete governance evaluation result with all agent votes.
-
-    All compliance scores and confidence are normalized [0.0, 1.0] and validated for mathematical integrity.
-    """
-    evaluation_id: str
-    directive_id: str
-
-    # Agent votes
-    neutral_evaluator_vote: GovernanceAgentVote
-    conservative_agent_vote: GovernanceAgentVote
-    moderate_agent_vote: GovernanceAgentVote
-    progressive_agent_vote: GovernanceAgentVote
-    synthesizer_decision: GovernanceAgentVote
-
-    # Law compliance scores (consolidated from all agents) - ALL MUST be [0.0, 1.0]
-    law_1_compliance: float  # Human Autonomy Preservation
-    law_2_compliance: float  # Transparency and Explainability
-    law_3_compliance: float  # Harm Prevention
-    law_4_compliance: float  # Value Alignment
-    law_5_compliance: float  # Containment and Control
-
-    # Overall compliance - MUST be [0.0, 1.0]
-    minimum_compliance: float
-    average_compliance: float
-
-    # Outcome
-    approved: bool
-    consensus_reached: bool
-    final_confidence: float  # MUST be [0.0, 1.0]
-    governance_violation: bool = False
-    violated_laws: List[int] = field(default_factory=list)  # List of law numbers
-
-    # Evaluation summary
-    evaluation_summary: str = ""
-
-    # Timestamp
-    evaluated_at: datetime = field(default_factory=datetime.now)
-
-    def __post_init__(self):
-        """Validate all compliance scores and confidence are properly bounded [0.0, 1.0]"""
-        # Validate individual law compliance scores
-        for law_name, score in [
-            ("law_1_compliance", self.law_1_compliance),
-            ("law_2_compliance", self.law_2_compliance),
-            ("law_3_compliance", self.law_3_compliance),
-            ("law_4_compliance", self.law_4_compliance),
-            ("law_5_compliance", self.law_5_compliance),
-        ]:
-            if not 0.0 <= score <= 1.0:
-                raise ValueError(
-                    f"{law_name} must be in [0.0, 1.0], got {score}. "
-                    f"This is a critical metric bound violation."
-                )
-
-        # Validate overall compliance metrics
-        if not 0.0 <= self.minimum_compliance <= 1.0:
-            raise ValueError(
-                f"minimum_compliance must be in [0.0, 1.0], got {self.minimum_compliance}. "
-                f"This is a critical metric bound violation."
-            )
-
-        if not 0.0 <= self.average_compliance <= 1.0:
-            raise ValueError(
-                f"average_compliance must be in [0.0, 1.0], got {self.average_compliance}. "
-                f"This is a critical metric bound violation."
-            )
-
-        if not 0.0 <= self.final_confidence <= 1.0:
-            raise ValueError(
-                f"final_confidence must be in [0.0, 1.0], got {self.final_confidence}. "
-                f"This is a critical metric bound violation."
-            )
-
-    @staticmethod
-    def generate_id() -> str:
-        """Generate a unique evaluation ID"""
-        return f"eval_{uuid.uuid4().hex[:12]}"
-
-    def all_votes(self) -> List[GovernanceAgentVote]:
-        """Get list of all agent votes"""
-        return [
-            self.neutral_evaluator_vote,
-            self.conservative_agent_vote,
-            self.moderate_agent_vote,
-            self.progressive_agent_vote,
-            self.synthesizer_decision
-        ]
-
-
-# ==========================
 # DIRECTIVE PROPOSAL
 # ==========================
 
@@ -481,7 +334,8 @@ class GovernanceEvaluation:
 class DirectiveProposal:
     """
     Proposal for a new directive or modification to existing directive.
-    Must be evaluated by governance agents before activation.
+    Must be validated against the CONSTITUTION (the model-free governance
+    authority) before activation — not a multi-agent vote.
     """
     proposal_id: str
     proposed_directive: InternalDirective
@@ -491,8 +345,10 @@ class DirectiveProposal:
     based_on_directive_id: Optional[str] = None  # If modifying existing
     performance_data: Optional[Dict[str, Any]] = None
 
-    # Evaluation result (populated after governance evaluation)
-    governance_evaluation: Optional[GovernanceEvaluation] = None
+    # Validation result (populated after the constitution vets the proposal).
+    # Shape: {approved: bool, average_compliance: float,
+    #         law_compliance: {law_number: score}, violated_laws: [int], ...}
+    constitution_validation: Optional[Dict[str, Any]] = None
 
     # Timestamps
     proposed_at: datetime = field(default_factory=datetime.now)
@@ -503,10 +359,10 @@ class DirectiveProposal:
         return f"prop_{uuid.uuid4().hex[:12]}"
 
     def is_approved(self) -> bool:
-        """Check if proposal was approved by governance"""
-        if self.governance_evaluation is None:
+        """Check if the proposal passed constitutional validation."""
+        if not self.constitution_validation:
             return False
-        return self.governance_evaluation.approved
+        return bool(self.constitution_validation.get("approved", False))
 
 
 # ==========================

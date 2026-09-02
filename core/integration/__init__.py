@@ -6,12 +6,11 @@ Core integration framework for Torin AI cross-domain capabilities
 
 from .universal_domain_master import (
     UniversalDomainMaster, DomainIntegrationResult,
-    CrossDomainQuery, KnowledgeTransferRequest
+    CrossDomainQuery
 )
 
 __all__ = [
     'UniversalDomainMaster',
-    'DomainIntegrationResult', 
+    'DomainIntegrationResult',
     'CrossDomainQuery',
-    'KnowledgeTransferRequest'
 ]

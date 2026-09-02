@@ -460,3 +460,161 @@ def test_zero_targets_is_distinguishable_from_a_broken_subsystem():
     assert empty_status == "NO_EXPLORATION_TARGETS"
     assert broken_status == "SYSTEM_FAILURE"
     assert empty_status != broken_status
+
+
+# ---------------------------------------- competence-drive signature taxonomy
+
+
+def test_contrastive_pending_signature_is_not_malformed():
+    """A pending signature ("", 0) is the CONTRASTIVE sentinel
+    (demonstration_store.CONTRASTIVE) — domain-level contrastive evidence, NOT a
+    malformed operator. The competence drive once rejected it as EMPTY_SIGNATURE;
+    it must instead yield a DOMAIN-scoped competence goal, mirroring how the drain
+    expands a contrastive across the domain.
+
+    This asserts EXACT accounting over a controlled queue so the reason competence
+    contributes each goal (or zero) is proven, not inferred:
+        4 candidates -> 2 accepted (1 domain_contrastive + 1 per-operator)
+                     -> 2 rejected (CORRUPT_DOMAIN, MALFORMED_SIGNATURE)
+    """
+    import core.learning.demonstration_store as ds
+    from core.learning.demonstration_store import DemonstrationStore
+
+    class FakeStore:
+        CONTRASTIVE = DemonstrationStore.CONTRASTIVE
+
+        async def pending_signatures(self, *, limit=None):
+            rows = [
+                ("fs_general_obs1", "", 0),   # CONTRASTIVE  -> domain goal
+                ("nav", "move", 2),           # real operator -> per-op goal
+                ("", "p", 1),                 # corrupt domain -> reject
+                ("d", "", 3),                 # blank pred, arity!=0 -> reject
+            ]
+            return rows[:limit] if limit is not None else rows
+
+    original = ds.get_demonstration_store
+    ds.get_demonstration_store = lambda: FakeStore()
+    try:
+        goals = asyncio.run(motivation()._competence_goals(budget=4))
+    finally:
+        ds.get_demonstration_store = original
+
+    assert len(goals) == 2, f"expected 2 accepted goals, got {len(goals)}"
+    domain_goals = [g for g in goals if g.metadata.get("scope") == "domain_contrastive"]
+    op_goals = [g for g in goals if g.metadata.get("predicate") == "move"]
+    assert len(domain_goals) == 1, "contrastive sentinel was not accepted as a domain goal"
+    assert domain_goals[0].metadata["domain_id"] == "fs_general_obs1"
+    assert "domain_contrastive" == domain_goals[0].metadata["scope"]
+    assert len(op_goals) == 1, "real operator did not yield a per-operator goal"
+    assert op_goals[0].metadata["arity"] == 2
+
+
+def test_corrupt_pending_signatures_are_rejected_with_distinct_reasons(caplog):
+    """A blank DOMAIN is genuinely corrupt (append() forbids it); a blank
+    PREDICATE with nonzero arity is not the contrastive sentinel and is malformed.
+    Both are rejected loudly with distinct named reasons, never turned into a
+    blank-named goal and never silently dropped."""
+    import logging
+    import core.learning.demonstration_store as ds
+    from core.learning.demonstration_store import DemonstrationStore
+
+    class FakeStore:
+        CONTRASTIVE = DemonstrationStore.CONTRASTIVE
+
+        async def pending_signatures(self, *, limit=None):
+            return [("", "p", 1), ("d", "", 3)]
+
+    original = ds.get_demonstration_store
+    ds.get_demonstration_store = lambda: FakeStore()
+    try:
+        with caplog.at_level(logging.WARNING):
+            goals = asyncio.run(motivation()._competence_goals(budget=4))
+    finally:
+        ds.get_demonstration_store = original
+
+    assert goals == [], "corrupt signatures must not produce goals"
+    text = caplog.text
+    assert "CORRUPT_DOMAIN" in text
+    assert "MALFORMED_SIGNATURE" in text
+
+
+# ---------------------------------------- drive-goal execution handler
+
+
+def _drive_shell(learning):
+    """A coordinator shell with just what _execute_drive_goal touches."""
+    from core.agents.autonomous.autonomous_coordinator import AutonomousCoordinator
+    c = object.__new__(AutonomousCoordinator)
+    c.learning = learning
+    c.universal_domain_master = None      # isolate the learning path
+    return c
+
+
+def _task(**md):
+    return SimpleNamespace(metadata=md)
+
+
+def test_competence_goal_verified_only_when_operator_becomes_executable():
+    """A competence goal's outcome is READ from induction, never fabricated:
+    verified iff the operator actually became executable."""
+    import core.learning.exploration as ex
+    from core.agents.autonomous.autonomous_coordinator import AutonomousCoordinator
+
+    async def reinduce(*, domain_id, predicate, arity):
+        return {"status": "operator_executable" if predicate == "MOVE" else "operator_candidate",
+                "executable": predicate == "MOVE"}
+
+    learning = SimpleNamespace(reinduce_operator=reinduce)
+    orig = ex.explorable_domains
+    ex.explorable_domains = lambda: []     # non-explorable: no acting, pure induce
+    try:
+        c = _drive_shell(learning)
+        good = asyncio.run(c._execute_drive_goal(
+            _task(drive="competence", domain_id="nav", predicate="MOVE", arity=2)))
+        weak = asyncio.run(c._execute_drive_goal(
+            _task(drive="competence", domain_id="nav", predicate="OPEN", arity=1)))
+    finally:
+        ex.explorable_domains = orig
+
+    assert good["verification_state"] == "verified" and good["success"] is True
+    assert weak["verification_state"] == "failed" and weak["success"] is False
+    assert weak["error"] and "operator_candidate" in weak["error"]
+
+
+def test_confidence_goal_fails_honestly_when_no_new_root_is_gathered():
+    """Confidence success is a MEASURED rise in confirming roots. If acting
+    gathers nothing new (or the domain cannot be explored), the goal fails with a
+    named reason — never a fabricated success."""
+    import core.learning.exploration as ex
+
+    async def reinduce(*, domain_id, predicate, arity):
+        return {"status": "operator_executable", "executable": True}
+
+    learning = SimpleNamespace(reinduce_operator=reinduce)
+    c = _drive_shell(learning)
+    # root count never moves
+    async def root_count(*, domain_id, predicate, arity):
+        return 2
+    c._rule_root_count = root_count
+
+    orig = ex.explorable_domains
+    ex.explorable_domains = lambda: []     # non-explorable domain
+    try:
+        res = asyncio.run(c._execute_drive_goal(
+            _task(drive="confidence", domain_id="kite17", predicate="MOVE", arity=3,
+                  positive_root_count=2)))
+    finally:
+        ex.explorable_domains = orig
+
+    assert res["verification_state"] == "failed" and res["success"] is False
+    assert res["root_count_before"] == 2 and res["root_count_after"] == 2
+    # a domain with no proposer is a BINDING_GAP (addressable), not "can't operate"
+    assert res.get("binding_gap") is True
+    assert "binding_gap" in res["error"]
+
+
+def test_drive_goal_rejects_missing_signature():
+    learning = SimpleNamespace()
+    c = _drive_shell(learning)
+    res = asyncio.run(c._execute_drive_goal(_task(drive="competence", domain_id="d")))
+    assert res["verification_state"] == "failed" and "signature" in res["error"]

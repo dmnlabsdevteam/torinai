@@ -65,7 +65,6 @@ from core.learning.safe_upgrade_deployer import get_safe_deployer, DeploymentStr
 from core.learning.safety_audit_trail import get_safety_audit_trail, SafetyEventType
 from core.learning.performance_profiler import get_performance_profiler
 from core.learning.capability_benchmark_suite import get_capability_benchmark_suite
-from core.services.unified_llm import get_llm_service
 from core.tools import get_tool_registry
 from core.governance import get_unified_governance, ActionCategory
 from core.memory import get_memory_agent, MemoryType, MemoryPriority
@@ -725,7 +724,6 @@ class EnhancedASISelfImprovement(IAdaptationEngine):
         self._deployer = None
         self._audit_trail = None
         self._profiler = None
-        self._llm = None  # Unified LLM service (Unified LLM)
         self._neural_bridge = None  # Neural bridge for automatic memory capture
 
         # New infrastructure integrations
@@ -965,19 +963,6 @@ class EnhancedASISelfImprovement(IAdaptationEngine):
                 # None -- indistinguishable from one that is simply absent.
                 logger.error("Performance profiler unavailable: %s: %s", type(e).__name__, e)
         return self._profiler
-
-    @property
-    def llm(self):
-        if self._llm is None:
-            self._llm = get_llm_service()
-            if not self._llm:
-                raise RuntimeError("LLM service unavailable")
-        return self._llm
-
-    @llm.setter
-    def llm(self, value):
-        """Set LLM service instance"""
-        self._llm = value
 
     @property
     def neural_bridge(self):
@@ -1645,23 +1630,12 @@ class EnhancedASISelfImprovement(IAdaptationEngine):
         """
         current_score = health["health_score"]
 
-        # ── Queue-depth guard ────────────────────────────────────────────────
-        # Only use neural_bridge for assessment when the inference queue is idle.
-        # If there are already jobs queued, skip straight to the heuristic —
-        # the LLM would time out anyway and leave another ghost job behind.
-        queue_depth = 0
-        try:
-            if self.llm and hasattr(self.llm, '_inference_queue'):
-                queue_depth = self.llm._inference_queue.qsize()
-        except Exception:
-            pass
+        # Assessment goes through the substrate reasoner when it is present.
+        # The reasoner (and, behind it, the teacher) manages its own execution
+        # queue and timeouts — this module holds no model handle to peek at.
+        use_reasoner = self.neural_bridge is not None
 
-        use_llm = (
-            self.neural_bridge is not None
-            and queue_depth == 0
-        )
-
-        if use_llm:
+        if use_reasoner:
             try:
                 from core.reasoning.neural_bridge import ReasoningRequest, ReasoningMode
 
@@ -1876,7 +1850,7 @@ Provide analysis in JSON format:
                         context["selection_excluded_by_risk"] = constrained.get(
                             "excluded_by_risk")
 
-                if not selected and self.llm and len(sorted_targets) > 0:
+                if not selected and self.neural_bridge and len(sorted_targets) > 0:
                     try:
                         planning_result = await self._reason_select_targets(
                             sorted_targets[:max_targets * 2], scope, context
@@ -2623,7 +2597,7 @@ Return JSON:
                                         "reason": "generator_returned_no_code"})
                         continue
 
-                    if generated_code and self.llm:
+                    if generated_code and self.neural_bridge:
                         verification = await self._verify_generated_code(
                             code=generated_code,
                             requirements=requirements,
@@ -3690,9 +3664,9 @@ Provide analysis in JSON:
             # identically.
             benchmark_suite = get_capability_benchmark_suite()
 
-            # Inject LLM service if not already set
-            if not benchmark_suite.llm_service and self.llm:
-                benchmark_suite.llm_service = self.llm
+            # No model is injected: a language model belongs to the teacher, not
+            # to a benchmark harness. The suite runs its model-free benchmarks;
+            # any benchmark that genuinely needs a model reports that honestly.
 
             # Load benchmarks if not already loaded
             if not benchmark_suite.benchmarks_loaded:

@@ -61,10 +61,6 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from core.model_policy import (
-    ModelClass, model_use_permitted, record_model_executed,
-)
-
 logger = logging.getLogger(__name__)
 
 # ASKED, NOT RESTATED. How this loads differs from the memory embedder on
@@ -145,10 +141,10 @@ def _stem(w: str) -> str:
     were not handled at all: `geese`, `children`, `mice` passed through
     unchanged.
 
-    Three implementations of this existed -- here, in the Self's language
-    faculty (`core.agents.autonomous.self_model`, formerly
-    `core.semantics.conversation`), and in `lexical_normalization` -- and all
-    three disagreed. `lexical_normalization` already declares the invariant
+    Three implementations of this existed -- here, in the substrate's language
+    faculty (the conversation faculty on `core.agents.autonomous.autonomous_coordinator`,
+    formerly `core.semantics.conversation`), and in `lexical_normalization` --
+    and all three disagreed. `lexical_normalization` already declares the invariant
     that one surface form has one canonical interpretation across every
     cognitive path; it just had no retrieval reading for callers like this one
     to use. It does now, and this delegates.
@@ -363,16 +359,8 @@ def _model():
 
 
 def _encode(texts) -> Optional[np.ndarray]:
-    # Unlike the memory embedder, this one degrades rather than raises: BM25 and
-    # the capability graph are deterministic and still rank without it, which is
-    # what keeps the strict lane usable instead of merely empty.
-    #
-    # The attempt is still counted, so assert_model_free() reports honestly that
-    # ranking reached for an encoder. Degrading quietly and reporting the run as
-    # model-free would be the lie worth avoiding.
-    if not model_use_permitted(ModelClass.ENCODER, "tool_discovery._encode"):
-        return None
-
+    # This encoder degrades rather than raises: BM25 and the capability graph
+    # are deterministic and still rank without it.
     m = _model()
     if m is None:
         return None
@@ -384,7 +372,6 @@ def _encode(texts) -> Optional[np.ndarray]:
     except Exception as e:
         logger.warning("tool discovery: encode failed (%s: %s)", type(e).__name__, e)
         return None
-    record_model_executed(ModelClass.ENCODER, "tool_discovery._encode")
     return encoded
 
 

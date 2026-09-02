@@ -30,22 +30,14 @@ from core.execution.effect_verification import (
 from core.execution.operator_binding import OperatorBinding, get_binding_registry
 from core.learning.rule_induction import Fact, RuleEffects, TrainingExample, get_rule_inducer
 from core.learning.rule_store import EpistemicStatus, RuleStore
-from core.model_policy import (
-    ModelPolicy, assert_model_free, reset_model_telemetry, set_model_policy,
-)
-
 F = Fact.parse
 DOMAIN = "test_substrate_exec"
 
 
-@pytest.fixture(autouse=True)
-def strict():
-    previous = set_model_policy(ModelPolicy.STRICT_MODEL_FREE)
-    reset_model_telemetry()
-    yield
-    assert_model_free("substrate execution")
-    set_model_policy(previous)
-    reset_model_telemetry()
+# The substrate execution path is model-free BY CONSTRUCTION: core/model_policy.py
+# was removed and no model handle exists on this path to call. The old autouse
+# `strict` fixture asserted model-freeness through that now-deleted guard; it is
+# obsolete, not weakened — there is nothing left that could reach a model here.
 
 
 class World:
@@ -480,3 +472,59 @@ def test_a_mismatch_is_not_charged_to_the_rule_unless_everything_held():
 
     interfered = AttributionContext(**{**vars(everything_held), "external_interference": True})
     assert attribute(evidence, interfered)[0] is Attribution.EXTERNAL_FAILURE
+
+
+def test_encounter_driven_domain_install_from_a_workspace_task():
+    """A task that declares a filesystem workspace INSTALLS its domain the first
+    time the substrate engages it (_derive_goal_spec), then the domain is
+    observable AND explorable — the wire that was missing entirely in production
+    (install_filesystem_domain had zero callers). Idempotent; declines a
+    non-existent root; a task with no workspace installs nothing.
+    """
+    from types import SimpleNamespace
+    from core.execution.filesystem_domain import ensure_filesystem_domain
+    from core.learning.exploration import (
+        explorable_domains, get_proposer, unregister_explorable_domain)
+
+    def wtask(domain_id, root, conds):
+        return SimpleNamespace(id="t_enc", provenance={
+            "domain_id": domain_id, "workspace_root": str(root),
+            "goal_conditions": conds})
+
+    ex = GeneralPurposeExecutor()
+    domain = "test_encounter_fs"
+    unregister_explorable_domain(domain)
+
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "alpha").mkdir()
+        (root / "beta").mkdir()
+        (root / "alpha" / "doc").write_text("x")
+        conds = ["FILE_IN(Fdoc, Fbeta)"]
+
+        assert domain not in explorable_domains()
+
+        # ENCOUNTER: engaging the task installs + observes.
+        spec = ex._derive_goal_spec(wtask(domain, root, conds))
+        assert spec is not None and spec["domain_id"] == domain
+        assert domain in explorable_domains()      # now the drive handler can ACT
+        proposer = get_proposer(domain)
+        assert proposer is not None
+
+        # IDEMPOTENT: re-encounter is a no-op, same proposer.
+        assert ensure_filesystem_domain(domain, root) is None
+        assert get_proposer(domain) is proposer
+
+        unregister_explorable_domain(domain)
+
+    # A non-existent root is declined — no domain invented over nothing.
+    missing = "test_encounter_missing"
+    unregister_explorable_domain(missing)
+    assert ensure_filesystem_domain(missing, "/no/such/dir/xyz_nope") is None
+    assert missing not in explorable_domains()
+
+    # A task with no workspace installs nothing (backward-compatible).
+    spec_none = ex._derive_goal_spec(SimpleNamespace(
+        id="t_nofs", provenance={"domain_id": "nofs_x", "goal_conditions": ["P(a)"]}))
+    assert spec_none is None
+    assert "nofs_x" not in explorable_domains()

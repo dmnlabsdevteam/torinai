@@ -230,7 +230,7 @@ def test_demonstrations_must_be_ground():
 
 def test_facts_render_back_to_the_parsers_surface_syntax():
     """Learned rules stay consumable by the existing inference machinery."""
-    from core.agents.logical.logical_integration import LogicalFormulaParser
+    from core.reasoning.logical_integration import LogicalFormulaParser
 
     parser = LogicalFormulaParser()
     for text in ("NAL(a)", "VEX(a, b)", "P"):

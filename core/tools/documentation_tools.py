@@ -19,11 +19,6 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Import API registry
-from core.integration.external_api_integration_manager import (
-    get_api_manager, APIProvider
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -44,554 +39,6 @@ class DocumentationResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
     success: bool = True
     error: Optional[str] = None
-
-
-class DocumentationTools:
-    """
-    AI-Powered Documentation Tools
-
-    Purpose:
-    - Generate documentation using LLM APIs
-    - Use API registry for provider management
-    - Support multiple documentation styles
-    - Extract and analyze code structure
-
-    Usage:
-        docs = DocumentationTools()
-        result = await docs.generate_function_docs(code, "my_function")
-    """
-
-    def __init__(self, config: DocumentationConfig = None):
-        self.config = config or DocumentationConfig()
-        self.api_manager = get_api_manager()
-
-        logger.info("DocumentationTools initialized")
-
-    async def generate_function_docs(
-        self,
-        code: str,
-        function_name: str = None,
-        language: str = "python"
-    ) -> DocumentationResult:
-        """
-        Generate documentation for a function
-
-        Args:
-            code: Source code containing the function
-            function_name: Name of function to document (optional)
-            language: Programming language
-
-        Returns:
-            DocumentationResult with generated documentation
-        """
-        try:
-            logger.info(f"Generating function docs for {function_name or 'code'}")
-
-            # Extract function if name provided
-            if function_name:
-                function_code = self._extract_function(code, function_name, language)
-            else:
-                function_code = code
-
-            # Get code analysis
-            analysis = self._analyze_code(function_code, language)
-
-            # Build prompt for LLM
-            prompt = f"""Generate comprehensive documentation for this {language} function:
-
-```{language}
-{function_code}
-```
-
-Include:
-- Purpose and description
-- Parameters with types
-- Return value
-- Usage example (if applicable)
-- Any important notes
-
-Format: {self.config.style} style docstring"""
-
-            # Call LLM via API registry
-            doc_content = await self._call_llm_for_docs(prompt)
-
-            # If response contains code blocks, extract documentation
-            if '```' in doc_content:
-                doc_content = self._extract_from_code_block(doc_content)
-
-            return DocumentationResult(
-                content=doc_content,
-                metadata={
-                    "function_name": function_name,
-                    "language": language,
-                    "style": self.config.style,
-                    "analysis": analysis
-                },
-                success=True
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to generate function docs: {e}")
-            return DocumentationResult(
-                content="",
-                success=False,
-                error=str(e)
-            )
-
-    async def generate_class_docs(
-        self,
-        code: str,
-        class_name: str = None,
-        language: str = "python"
-    ) -> DocumentationResult:
-        """
-        Generate documentation for a class
-
-        Args:
-            code: Source code containing the class
-            class_name: Name of class to document
-            language: Programming language
-
-        Returns:
-            DocumentationResult with generated documentation
-        """
-        try:
-            logger.info(f"Generating class docs for {class_name or 'code'}")
-
-            # Extract class if name provided
-            if class_name:
-                class_code = self._extract_class(code, class_name, language)
-            else:
-                class_code = code
-
-            # Analyze class structure
-            analysis = self._analyze_code(class_code, language)
-
-            prompt = f"""Generate comprehensive documentation for this {language} class:
-
-```{language}
-{class_code}
-```
-
-Include:
-- Class purpose and description
-- Constructor parameters
-- Public methods overview
-- Usage example
-- Important attributes
-
-Format: {self.config.style} style"""
-
-            doc_content = await self._call_llm_for_docs(prompt)
-
-            if '```' in doc_content:
-                doc_content = self._extract_from_code_block(doc_content)
-
-            return DocumentationResult(
-                content=doc_content,
-                metadata={
-                    "class_name": class_name,
-                    "language": language,
-                    "analysis": analysis
-                },
-                success=True
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to generate class docs: {e}")
-            return DocumentationResult(
-                content="",
-                success=False,
-                error=str(e)
-            )
-
-    async def generate_module_docs(
-        self,
-        file_path: str
-    ) -> DocumentationResult:
-        """
-        Generate documentation for an entire module/file
-
-        Args:
-            file_path: Path to source file
-
-        Returns:
-            DocumentationResult with module documentation
-        """
-        try:
-            logger.info(f"Generating module docs for {file_path}")
-
-            # Read file
-            with open(file_path, 'r', encoding='utf-8') as f:
-                code = f.read()
-
-            # Determine language from file extension
-            language = self._get_language_from_path(file_path)
-
-            # Analyze module structure
-            analysis = self._analyze_code(code, language)
-
-            prompt = f"""Generate comprehensive module documentation for this {language} file:
-
-File: {Path(file_path).name}
-
-```{language}
-{code[:3000]}  # First 3000 chars
-```
-
-Include:
-- Module purpose and overview
-- Key classes and functions
-- Usage examples
-- Dependencies
-- Important notes
-
-Format: Markdown"""
-
-            doc_content = await self._call_llm_for_docs(prompt)
-
-            return DocumentationResult(
-                content=doc_content,
-                metadata={
-                    "file_path": file_path,
-                    "language": language,
-                    "analysis": analysis
-                },
-                success=True
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to generate module docs: {e}")
-            return DocumentationResult(
-                content="",
-                success=False,
-                error=str(e)
-            )
-
-    async def generate_readme(
-        self,
-        project_path: str,
-        project_name: str = None
-    ) -> DocumentationResult:
-        """
-        Generate README.md for a project
-
-        Args:
-            project_path: Path to project directory
-            project_name: Project name (optional)
-
-        Returns:
-            DocumentationResult with README content
-        """
-        try:
-            logger.info(f"Generating README for {project_path}")
-
-            # Analyze project structure
-            structure = self._analyze_project_structure(project_path)
-
-            if not project_name:
-                project_name = Path(project_path).name
-
-            prompt = f"""Generate a comprehensive README.md for this project:
-
-Project: {project_name}
-
-Structure:
-{structure}
-
-Include:
-1. Project Title and Description
-2. Features
-3. Installation
-4. Usage Examples
-5. Configuration
-6. API Documentation (if applicable)
-7. Contributing
-8. License
-
-Format: Professional GitHub README.md"""
-
-            readme_content = await self._call_llm_for_docs(prompt)
-
-            return DocumentationResult(
-                content=readme_content,
-                metadata={
-                    "project_name": project_name,
-                    "project_path": project_path
-                },
-                success=True
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to generate README: {e}")
-            return DocumentationResult(
-                content="",
-                success=False,
-                error=str(e)
-            )
-
-    async def generate_api_docs(
-        self,
-        code: str,
-        api_type: str = "REST"
-    ) -> DocumentationResult:
-        """
-        Generate API documentation
-
-        Args:
-            code: API source code
-            api_type: Type of API (REST, GraphQL, etc.)
-
-        Returns:
-            DocumentationResult with API documentation
-        """
-        try:
-            logger.info(f"Generating {api_type} API docs")
-
-            prompt = f"""Generate comprehensive {api_type} API documentation for this code:
-
-```python
-{code}
-```
-
-Include:
-- API Overview
-- Endpoints
-- Request/Response formats
-- Authentication
-- Error codes
-- Usage examples
-
-Format: Markdown with code examples"""
-
-            api_docs = await self._call_llm_for_docs(prompt)
-
-            return DocumentationResult(
-                content=api_docs,
-                metadata={
-                    "api_type": api_type
-                },
-                success=True
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to generate API docs: {e}")
-            return DocumentationResult(
-                content="",
-                success=False,
-                error=str(e)
-            )
-
-    async def _call_llm_for_docs(self, prompt: str) -> str:
-        """
-        Call LLM via API registry to generate documentation
-
-        Args:
-            prompt: Documentation generation prompt
-
-        Returns:
-            Generated documentation text
-        """
-        try:
-            # Get recommended provider from API registry
-            provider = await self.api_manager.get_provider_recommendation("chat")
-
-            if not provider:
-                logger.warning("No API provider available, using fallback")
-                return self._fallback_documentation(prompt)
-
-            # Call API through registry
-            model = self.config.get('documentation_model', 'gpt-4')
-
-            from core.services.unified_llm import get_llm_service
-            llm = get_llm_service()
-
-            response = await self.api_manager.call_api(
-                provider=provider,
-                endpoint="chat/completions",
-                method="POST",
-                data={
-                    "model": model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": llm.system_prompts.get("documentation_expert")
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    "temperature": 0.3,  # Lower temperature for consistent docs
-                    "max_tokens": 2000
-                }
-            )
-
-            # Extract content from response
-            if 'error' not in response:
-                # Parse OpenAI-style response
-                if 'choices' in response:
-                    return response['choices'][0]['message']['content']
-                # Fallback to whole response
-                return str(response)
-
-            logger.warning(f"API call failed: {response.get('error')}")
-            return self._fallback_documentation(prompt)
-
-        except Exception as e:
-            logger.error(f"LLM call failed: {e}")
-            return self._fallback_documentation(prompt)
-
-    def _fallback_documentation(self, prompt: str) -> str:
-        """Generate basic documentation when LLM unavailable"""
-        return """# Documentation
-
-This documentation was generated automatically.
-
-Please add detailed documentation for this code.
-
-## Usage
-
-```python
-# Add usage examples here
-```
-
-## Notes
-
-- Auto-generated documentation
-- LLM service unavailable
-- Please review and enhance
-"""
-
-    def _analyze_code(self, code: str, language: str) -> Dict[str, Any]:
-        """Analyze code structure"""
-        lines = code.split('\n')
-
-        analysis = {
-            "lines_of_code": len(lines),
-            "language": language,
-            "has_docstring": '"""' in code or "'''" in code,
-            "has_comments": '#' in code or '//' in code
-        }
-
-        # Python-specific analysis
-        if language == "python":
-            analysis["functions"] = len(re.findall(r'\bdef\s+\w+', code))
-            analysis["classes"] = len(re.findall(r'\bclass\s+\w+', code))
-            analysis["imports"] = len(re.findall(r'^\s*import\s+|^\s*from\s+', code, re.MULTILINE))
-
-        return analysis
-
-    def _extract_function(self, code: str, function_name: str, language: str) -> str:
-        """Extract a specific function from code"""
-        if language == "python":
-            # Simple extraction - in production, use AST
-            pattern = rf'def\s+{function_name}\s*\([^)]*\):[^\n]*\n(?:(?:    |\t).*\n)*'
-            match = re.search(pattern, code)
-            if match:
-                return match.group(0)
-
-        # Fallback: return whole code
-        return code
-
-    def _extract_class(self, code: str, class_name: str, language: str) -> str:
-        """Extract a specific class from code"""
-        if language == "python":
-            # Simple extraction - in production, use AST
-            pattern = rf'class\s+{class_name}[^:]*:[^\n]*\n(?:(?:    |\t).*\n)*'
-            match = re.search(pattern, code)
-            if match:
-                return match.group(0)
-
-        return code
-
-    def _extract_from_code_block(self, text: str) -> str:
-        """Extract content from markdown code block"""
-        if '```' in text:
-            parts = text.split('```')
-            if len(parts) >= 3:
-                return parts[1].strip()
-        return text
-
-    def _get_language_from_path(self, file_path: str) -> str:
-        """Determine language from file extension"""
-        ext = Path(file_path).suffix.lower()
-        mapping = {
-            '.py': 'python',
-            '.js': 'javascript',
-            '.ts': 'typescript',
-            '.go': 'go',
-            '.java': 'java',
-            '.rs': 'rust',
-            '.cpp': 'cpp',
-            '.c': 'c'
-        }
-        return mapping.get(ext, 'unknown')
-
-    def _analyze_project_structure(self, project_path: str, max_depth: int = 3) -> str:
-        """Analyze project directory structure"""
-        try:
-            structure_lines = []
-            path = Path(project_path)
-
-            for root, dirs, files in os.walk(path):
-                level = len(Path(root).relative_to(path).parts)
-                if level >= max_depth:
-                    continue
-
-                indent = "  " * level
-                structure_lines.append(f"{indent}{Path(root).name}/")
-
-                for file in files[:10]:  # Limit files shown
-                    structure_lines.append(f"{indent}  {file}")
-
-                if len(structure_lines) > 50:  # Limit total lines
-                    structure_lines.append("  ... (truncated)")
-                    break
-
-            return "\n".join(structure_lines)
-
-        except Exception as e:
-            logger.error(f"Failed to analyze project structure: {e}")
-            return "Unable to analyze project structure"
-
-
-# Singleton instance
-_documentation_tools = None
-
-
-def get_documentation_tools() -> DocumentationTools:
-    """Get global documentation tools instance"""
-    global _documentation_tools
-    if _documentation_tools is None:
-        _documentation_tools = DocumentationTools()
-    return _documentation_tools
-
-
-# CLI test
-async def main():
-    """Test documentation tools"""
-    logging.basicConfig(level=logging.INFO)
-
-    docs = get_documentation_tools()
-
-    # Test function documentation
-    sample_code = """
-def calculate_total(items: List[int], tax_rate: float = 0.1) -> float:
-    subtotal = sum(items)
-    tax = subtotal * tax_rate
-    return subtotal + tax
-"""
-
-    print("\n=== Documentation Tools Test ===")
-
-    result = await docs.generate_function_docs(sample_code, "calculate_total")
-    print(f"\nGenerated docs: {result.success}")
-    print(f"Content preview: {result.content[:200]}...")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 
 # ============================================================================
@@ -654,55 +101,19 @@ class GenerateReadmeTool(Tool):
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate comprehensive README using project analysis and LLM"""
-        try:
-            from core.services.unified_llm import get_llm_service
+        """Assemble a README from real project analysis, model-free.
 
+        Every section is built from facts actually found in the project
+        (detected manifests, dependency list, directory structure). There is
+        no hand-written narrative and no placeholder prose passed off as one.
+        """
+        try:
             project_path = kwargs.get("project_path", ".")
             project_name = kwargs.get("project_name") or Path(project_path).name
             description = kwargs.get("description", "")
 
-            # Analyze project structure
             structure_info = self._analyze_project(project_path)
-
-            # Build comprehensive prompt
-            prompt = f"""Generate a professional README.md for this project:
-
-Project Name: {project_name}
-{f'Description: {description}' if description else ''}
-
-Project Structure Analysis:
-{structure_info['structure']}
-
-Key Files Found:
-{', '.join(structure_info['key_files'])}
-
-Dependencies Found:
-{', '.join(structure_info['dependencies'])}
-
-Requirements:
-- Professional GitHub-style README
-- Include badges (build, coverage, license)
-- Installation instructions
-- Usage examples with code
-- API/Features documentation
-- Contributing guidelines
-- License information
-- Proper sections and formatting
-
-Return only the README.md content in markdown format."""
-
-            llm = get_llm_service()
-            response = await llm.generate(prompt, max_tokens=3072, temperature=0.3)
-            readme_content = response.get('content', '').strip()
-
-            # Extract from code blocks if LLM wrapped it
-            if '```markdown' in readme_content:
-                readme_content = readme_content.split('```markdown')[1].split('```')[0].strip()
-            elif '```' in readme_content:
-                parts = readme_content.split('```')
-                if len(parts) >= 3:
-                    readme_content = parts[1].strip()
+            readme_content = self._build_readme(project_name, description, structure_info)
 
             return ToolResult(
                 success=True,
@@ -710,25 +121,13 @@ Return only the README.md content in markdown format."""
                     "content": readme_content,
                     "filename": "README.md",
                     "project_name": project_name,
-                    "analysis": structure_info
+                    "analysis": structure_info,
+                    "method": "structural",
                 }
             )
         except Exception as e:
             logger.error(f"Failed to generate README: {e}")
-            # Fallback to template
-            # A TEMPLATE IS NOT THE ARTEFACT. Returning success=True here
-            # handed the caller boilerplate and told them it was generated
-            # from their input. The template is still returned so it can be
-            # used deliberately, but the result says what it is.
-            fallback = self._generate_fallback_readme(
-                kwargs.get("project_name", "Project"),
-                kwargs.get("description", "A software project")
-            )
-            return ToolResult(
-                success=False,
-                error=f"README generation failed ({e}); a generic template is attached",
-                output={"content": fallback, "filename": "README.md", "method": "template"}
-            )
+            return ToolResult(success=False, output=None, error=str(e))
 
     def _analyze_project(self, project_path: str) -> dict:
         """Analyze project structure for README generation"""
@@ -777,37 +176,45 @@ Return only the README.md content in markdown format."""
 
         return analysis
 
-    def _generate_fallback_readme(self, project_name: str, description: str) -> str:
-        """Generate fallback README when LLM unavailable"""
-        return f"""# {project_name}
+    # Manifest filename -> install command it implies.
+    _INSTALL = {
+        "requirements.txt": "pip install -r requirements.txt",
+        "pyproject.toml": "pip install .",
+        "setup.py": "pip install .",
+        "package.json": "npm install",
+        "Cargo.toml": "cargo build",
+        "go.mod": "go build ./...",
+    }
 
-{description}
+    def _build_readme(self, project_name: str, description: str, info: dict) -> str:
+        """Assemble README markdown from analyzed project facts only."""
+        manifests = {kf.split(' ', 1)[0] for kf in info.get("key_files", [])}
+        install_cmd = next((cmd for man, cmd in self._INSTALL.items() if man in manifests), None)
 
-## Installation
+        lines = [f"# {project_name}", ""]
+        if description:
+            lines += [description, ""]
 
-```bash
-pip install -r requirements.txt
-```
+        if info.get("structure"):
+            lines += ["## Project Structure", "", "```", info["structure"], "```", ""]
 
-## Usage
+        lines += ["## Installation", ""]
+        if install_cmd:
+            lines += ["```bash", install_cmd, "```", ""]
+        else:
+            lines += ["_No dependency manifest detected._", ""]
 
-```python
-# Add usage examples here
-```
+        if info.get("dependencies"):
+            lines += ["## Dependencies", ""]
+            lines += [f"- {d}" for d in info["dependencies"]]
+            lines += [""]
 
-## Features
+        if info.get("key_files"):
+            lines += ["## Detected Project Facts", ""]
+            lines += [f"- {kf}" for kf in info["key_files"]]
+            lines += [""]
 
-- Feature documentation needed
-- See source code for details
-
-## Contributing
-
-Contributions welcome! Please open an issue or PR.
-
-## License
-
-See LICENSE file for details.
-"""
+        return "\n".join(lines).rstrip() + "\n"
 
 
 class GenerateAPIDocsTool(Tool):
@@ -845,55 +252,109 @@ class GenerateAPIDocsTool(Tool):
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate API docs"""
+        """Generate API docs from code via AST, model-free.
+
+        Documents exactly what is in the code — module/class/function
+        docstrings and real signatures (annotations, defaults, return type).
+        Nothing is inferred or invented.
+        """
         try:
+            import ast
             code = kwargs.get("code", "")
             format_type = kwargs.get("format", "markdown")
 
-            # Use LLM for intelligent documentation generation
-            from core.services.unified_llm import get_llm_service
-            llm = get_llm_service()
+            if not code.strip():
+                return ToolResult(success=False, output=None, error="no code provided")
 
-            prompt = f"""Generate API documentation for this code in {format_type} format:
+            try:
+                tree = ast.parse(code)
+            except SyntaxError as se:
+                return ToolResult(success=False, output=None,
+                                  error=f"cannot document: code has a syntax error ({se})")
 
-```python
-{code}
-```
-
-Include:
-- Function/class descriptions
-- Parameters and return types
-- Usage examples
-- Notes and warnings
-
-Return only the documentation, no code."""
-
-            result = await llm.generate(
-                prompt=prompt,
-                temperature=0.3,
-                max_tokens=2048,
-                agent_type="documentation_expert"
-            )
-
-            response = result.get("content", "")
+            docs = self._build_api_docs(tree)
+            if not docs.strip():
+                return ToolResult(success=False, output=None,
+                                  error="no documentable functions or classes found in the code")
 
             return ToolResult(
                 success=True,
-                output={"documentation": response, "format": format_type}
+                output={"documentation": docs, "format": format_type, "method": "ast"}
             )
         except Exception as e:
             logger.error(f"Failed to generate API docs: {e}")
-            # Fallback to basic documentation
-            # A TEMPLATE IS NOT THE ARTEFACT. Returning success=True here
-            # handed the caller boilerplate and told them it was generated
-            # from their input. The template is still returned so it can be
-            # used deliberately, but the result says what it is.
-            docs = f"# API Documentation\n\n## Overview\n\nCode documentation for the provided code.\n"
-            return ToolResult(
-                success=False,
-                error=f"API documentation generation failed ({e}); a stub heading is attached",
-                output={"documentation": docs, "format": "markdown", "method": "template"}
-            )
+            return ToolResult(success=False, output=None, error=str(e))
+
+    @staticmethod
+    def _format_signature(node) -> str:
+        """Render a def's parameter list and return type from its AST."""
+        import ast
+        a = node.args
+        parts: List[str] = []
+        positional = list(getattr(a, 'posonlyargs', [])) + list(a.args)
+        defaults = list(a.defaults)
+        padded = [None] * (len(positional) - len(defaults)) + defaults
+        for arg, default in zip(positional, padded):
+            s = arg.arg
+            if arg.annotation is not None:
+                s += f": {ast.unparse(arg.annotation)}"
+            if default is not None:
+                s += f" = {ast.unparse(default)}"
+            parts.append(s)
+        if a.vararg:
+            s = "*" + a.vararg.arg
+            if a.vararg.annotation is not None:
+                s += f": {ast.unparse(a.vararg.annotation)}"
+            parts.append(s)
+        for arg, default in zip(a.kwonlyargs, a.kw_defaults):
+            s = arg.arg
+            if arg.annotation is not None:
+                s += f": {ast.unparse(arg.annotation)}"
+            if default is not None:
+                s += f" = {ast.unparse(default)}"
+            parts.append(s)
+        if a.kwarg:
+            parts.append("**" + a.kwarg.arg)
+        sig = f"({', '.join(parts)})"
+        if node.returns is not None:
+            sig += f" -> {ast.unparse(node.returns)}"
+        return sig
+
+    def _document_function(self, node, level: int = 3) -> List[str]:
+        import ast
+        prefix = "#" * level
+        kind = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
+        lines = [f"{prefix} `{kind} {node.name}{self._format_signature(node)}`", ""]
+        doc = ast.get_docstring(node)
+        if doc:
+            lines += [doc.strip(), ""]
+        return lines
+
+    def _build_api_docs(self, tree) -> str:
+        import ast
+        lines = ["# API Documentation", ""]
+        module_doc = ast.get_docstring(tree)
+        if module_doc:
+            lines += [module_doc.strip(), ""]
+
+        funcs = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        classes = [n for n in tree.body if isinstance(n, ast.ClassDef)]
+
+        if funcs:
+            lines += ["## Functions", ""]
+            for fn in funcs:
+                lines += self._document_function(fn, level=3)
+
+        for cls in classes:
+            lines += [f"## class `{cls.name}`", ""]
+            cdoc = ast.get_docstring(cls)
+            if cdoc:
+                lines += [cdoc.strip(), ""]
+            methods = [n for n in cls.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            for m in methods:
+                lines += self._document_function(m, level=4)
+
+        return "\n".join(lines).rstrip() + "\n"
 
 
 class AnalyzeCodeQualityTool(Tool):
@@ -1138,48 +599,17 @@ class GenerateChangelogTool(Tool):
                             "date": parts[3]
                         })
 
-            # Use LLM to categorize and format changelog
-            from core.services.unified_llm import get_llm_service
-
-            commits_summary = "\n".join([f"- {c['hash']}: {c['message']}" for c in commits[:50]])
-
-            prompt = f"""Generate a CHANGELOG.md from these git commits:
-
-Commits:
-{commits_summary}
-
-Requirements:
-- Use Keep a Changelog format (https://keepachangelog.com)
-- Categorize into: Added, Changed, Deprecated, Removed, Fixed, Security
-- Group related commits
-- Use proper markdown formatting
-- Include commit hashes in parentheses
-- Start with ## [Unreleased] section
-- Be concise but informative
-
-Return only the CHANGELOG.md content."""
-
-            llm = get_llm_service()
-            response = await llm.generate(prompt, max_tokens=2048, temperature=0.3)
-            changelog_content = response.get('content', '').strip()
-
-            # Add header if missing
-            if not changelog_content.startswith('# Changelog'):
-                changelog_content = f"""# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-{changelog_content}"""
+            # Categorize commits into Keep a Changelog sections, model-free,
+            # from their conventional-commit type (feat/fix/...) or, failing
+            # that, keywords in the subject line.
+            changelog_content = self._render_changelog(commits)
 
             return ToolResult(
                 success=True,
                 output={
                     "content": changelog_content,
                     "commits_analyzed": len(commits),
-                    "method": "llm"
+                    "method": "conventional_commits"
                 }
             )
 
@@ -1194,6 +624,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
                     "error": str(e)
                 }
             )
+
+    # Keep a Changelog sections, in output order.
+    _SECTIONS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"]
+
+    # Conventional-commit type -> section.
+    _TYPE_SECTION = {
+        "feat": "Added", "add": "Added",
+        "fix": "Fixed", "bugfix": "Fixed", "hotfix": "Fixed",
+        "change": "Changed", "refactor": "Changed", "perf": "Changed",
+        "update": "Changed", "improve": "Changed", "style": "Changed",
+        "docs": "Changed", "doc": "Changed", "chore": "Changed", "build": "Changed",
+        "ci": "Changed", "test": "Changed",
+        "deprecate": "Deprecated",
+        "remove": "Removed", "delete": "Removed", "drop": "Removed", "revert": "Removed",
+        "security": "Security", "sec": "Security",
+    }
+
+    def _categorize(self, message: str) -> str:
+        """Map one commit subject to a Keep a Changelog section."""
+        head = message.strip().lower()
+        # Conventional commit: "type(scope): subject" or "type: subject".
+        m = re.match(r'([a-z]+)(?:\([^)]*\))?!?:', head)
+        if m and m.group(1) in self._TYPE_SECTION:
+            return self._TYPE_SECTION[m.group(1)]
+        # Keyword fallback on the subject line.
+        for kw, section in (
+            ("secur", "Security"), ("vulnerab", "Security"), ("cve", "Security"),
+            ("deprecat", "Deprecated"),
+            ("remove", "Removed"), ("delete", "Removed"), ("drop ", "Removed"),
+            ("fix", "Fixed"), ("bug", "Fixed"), ("patch", "Fixed"),
+            ("add", "Added"), ("new ", "Added"), ("introduce", "Added"), ("implement", "Added"),
+        ):
+            if kw in head:
+                return section
+        return "Changed"
+
+    def _render_changelog(self, commits: List[Dict[str, Any]]) -> str:
+        """Render Keep a Changelog markdown by categorizing each commit."""
+        buckets: Dict[str, List[str]] = {s: [] for s in self._SECTIONS}
+        for c in commits:
+            section = self._categorize(c["message"])
+            subject = c["message"].strip()
+            # Strip a leading conventional-commit prefix for the readable entry.
+            subject = re.sub(r'^[a-z]+(?:\([^)]*\))?!?:\s*', '', subject, flags=re.IGNORECASE)
+            buckets[section].append(f"- {subject} ({c['hash']})")
+
+        lines = [
+            "# Changelog",
+            "",
+            "All notable changes to this project will be documented in this file.",
+            "",
+            "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),",
+            "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).",
+            "",
+            "## [Unreleased]",
+            "",
+        ]
+        for section in self._SECTIONS:
+            if buckets[section]:
+                lines.append(f"### {section}")
+                lines.extend(buckets[section])
+                lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
 
     def _generate_changelog_template(self) -> str:
         """Generate changelog template"""
@@ -1286,59 +779,35 @@ class CreateDiagramTool(Tool):
             ]
         )
 
-    async def execute(self, **kwargs) -> ToolResult:
-        """Generate diagram using LLM"""
-        try:
-            from core.services.unified_llm import get_llm_service
+    _MERMAID_HEADER = {
+        "flowchart": "graph TD", "architecture": "graph LR",
+        "sequence": "sequenceDiagram", "class": "classDiagram",
+        "er": "erDiagram", "state": "stateDiagram-v2", "gantt": "gantt",
+    }
 
+    async def execute(self, **kwargs) -> ToolResult:
+        """Build a Mermaid diagram from structured elements, model-free.
+
+        Relationships cannot be invented from a free-text description without
+        a model, so when no ``elements`` are given this reports an honest gap
+        rather than fabricating a generic shape.
+        """
+        try:
             diagram_type = kwargs.get("diagram_type", "flowchart")
             description = kwargs.get("description", "")
-            elements = kwargs.get("elements", [])
+            elements = kwargs.get("elements", []) or []
 
-            elements_str = ", ".join(elements) if elements else "infer from description"
+            if not elements:
+                return ToolResult(
+                    success=False,
+                    output={"diagram_type": diagram_type, "description": description},
+                    error=("no elements to diagram: provide `elements` as node labels "
+                           "or edges like 'A -> B'; a diagram cannot be synthesized from "
+                           "a free-text description model-free"),
+                )
 
-            # Map diagram types to Mermaid syntax
-            mermaid_types = {
-                "flowchart": "graph TD",
-                "sequence": "sequenceDiagram",
-                "class": "classDiagram",
-                "er": "erDiagram",
-                "state": "stateDiagram-v2",
-                "gantt": "gantt",
-                "architecture": "graph LR"
-            }
-
-            prompt = f"""Generate a Mermaid diagram for the following:
-
-Diagram Type: {diagram_type}
-Description: {description}
-Key Elements: {elements_str}
-
-Requirements:
-- Use proper Mermaid {mermaid_types.get(diagram_type, 'graph')} syntax
-- Include all key components and relationships
-- Use meaningful labels and IDs
-- Follow Mermaid best practices
-- Make it clear and professional
-
-Return ONLY the Mermaid diagram code, no explanations, no markdown code fences."""
-
-            llm = get_llm_service()
-            response = await llm.generate(prompt, max_tokens=1536, temperature=0.3)
-            diagram_code = response.get('content', '').strip()
-
-            # Clean up if LLM wrapped in code fences
-            if '```mermaid' in diagram_code:
-                diagram_code = diagram_code.split('```mermaid')[1].split('```')[0].strip()
-            elif '```' in diagram_code:
-                parts = diagram_code.split('```')
-                if len(parts) >= 3:
-                    diagram_code = parts[1].strip()
-
-            # Wrap in mermaid code fence for rendering
-            diagram_markdown = f"""```mermaid
-{diagram_code}
-```"""
+            diagram_code = self._build_mermaid(diagram_type, [str(e) for e in elements])
+            diagram_markdown = f"```mermaid\n{diagram_code}\n```"
 
             return ToolResult(
                 success=True,
@@ -1346,52 +815,59 @@ Return ONLY the Mermaid diagram code, no explanations, no markdown code fences."
                     "diagram": diagram_markdown,
                     "diagram_code": diagram_code,
                     "format": "mermaid",
-                    "diagram_type": diagram_type
+                    "diagram_type": diagram_type,
+                    "method": "structural",
                 }
             )
 
         except Exception as e:
             logger.error(f"Failed to create diagram: {e}")
-            # Fallback to simple diagram
-            fallback = self._generate_fallback_diagram(
-                kwargs.get("diagram_type", "flowchart"),
-                kwargs.get("description", "Process")
-            )
-            return ToolResult(
-                success=False,
-                error=f"diagram generation failed ({e}); generic shape attached",
-                output={
-                    "diagram": fallback,
-                    "format": "mermaid",
-                    "method": "fallback"
-                }
-            )
+            return ToolResult(success=False, output=None, error=str(e))
 
-    def _generate_fallback_diagram(self, diagram_type: str, description: str) -> str:
-        """Generate fallback diagram"""
+    @staticmethod
+    def _node_id(index: int) -> str:
+        return chr(ord('A') + index) if index < 26 else f"N{index}"
+
+    def _build_mermaid(self, diagram_type: str, elements: List[str]) -> str:
+        """Assemble Mermaid syntax from a list of node labels or 'A -> B' edges."""
+        header = self._MERMAID_HEADER.get(diagram_type, "graph TD")
+
+        def ident(label: str) -> str:
+            return re.sub(r'[^A-Za-z0-9_]', '_', label.strip()) or "n"
+
+        # Explicit edges take precedence for graph-shaped diagrams.
+        edges = [e for e in elements if re.search(r'-+>', e)]
+        if edges and diagram_type in ("flowchart", "architecture", "state", "er"):
+            lines = [header]
+            for e in edges:
+                src, dst = re.split(r'-+>', e, maxsplit=1)
+                lines.append(f"    {ident(src)} --> {ident(dst)}")
+            return "\n".join(lines)
+
+        labels = [e.strip() for e in elements if e.strip()]
+
         if diagram_type == "sequence":
-            return f"""```mermaid
-sequenceDiagram
-    participant A as User
-    participant B as System
-    A->>B: Request
-    B->>A: Response
-```"""
-        elif diagram_type == "class":
-            return f"""```mermaid
-classDiagram
-    class Component {{
-        +property
-        +method()
-    }}
-```"""
-        else:
-            return f"""```mermaid
-graph TD
-    A[Start] --> B[{description}]
-    B --> C[Process]
-    C --> D[End]
-```"""
+            lines = [header]
+            for lab in labels:
+                lines.append(f"    participant {ident(lab)}")
+            for a, b in zip(labels, labels[1:]):
+                lines.append(f"    {ident(a)}->>{ident(b)}: {b}")
+            return "\n".join(lines)
+
+        if diagram_type == "class":
+            lines = [header]
+            for lab in labels:
+                lines.append(f"    class {ident(lab)}")
+            return "\n".join(lines)
+
+        # flowchart / architecture / er / state / gantt: chain the nodes in order.
+        lines = [header]
+        ids = [self._node_id(i) for i in range(len(labels))]
+        for i, lab in enumerate(labels):
+            lines.append(f"    {ids[i]}[{lab}]")
+        for a, b in zip(ids, ids[1:]):
+            lines.append(f"    {a} --> {b}")
+        return "\n".join(lines)
 
 
 class UpdateDocsTool(Tool):

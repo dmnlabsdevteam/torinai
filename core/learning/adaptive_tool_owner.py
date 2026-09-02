@@ -139,23 +139,35 @@ class ToolSelectionLearningOutcome:
     evidence_id: str = ""
 
 
-# Does this outcome carry evidence about TOOL-SELECTION quality?
+# Does this outcome carry evidence at all? THE CREDIT INVARIANT IS THE
+# AUTHORITY'S, NOT THIS MODULE'S.
 #
-# Narrower than meta-learning's credit table on purpose. A task can fail for
-# reasons that say nothing about which tool categories were chosen — and
-# recording those teaches a false causal relation: "(debugging, filesystem)
-# failed" when what actually happened was an LLM timeout.
-_CREDIT_ELIGIBLE = {
-    "success": (True, "task succeeded under this selection"),
-    "strategy_failure": (True, "failure attributable to how the task was approached"),
-    "execution_failure": (True, "the chosen tools ran and did not achieve the goal"),
-    # Everything below is real, and says nothing about the selection.
-    "infrastructure_failure": (False, "machinery failed; selection untested"),
-    "safety_blocked": (False, "action refused by policy; selection untested"),
-    "invalid_task": (False, "task was malformed; selection untested"),
-    "external_failure": (False, "external dependency failed; selection untested"),
-    "insufficient_evidence": (False, "outcome undetermined"),
-    "indeterminate": (False, "outcome undetermined"),
+# This used to keep a private `_CREDIT_ELIGIBLE` table "narrower than
+# meta-learning's on purpose." In practice it matched the authority's invariant
+# (meta_learning.CREDIT_ELIGIBLE) on every class but one — SAFETY_BLOCKED, which
+# the authority credits (persistently proposing work that safety refuses is a
+# real selection defect, tagged negative) and this fork denied. That is the
+# duplicate-authority defect: two definitions of "which outcomes may teach",
+# silently drifted. There is ONE credit invariant now — is_credit_eligible() —
+# and the tool learner reads it, so a change to the invariant reaches tool
+# selection too. What stays this module's OWN is the NARROWER question of
+# selection QUALITY (score_against_snapshot: given the outcome carried credit,
+# how well was the tool ranked?) — that is genuinely tool-specific and is not a
+# credit invariant.
+#
+# The reason strings below are log text only, derived from the class; they carry
+# no authority and never gate anything.
+_CREDIT_REASON = {
+    "success": "task succeeded under this selection",
+    "strategy_failure": "failure attributable to how the task was approached",
+    "execution_failure": "the chosen tools ran and did not achieve the goal",
+    "safety_blocked": "action refused by policy; a selection that keeps proposing "
+                      "refused work is a real defect (credited negative)",
+    "infrastructure_failure": "machinery failed; selection untested",
+    "invalid_task": "task was malformed; selection untested",
+    "external_failure": "external dependency failed; selection untested",
+    "insufficient_evidence": "outcome undetermined",
+    "indeterminate": "outcome undetermined",
 }
 
 
@@ -266,8 +278,19 @@ class AdaptiveToolLearning:
         """Assign credit to THIS decision, using THIS decision's snapshot."""
         self._episodes_observed += 1
 
+        # Credit eligibility is the AUTHORITY'S invariant, sourced here rather
+        # than forked. An unknown class maps to INDETERMINATE, which the
+        # invariant denies — losing a credit is recoverable, recording a false
+        # one is not.
+        from core.learning.meta_learning import OutcomeClass, is_credit_eligible
+
         oc = (outcome_class or "indeterminate").lower()
-        eligible, reason = _CREDIT_ELIGIBLE.get(oc, (False, f"unknown outcome class '{oc}'"))
+        try:
+            oc_enum = OutcomeClass(oc)
+        except ValueError:
+            oc_enum = OutcomeClass.INDETERMINATE
+        eligible = is_credit_eligible(oc_enum)
+        reason = _CREDIT_REASON.get(oc, f"unknown outcome class '{oc}'")
 
         sel_outcome: Optional[SelectionOutcome] = None
         sel_score: Optional[float] = None

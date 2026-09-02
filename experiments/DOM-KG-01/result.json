@@ -1,0 +1,77 @@
+{
+  "run_at": "2026-09-01T01:18:18.561163+00:00",
+  "results": {
+    "H1.operator_gap": {
+      "pass": true,
+      "evidence": "operator_gap {'actionable_producers': 0}"
+    },
+    "H1.concept_gap": {
+      "pass": true,
+      "evidence": "concept_gap {'predicate_in_vocabulary': False}"
+    },
+    "H1.distinct": {
+      "pass": true,
+      "evidence": "operator_gap != concept_gap"
+    },
+    "H2.concept_escalates": {
+      "pass": true,
+      "evidence": "CONCEPT_GAP -> escalate :: needs a concept proposal for an unrepresented predicate (model-optional)"
+    },
+    "H2.operator_learns": {
+      "pass": true,
+      "evidence": "OPERATOR_GAP -> learn_operator"
+    },
+    "H2.operations_distinct": {
+      "pass": true,
+      "evidence": "escalate != learn_operator"
+    },
+    "_domain": {
+      "domain_id": "domain_glindar",
+      "maturity_at_crystallization": 0.2293
+    },
+    "H3.coverage_rose": {
+      "pass": true,
+      "evidence": "maturity 0.2293 -> 0.2925"
+    },
+    "H3.competence_unchanged": {
+      "pass": true,
+      "evidence": "operator competence 0.5 -> 0.5"
+    },
+    "H4.gap_detected": {
+      "pass": true,
+      "evidence": "known_unknowns[domain_glindar] 0 -> 1"
+    },
+    "H4.competence_untouched": {
+      "pass": true,
+      "evidence": "operator competence 0.5 -> 0.5"
+    },
+    "H4.gap_resolvable": {
+      "pass": true,
+      "evidence": "info_value=0.6 resolvable=True"
+    },
+    "H4.no_false_gap_oob": {
+      "pass": true,
+      "evidence": "out-of-domain subject -> no gap"
+    },
+    "H4.no_false_gap_present": {
+      "pass": true,
+      "evidence": "relation present -> no fabricated gap"
+    },
+    "H5.gap_is_exploration_target": {
+      "pass": true,
+      "evidence": "knowledge_gap targets for this gap: 1"
+    },
+    "H5.routed_to_acquisition": {
+      "pass": true,
+      "evidence": "requires_acquisition=True, belief_gate=False"
+    },
+    "H5.becomes_acquisition_goal": {
+      "pass": true,
+      "evidence": "acquisition goals generated for the gap: 1"
+    },
+    "_summary": {
+      "all_pass": true,
+      "checks": 16
+    }
+  }
+}

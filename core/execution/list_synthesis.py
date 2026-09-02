@@ -81,7 +81,7 @@ def _operators() -> Tuple[Optional[List[Operator]], str]:
     with _lock:
         if _state["operators"] is not None or _state["why"]:
             return _state["operators"], _state["why"]
-        from core.learning.learning_authority import get_learning_authority
+        from core.learning.unified_learning_system import get_learning_authority
         operators, why = _learn_operators(get_learning_authority())
         _state["operators"], _state["why"] = operators, why
         return operators, why

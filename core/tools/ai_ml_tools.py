@@ -74,7 +74,7 @@ class AIMLTools:
         """Register default AI/ML tools"""
 
         # Web Search Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="search_web",
             description="Search the web for information using a query string",
             category="research",
@@ -97,7 +97,7 @@ class AIMLTools:
         ))
 
         # Code Analysis Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="analyze_code",
             description="Analyze code for bugs, security issues, and quality metrics",
             category="development",
@@ -121,7 +121,7 @@ class AIMLTools:
         ))
 
         # Data Analysis Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="analyze_data",
             description="Analyze data and generate statistical insights",
             category="analytics",
@@ -145,7 +145,7 @@ class AIMLTools:
         ))
 
         # Text Summarization Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="summarize_text",
             description="Summarize long text into concise key points",
             category="nlp",
@@ -168,7 +168,7 @@ class AIMLTools:
         ))
 
         # Sentiment Analysis Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="analyze_sentiment",
             description="Analyze sentiment of text (positive, negative, neutral)",
             category="nlp",
@@ -184,7 +184,7 @@ class AIMLTools:
         ))
 
         # Image Analysis Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="analyze_image",
             description="Analyze image content and extract information",
             category="vision",
@@ -208,7 +208,7 @@ class AIMLTools:
         ))
 
         # Translation Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="translate_text",
             description="Translate text from one language to another",
             category="nlp",
@@ -237,7 +237,7 @@ class AIMLTools:
         ))
 
         # Email Validation Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="validate_email",
             description="Validate email address format and deliverability",
             category="validation",
@@ -253,7 +253,7 @@ class AIMLTools:
         ))
 
         # URL Validation Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="validate_url",
             description="Validate URL format and check if accessible",
             category="validation",
@@ -276,7 +276,7 @@ class AIMLTools:
         ))
 
         # Calculator Tool
-        self.register_tool(Tool(
+        self.register_tool(AIToolDefinition(
             name="calculate",
             description="Perform mathematical calculations safely",
             category="math",
@@ -562,93 +562,33 @@ class AIMLTools:
         text: str,
         max_length: int = 100
     ) -> Dict[str, Any]:
-        """Summarize text"""
+        """Summarize text — extractive, via the language-ops faculty."""
         logger.info(f"Summarizing text ({len(text)} chars)")
 
-        try:
-            from core.services.lightweight_llm import get_lightweight_llm_service
-            llm = get_lightweight_llm_service()
+        from core.semantics.language_ops import summarize_length
 
-            prompt = f"Summarize the following text in {max_length} words or less:\n\n{text}\n\nSummary:"
-
-            result = await llm.generate(
-                prompt=prompt,
-                temperature=0.3,
-                max_tokens=max_length * 2,
-                agent_type="conversation_summarizer"
-            )
-
-            summary = result.get("content", "").strip()
-
-            return {
-                "original_length": len(text),
-                "summary": summary,
-                "summary_length": len(summary)
-            }
-
-        except Exception as e:
-            logger.error(f"LLM summarization failed: {e}")
-            words = text.split()[:max_length]
-            summary = ' '.join(words) + "..."
-            return {
-                "original_length": len(text),
-                "summary": summary,
-                "summary_length": len(summary)
-            }
+        summary = summarize_length(text, max_words=max_length)
+        return {
+            "original_length": len(text),
+            "summary": summary,
+            "summary_length": len(summary)
+        }
 
     async def _analyze_sentiment(self, text: str) -> Dict[str, Any]:
-        """Analyze sentiment"""
+        """Analyze sentiment — polarity lexicon with negation, via the
+        language-ops faculty. Confidence is count-backed, so a passage with no
+        affective words is an honest neutral at 0.0 rather than a guess at 0.85."""
         logger.info(f"Sentiment analysis ({len(text)} chars)")
 
-        try:
-            from core.services.lightweight_llm import get_lightweight_llm_service
-            llm = get_lightweight_llm_service()
-
-            prompt = f"Analyze the sentiment of this text and respond with ONLY one word: positive, negative, or neutral.\n\nText: {text}\n\nSentiment:"
-
-            result = await llm.generate(
-                prompt=prompt,
-                temperature=0.1,
-                max_tokens=10,
-                agent_type="safety_classifier"
-            )
-
-            sentiment = result.get("content", "neutral").strip().lower()
-            if sentiment not in ["positive", "negative", "neutral"]:
-                sentiment = "neutral"
-
-            score = 0.7 if sentiment == "positive" else (-0.7 if sentiment == "negative" else 0.0)
-
-            return {
-                "sentiment": sentiment,
-                "score": score,
-                "confidence": 0.85
-            }
-
-        except Exception as e:
-            logger.error(f"Sentiment analysis failed: {e}")
-            positive_words = ['good', 'great', 'excellent', 'amazing', 'wonderful']
-            negative_words = ['bad', 'terrible', 'awful', 'horrible', 'poor']
-
-            text_lower = text.lower()
-            pos_count = sum(1 for word in positive_words if word in text_lower)
-            neg_count = sum(1 for word in negative_words if word in text_lower)
-
-            if pos_count > neg_count:
-                sentiment = "positive"
-                score = 0.7
-            elif neg_count > pos_count:
-                sentiment = "negative"
-                score = -0.7
-            else:
-                sentiment = "neutral"
-                score = 0.0
-
-            return {
-                "sentiment": sentiment,
-                "score": score,
-                "confidence": 0.85
-            }
+        from core.semantics.language_ops import sentiment as _sentiment
+        result = _sentiment(text)
+        return {
+            "sentiment": result["label"],
+            "score": result["score"],
+            "confidence": result["confidence"],
+            "positive_hits": result["positive_hits"],
+            "negative_hits": result["negative_hits"],
+        }
 
     async def _analyze_image(
         self,
@@ -691,40 +631,18 @@ class AIMLTools:
         target_language: str,
         source_language: str = "auto"
     ) -> Dict[str, Any]:
-        """Translate text"""
-        logger.info(f"Translation: {source_language} -> {target_language}")
+        """Translate text.
 
-        try:
-            from core.services.unified_llm import get_llm_service
-            llm = get_llm_service()
-
-            prompt = f"Translate the following text to {target_language}. Return ONLY the translation, no explanations.\n\nText: {text}\n\nTranslation:"
-
-            result = await llm.generate(
-                prompt=prompt,
-                temperature=0.3,
-                max_tokens=len(text) * 2,
-                agent_type="chat"
-            )
-
-            translation = result.get("content", "").strip()
-
-            return {
-                "original_text": text,
-                "translated_text": translation,
-                "source_language": source_language,
-                "target_language": target_language
-            }
-
-        except Exception as e:
-            logger.error(f"Translation failed: {e}")
-            return {
-                "original_text": text,
-                "translated_text": f"[Translation to {target_language} failed]",
-                "source_language": source_language,
-                "target_language": target_language,
-                "error": str(e)
-            }
+        The substrate has no model-free translation faculty, and translation
+        is not a teaching task, so it is not routed to a model outside the
+        teacher. This raises an honest gap rather than fabricating a
+        translation or returning a placeholder that reads as success.
+        """
+        raise NotImplementedError(
+            f"translate_text has no model-free faculty "
+            f"(requested {source_language} -> {target_language}); "
+            f"not routed to a model outside the teacher"
+        )
 
     async def _validate_email(self, email: str) -> Dict[str, Any]:
         """Validate email"""
@@ -818,9 +736,9 @@ class GenerateEmbeddingTool(Tool):
             RegistryToolParameter(
                 name="model",
                 type="string",
-                description="Embedding model to use",
+                description="Ignored; the substrate's local embedding model is always used (reported in the result)",
                 required=False,
-                default="text-embedding-3-small"
+                default=""
             )
         ]
 
@@ -852,26 +770,36 @@ class GenerateEmbeddingTool(Tool):
                 )
             ],
             requires_filesystem=False,
-            requires_network=True,
+            requires_network=False,
             requires_database=False,
             is_idempotent=True
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Generate embeddings"""
+        """Generate embeddings via the substrate's local embedding service."""
         text = kwargs.get("text", "")
-        model = kwargs.get("model", "text-embedding-3-small")
+        if not text:
+            return ToolResult(success=False, output=None, error="text is required")
 
         try:
-            from core.services.unified_llm import get_llm_service
-            llm = get_llm_service()
+            from core.memory.utils.embedding_service import get_embedding_service
+            service = get_embedding_service()
 
-            # Generate embeddings using LLM service
-            embeddings = await llm.generate_embeddings(text, model=model)
+            embedding = service.generate_embedding(text)
+            if embedding is None:
+                return ToolResult(
+                    success=False, output=None,
+                    error="embedding unavailable: local embedding model not loaded"
+                )
 
             return ToolResult(
                 success=True,
-                output={"embeddings": embeddings, "model": model, "text_length": len(text)}
+                output={
+                    "embeddings": embedding,
+                    "model": service.model_name,
+                    "dimensions": len(embedding),
+                    "text_length": len(text),
+                }
             )
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}")
@@ -1280,30 +1208,35 @@ class RunInferenceTool(Tool):
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Run inference"""
+        """Run inference on a named substrate model.
+
+        The substrate hosts no general named-model runner. Its one locally
+        runnable model is the embedder; reasoning is served by the reasoning
+        tools. The old body ignored ``model_name`` entirely and forwarded the
+        raw input to a chat model, reporting that as the requested inference.
+        This reports the real faculties instead of faking one.
+        """
         model_name = kwargs.get("model_name", "")
-        input_data = kwargs.get("input_data", {})
 
-        try:
-            from core.services.unified_llm import get_llm_service
-            llm = get_llm_service()
-
-            # Run inference using LLM service
-            llm_result = await llm.generate(
-                prompt=str(input_data),
-                temperature=0.7,
-                agent_type="chat"
-            )
-
-            result_text = llm_result.get("content", "")
-
+        if model_name in ("embedding", "embed", "text-embedding"):
+            from core.memory.utils.embedding_service import get_embedding_service
+            service = get_embedding_service()
+            embedding = service.generate_embedding(str(kwargs.get("input_data", "")))
+            if embedding is None:
+                return ToolResult(success=False, output=None,
+                                  error="embedding unavailable: local model not loaded")
             return ToolResult(
                 success=True,
-                output={"result": result_text, "model": model_name}
+                output={"result": embedding, "model": service.model_name},
             )
-        except Exception as e:
-            logger.error(f"Failed to run inference: {e}")
-            return ToolResult(success=False, output=None, error=str(e))
+
+        return ToolResult(
+            success=False,
+            output=None,
+            error=(f"no model-free inference faculty for {model_name!r}; "
+                   "the substrate runs a local embedding model (use generate_embedding) "
+                   "and reasons via the reasoning tools"),
+        )
 
 
 class AnalyzeTrainingDataTool(Tool):
@@ -1454,29 +1387,34 @@ class GetModelInfoTool(Tool):
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Get model info"""
+        """Report the substrate's real model faculties."""
         model_name = kwargs.get("model_name", "")
 
         try:
-            from core.services.unified_llm import get_llm_service
-            llm = get_llm_service()
+            from core.memory.utils.embedding_service import get_embedding_service
+
+            emb = get_embedding_service()
 
             available_models = {
-                "llama-3.1-8b-instruct": {
-                    "parameters": "8B",
-                    "context_length": 8192,
-                    "capabilities": ["chat", "reasoning", "coding"]
-                }
+                "embedding": {
+                    "model": emb.model_name,
+                    "dimensions": emb.embedding_dim,
+                    "local": True,
+                    "capabilities": ["embed_text", "semantic_similarity"],
+                },
+                "teacher": {
+                    "role": "proposes lessons; the only generative-model consumer in the system",
+                },
             }
 
             if model_name:
-                info = available_models.get(model_name, {"error": "Model not found"})
+                info = available_models.get(model_name, {"error": f"no substrate model named {model_name!r}"})
             else:
                 info = available_models
 
             return ToolResult(
                 success=True,
-                output={"models": info}
+                output={"models": info},
             )
         except Exception as e:
             logger.error(f"Failed to get model info: {e}")
@@ -1533,31 +1471,35 @@ class SemanticSimilarityTool(Tool):
                 )
             ],
             requires_filesystem=False,
-            requires_network=True,
+            requires_network=False,
             requires_database=False,
             is_idempotent=True
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Calculate similarity"""
+        """Cosine similarity over the substrate's local embeddings."""
         text1 = kwargs.get("text1", "")
         text2 = kwargs.get("text2", "")
 
         try:
-            from core.services.unified_llm import get_llm_service
-            llm = get_llm_service()
+            from core.memory.utils.embedding_service import get_embedding_service
+            service = get_embedding_service()
 
-            # Generate embeddings for both texts
-            emb1 = await llm.generate_embeddings(text1)
-            emb2 = await llm.generate_embeddings(text2)
+            emb1 = service.generate_embedding(text1)
+            emb2 = service.generate_embedding(text2)
+            if emb1 is None or emb2 is None:
+                return ToolResult(
+                    success=False, output=None,
+                    error="semantic similarity unavailable: local embedding model not loaded",
+                )
 
-            # Calculate cosine similarity
             import numpy as np
-            similarity = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
+            v1, v2 = np.asarray(emb1), np.asarray(emb2)
+            similarity = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
             return ToolResult(
                 success=True,
-                output={"similarity": float(similarity)}
+                output={"similarity": similarity, "model": service.model_name}
             )
         except Exception as e:
             # A DIFFERENT METRIC IS NOT THIS METRIC. On failure this computed
@@ -1635,47 +1577,25 @@ class ExtractEntitiesTool(Tool):
         )
 
     async def execute(self, **kwargs) -> ToolResult:
-        """Extract entities"""
+        """Extract entities — pattern/gazetteer NER via the language-ops faculty.
+
+        Recall is bounded (it finds what its patterns cover), so an empty
+        category means "no pattern matched", NOT a positive finding of none — a
+        genuine failure still surfaces as success=False, never as an empty
+        result dressed as a complete one.
+        """
         text = kwargs.get("text", "")
 
         try:
-            from core.services.lightweight_llm import get_lightweight_llm_service
-            llm = get_lightweight_llm_service()
+            from core.semantics.language_ops import extract_entities
 
-            # Use LLM for entity extraction
-            prompt = f"""Extract named entities from the following text. Return them as JSON with categories:
-- person: People names
-- organization: Companies, organizations
-- location: Places, locations
-- date: Dates and times
-- other: Other important entities
-
-Text: {text}
-
-Return ONLY valid JSON."""
-
-            result = await llm.generate(
-                prompt=prompt,
-                temperature=0.1,
-                max_tokens=500,
-                agent_type="json_classifier"
-            )
-
-            response = result.get("content", "{}")
-
-            # Try to parse JSON response
-            import json
-            entities = json.loads(response)
+            entities = extract_entities(text)
 
             return ToolResult(
                 success=True,
                 output={"entities": entities}
             )
         except Exception as e:
-            # AN EMPTY RESULT IS NOT A FINDING OF NONE. This returned every
-            # entity category empty with success=True, so "extraction failed"
-            # and "this text contains no people, organizations, locations or
-            # dates" were the same answer to the caller.
             logger.error("Entity extraction failed: %s", e)
             return ToolResult(
                 success=False,

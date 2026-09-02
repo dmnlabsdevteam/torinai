@@ -40,9 +40,18 @@ logger = logging.getLogger(__name__)
 
 #: Loggers whose own errors must never be captured, or reporting a failure
 #: that failed would report itself failing, forever.
+#:
+#: `core.database` is excluded for exactly this reason: failure_record.report()
+#: writes the failure row THROUGH the database, so a database-layer error (most
+#: acutely, "pool is closing" during shutdown) that got captured would be
+#: reported through the database, fail again, log again, and cascade — the
+#: query/params it logs nest and grow each round. A failure in the persistence
+#: layer cannot be recorded by writing to that same layer; it stays in the logs
+#: and is observed by the database health checks, not by this handler.
 _EXCLUDED_PREFIXES = (
     "core.observability.failure_record",
     "core.observability.failure_capture",
+    "core.database",
     "asyncio",
     "aiohttp",
     "urllib3",

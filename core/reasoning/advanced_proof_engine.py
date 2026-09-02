@@ -195,8 +195,6 @@ class AdvancedProofEngine:
                 proof = await self._direct_proof(theorem, max_steps)
             elif method == ProofMethod.CONTRADICTION:
                 proof = await self._proof_by_contradiction(theorem, max_steps)
-            elif method == ProofMethod.RESOLUTION:
-                proof = await self._resolution_proof(theorem, max_steps)
             else:
                 proof = await self._direct_proof(theorem, max_steps)
 
@@ -241,9 +239,10 @@ class AdvancedProofEngine:
         # Without Z3 the weaker methods are still real inference, not stand-ins
         # -- but they are incomplete, so `proved=False` from them is recorded as
         # NON-AUTHORITATIVE by `prove_theorem`. "I could not derive it" and "it
-        # does not follow" are different claims.
-        if theorem.logic_type == LogicType.PROPOSITIONAL:
-            return ProofMethod.RESOLUTION
+        # does not follow" are different claims. DIRECT is a genuine
+        # forward-chaining prover (modus ponens); the old RESOLUTION path was a
+        # stub that never actually resolved and always returned proved=False with
+        # a fabricated 0.6 confidence, so it was removed.
         return ProofMethod.DIRECT
 
     async def _smt_proof(
@@ -275,7 +274,7 @@ class AdvancedProofEngine:
 
         # Imported lazily: logical_integration imports this module inside its
         # own functions, so a module-level import here risks a cycle.
-        from core.agents.logical.logical_integration import (
+        from core.reasoning.logical_integration import (
             FormulaSyntaxError,
             LogicalFormulaParser,
         )
@@ -460,24 +459,11 @@ class AdvancedProofEngine:
             confidence=0.5
         )
 
-    async def _resolution_proof(
-        self,
-        theorem: Theorem,
-        max_steps: int
-    ) -> Proof:
-        """Resolution-based proof"""
-        steps = []
-
-        # Convert to CNF and apply resolution
-        # (Simplified implementation)
-
-        return Proof(
-            theorem_id=theorem.theorem_id,
-            proved=False,
-            steps=steps,
-            method=ProofMethod.RESOLUTION,
-            confidence=0.6
-        )
+    # NOTE: `_resolution_proof` was removed (2026-09-01). It was a stub — no CNF
+    # conversion, no resolution — that always returned proved=False with a
+    # fabricated confidence=0.6. Propositional proofs without Z3 now route to the
+    # real `_direct_proof` (forward chaining), whose proved=False is correctly
+    # marked NON-AUTHORITATIVE. With Z3 present (the norm), `_smt_proof` is used.
 
     def _apply_inference_rules(
         self,

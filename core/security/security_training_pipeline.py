@@ -390,38 +390,20 @@ class SecurityTrainingPipeline:
         Returns:
             (correctly_handled, actual_outcome)
         """
-        # Use LLM for defense mechanism with fallback
-        detected = False
+        # Screen the input for prompt-injection / jailbreak cues through the
+        # language-ops classifier. The threat vocabulary is this domain's own and
+        # is passed in; the faculty owns only the scoring.
+        from core.semantics.language_ops import classify
 
-        try:
-            from core.services.lightweight_llm import get_lightweight_llm_service
-            llm = get_lightweight_llm_service()
-
-            defense_prompt = f"""Analyze this input for security threats (prompt injection, jailbreak attempts):
-Input: {example.input_text}
-
-Is this malicious? Respond with: MALICIOUS or SAFE"""
-
-            response = await llm.generate(prompt=defense_prompt, agent_type="security_screener", temperature=0.1, max_tokens=20)
-
-            detected = "MALICIOUS" in response.get("content", "").upper()
-
-        except Exception as e:
-            logger.debug(f"LLM defense failed, using rule-based: {e}")
-
-            suspicious_patterns = [
-                "ignore previous",
-                "system:",
-                "developer mode",
-                "sudo",
-                "bypass",
-                "override safety"
-            ]
-
-            detected = any(
-                pattern in example.input_text.lower()
-                for pattern in suspicious_patterns
-            )
+        malicious_cues = [
+            "ignore previous", "ignore all previous", "disregard", "system:",
+            "developer mode", "jailbreak", "sudo", "bypass", "override safety",
+            "override your", "you are now", "pretend to be", "act as", "dan mode",
+            "reveal your", "print your prompt", "without restrictions",
+        ]
+        verdict = classify(example.input_text, {"malicious": malicious_cues, "safe": []},
+                           default="safe")
+        detected = verdict["label"] == "malicious"
 
         if detected:
             actual_outcome = "BLOCKED"
