@@ -100,6 +100,7 @@ system to the file that owns it (sizes are approximate, to show weight).
 | **MetaLearner** | Owns *which choice works* (task type, executor, directive) via a credit-assigning bandit. | `core/learning/meta_learning.py` | 1,500 |
 | **Memory** | Stores and retrieves memories (PostgreSQL + pgvector); runs maintenance loops. | `core/agents/memory_agent.py` | 3,900 |
 | **Domain knowledge** | The system's map of subjects; grows domains from real outcomes. | `core/integration/universal_domain_master.py` | 2,400 |
+| **Cross-domain transfer** | Proposes correspondences between domains, validates the structure, and credits a transfer only when outcomes actually improve. | `core/reasoning/analogy_discovery.py` (+ domain master, transfer resolution) | 1,100 |
 | **Drives** | Curiosity / competence / novelty / impact motivation, plus affect. | `core/agents/autonomous/intrinsic_motivation.py` | 3,500 |
 | **Constitution** | Five immutable governance laws; assesses system drift; scores actions/policies against the laws. | `core/agents/autonomous/singleton_constitution.py` | 650 |
 | **Governance agent** | The compliance *decision* authority — allow/block an action against the laws. | `core/agents/autonomous/governance_agent.py` | 640 |
@@ -148,6 +149,68 @@ See the reasoning papers for the full treatment:
 [`REASONING.md`](core/reasoning/REASONING.md),
 [`REASONING_PIPELINE.md`](core/reasoning/REASONING_PIPELINE.md),
 [`REASONING_PATHS_VERIFIED.md`](core/reasoning/REASONING_PATHS_VERIFIED.md).
+
+---
+
+## Beliefs & uncertainty
+
+The system holds **graded beliefs**, not flags, and they move with evidence in a
+principled way (`core/reasoning/bayesian_uncertainty.py`):
+
+- Each belief is a Bayesian posterior with **computed entropy** and a 95% credible
+  interval. Evidence updates it in **odds form** with a likelihood ratio scaled by
+  the evidence's quality — a strong, reliable observation moves a belief far more
+  than a weak one, and a belief never pins to certainty.
+- Beliefs **decay toward maximum uncertainty over time** when no new evidence
+  arrives — an explicit guard against epistemic ossification: an old belief that
+  nothing reinforces loosens instead of hardening.
+- **Contradictions are resolved:** when two high-confidence beliefs contradict,
+  the one with less supporting evidence is reduced. *(Verified: a contradicting
+  pair at 0.9 / 0.9 drives the weaker one down to 0.81.)*
+- **Domain volatility is adaptive** — domains whose beliefs swing often decay
+  faster — and the system tracks its own **calibration** (Brier score): whether
+  its stated confidences actually match outcomes.
+
+Crucially, beliefs are **wired to action.** The epistemic engine
+(`core/reasoning/epistemic_engine.py`) turns tool observations into beliefs, and
+the highest-entropy regions of the belief graph — the things the system is least
+sure of — are exactly what the exploration loop is drawn to. The system seeks
+evidence where its own uncertainty is greatest, and beliefs are persisted, so what
+it has become sure (or unsure) of survives a restart.
+
+---
+
+## Cross-domain transfer
+
+A central research aim of TorinAI is whether structure learned in one domain can
+make a *different* domain easier — whether breadth **compounds**. It's implemented
+as an evidence-gated pipeline, not a blind copy:
+
+1. **Propose a correspondence.** Analogy discovery (`core/reasoning/analogy_discovery.py`)
+   finds structural mappings between concepts in different domains; the domain
+   authority (`core/integration/universal_domain_master.py`) can transfer a
+   relation to a target domain and crystallize learned operator-clusters into
+   first-class domains.
+2. **Validate the structure.** A proposed mapping is checked for structural
+   soundness before anything relies on it — and the typed relation algebra ensures
+   a transfer never mistakes mere reachability for entailment.
+3. **Resolve by outcome — the honest part.** A transfer is recorded *unresolved*
+   and only credited once evidence shows that relying on it actually made work in
+   the target domain go **better**. The check is causal-attribution-aware: it
+   compares the tasks that *used* the mapping (treatment) against contemporaneous
+   tasks that did not (control), rather than a naive before/after, and it requires
+   real evidence on both sides (≥ 5 outcomes each). Too little evidence stays
+   *unresolved* — never defaulted to failure. Only outcomes can credit a transfer.
+
+This has produced real transfer between genuine domains in the experiments — e.g.
+structure learned in one domain reused in code generation through a shared
+`requires` relation (see the `EDU-06` writeup under `experiments/`).
+
+**Honest status.** The *mechanism* is real and rigorous, but its payoff depends on
+domains actually being populated (many start empty and can't yet yield a mapping),
+and the larger question the architecture exists to answer — *does the cost of
+teaching a new domain fall as more domains are taught?* — is still open. It is
+being **measured**, not assumed.
 
 ---
 
