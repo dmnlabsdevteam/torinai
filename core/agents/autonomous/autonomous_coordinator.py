@@ -3948,23 +3948,21 @@ class AutonomousCoordinator:
         logger.info("🧠 Singleton cognition loop starting — AI-driven autonomous operation")
 
         cycle_interval = self.config.get('cycle_interval_seconds', 2.0)
-        awareness_interval = self.config.get('awareness_interval_cycles', 30)
-        motivation_interval = self.config.get('motivation_interval_cycles', 5)
         cycle_count = 0
+
+        # NOTE (2026-09-02, Phase 5 — poll retirement): motivation refresh and
+        # system-awareness were REMOVED from this tick. They are genuinely periodic
+        # (they sample state; no producing event drives them), so they now live on
+        # the queue authority's scheduler as recurring jobs (`motivation_refresh` /
+        # `system_awareness` in _register_idle_subsystems) — the one owner of
+        # cadence — instead of riding the cognition loop on `cycle_count % N`. What
+        # remains on this tick is only task dispatch, idle exploration, and reaping.
 
         while self.active:
             try:
                 cycle_count += 1
 
-                # ── PHASE 1: Refresh motivation signals (the AI's senses) ──
-                if cycle_count % motivation_interval == 0:
-                    await self._refresh_motivation_signals()
-
-                # ── PHASE 2: System awareness & novelty decay (periodic) ──
-                if cycle_count % awareness_interval == 0:
-                    await self._run_system_awareness_cycle()
-
-                # ── PHASE 3: Check for extrinsic tasks (user requests + security remediations take priority) ──
+                # ── Check for extrinsic tasks (user requests + security remediations take priority) ──
                 # First priority: Pull security remediation tasks (200ms wait)
                 # Second priority: Pull any other queued task (100ms wait)
                 queued_task = None
@@ -4382,6 +4380,14 @@ class AutonomousCoordinator:
             # so the constitution had only stale init values; this keeps self-state
             # honest. Cheap subsystem reads; frequent cadence.
             ("idle_system_state_refresh","_update_system_state",         "low",    self.config.get("idle_system_state_interval_s", 60.0)),
+            # PHASE 5 (2026-09-02): these two were the last periodic phases riding
+            # the cognition tick on `cycle_count % N`. They sample state (no
+            # producing event), so they belong on THIS scheduler like every other
+            # timed job — not the acting loop. Motivation refresh keeps
+            # _current_motivation + directive guidance fresh; system awareness runs
+            # discovery / runtime-integrity / novelty decay.
+            ("motivation_refresh",      "_refresh_motivation_signals",   "high",   self.config.get("motivation_refresh_interval_s", 10.0)),
+            ("system_awareness",        "_run_system_awareness_cycle",   "medium", self.config.get("system_awareness_interval_s", 60.0)),
             # CONSTITUTIONAL alignment: a cumulative drift check over the balance
             # of the substrate's activity against its governance laws. No single
             # event moves it, so it is genuinely periodic and lives on the
