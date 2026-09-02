@@ -477,6 +477,14 @@ class AutonomousCoordinator:
         # reflect while any task was running.
         self._inflight_tasks: Dict[str, asyncio.Task] = {}
         self._max_parallel_tasks: int = int(self.config.get("max_parallel_tasks", 3))
+        # DIRECTIVE-DRIVEN acting cap. When an ACTIVE resource_allocation directive
+        # exists, its max_parallel_tasks overrides the hardcoded default above (the
+        # config value stays the fallback). Refreshed from select_guidance in the
+        # motivation cycle so the hot acting gate reads a cached int, not an async
+        # call. `_directive_resource_id` is the active directive being applied, so
+        # its outcomes can be credited to the learning authority.
+        self._directive_max_parallel: Optional[int] = None
+        self._directive_resource_id: Optional[str] = None
         # No private pool: concurrency is the queue authority's (self.task_queue).
         # Idempotency log: "{trigger_id}:{action}" → unix timestamp of last execution.
         # Prevents Slack spam, double-restarts, repeated credential rotations, etc.
@@ -3585,6 +3593,31 @@ class AutonomousCoordinator:
             self._appraisal().current_state,
             slots_available=slots_available, queue_pressure=queue_pressure)
 
+    def _effective_max_parallel(self) -> int:
+        """The acting concurrency cap actually in force: an ACTIVE
+        resource_allocation directive's value if one applies, else the configured
+        default. Reads a cached int (refreshed by _refresh_directive_guidance), so
+        the hot acting gate never makes an async call. Clamped to [1, 16]."""
+        cap = self._directive_max_parallel or self._max_parallel_tasks
+        return max(1, min(16, int(cap)))
+
+    async def _refresh_directive_guidance(self) -> None:
+        """Refresh the cached directive-driven knobs from the ACTIVE directives the
+        learning authority selected. Called on the motivation cycle (not the hot
+        acting gate). Honest: if there is no active resource directive, the cache
+        is cleared so the configured default applies — never a stale value."""
+        ds = getattr(self, "directive_system", None)
+        if ds is None:
+            return
+        try:
+            from .directive_types import DirectiveCategory
+            params, did = await ds.select_guidance(DirectiveCategory.RESOURCE_ALLOCATION)
+            mpt = params.get("max_parallel_tasks") if params else None
+            self._directive_max_parallel = int(mpt) if mpt is not None else None
+            self._directive_resource_id = did if mpt is not None else None
+        except Exception as e:
+            logger.debug("directive guidance refresh skipped: %s", e)
+
     async def state(self):
         """Compose the current self from the faculties. Derived, None-honest."""
         directive = self.disposition()
@@ -3794,8 +3827,10 @@ class AutonomousCoordinator:
                 queued_task = None
 
                 # Only dequeue when there is a free execution slot -- pulling a
-                # task we cannot start would strand it outside the queue.
-                if len(self._inflight_tasks) < self._max_parallel_tasks:
+                # task we cannot start would strand it outside the queue. The cap
+                # is directive-driven when an active resource_allocation directive
+                # exists (see _effective_max_parallel), else the configured default.
+                if len(self._inflight_tasks) < self._effective_max_parallel():
                     # Check queue — security remediations get longer timeout.
                     # This substrate pulls its own next work from the backlog it owns.
                     queue_timeout = 0.2 if self.task_queue.queue.qsize() > 0 else 0.1
@@ -3914,6 +3949,11 @@ class AutonomousCoordinator:
                 f"🧠 Motivation: reward={total_reward:.2f} "
                 f"curiosity={curiosity:.2f} novelty={novelty:.2f}"
             )
+            # Refresh directive-driven knobs (e.g. the acting cap) from the ACTIVE
+            # directives the learning authority selected — on this cadence, not the
+            # hot acting gate. Isolated so a directive-layer hiccup never breaks the
+            # motivation refresh.
+            await self._refresh_directive_guidance()
             return True
         except Exception as e:
             logger.warning(f"🧠 Motivation refresh failed: {e}")
@@ -6584,12 +6624,96 @@ class AutonomousCoordinator:
                     metadata={"trigger": "curiosity", "improvements": result.improvements_deployed}
                 )
 
+            # SELF-PROPOSE directives from real measured signals, then let the
+            # learning authority promote the ones that prove out. Isolated so a
+            # proposal-layer error never aborts optimization.
+            try:
+                await self._propose_directive_improvements()
+            except Exception as _pe:
+                logger.debug("directive self-proposal skipped: %s", _pe)
+
         except Exception as e:
             logger.error(f"Curiosity-driven optimization failed: {e}")
             import traceback
             traceback.print_exc()
         finally:
             self._optimization_running = False
+
+    async def _propose_directive_improvements(self) -> None:
+        """The substrate proposing its own operating directives from REAL measured
+        signals (self-optimization). Each proposal's parameters are DERIVED from a
+        measured signal — never invented — and gated through the GovernanceAgent →
+        constitution before it can exist. Only proposes when a signal indicates a
+        concrete adjustment AND no active directive already encodes it, so it never
+        churns. After proposing, promotes the drafts the LEARNING AUTHORITY has
+        shown to work (DRAFT → ACTIVE on measured effectiveness).
+        """
+        ds = getattr(self, "directive_system", None)
+        if ds is None:
+            return
+        from .directive_types import DirectiveCategory
+
+        # ── RESOURCE_ALLOCATION — from the task queue's MEASURED failure rate ──
+        # High failure under the current cap → back off; reliably clear with a
+        # backlog → scale up. Params are the measured decision, not a guess.
+        try:
+            qm = self.task_queue.get_metrics()
+            completed = int(qm.get("tasks_completed", 0))
+            failed = int(qm.get("tasks_failed", 0))
+            finished = completed + failed
+            if finished >= 20:  # enough evidence to act on
+                fail_rate = failed / finished
+                current = self._effective_max_parallel()
+                proposed = None
+                if fail_rate > 0.30 and current > 1:
+                    proposed = current - 1
+                elif (fail_rate < 0.05 and current < 8
+                      and self.task_queue.get_queue_length() > current):
+                    proposed = current + 1
+                if proposed is not None:
+                    active_params, _ = await ds.select_guidance(
+                        DirectiveCategory.RESOURCE_ALLOCATION)
+                    if active_params.get("max_parallel_tasks") != proposed:
+                        await ds.create_directive_with_governance(
+                            directive_name=f"resource-cap-{proposed}",
+                            category=DirectiveCategory.RESOURCE_ALLOCATION,
+                            directive_text=(f"Cap concurrent acting at {proposed} "
+                                            f"(measured failure_rate={fail_rate:.2f})"),
+                            directive_parameters={"max_parallel_tasks": proposed},
+                            created_by="self_optimization")
+        except Exception as e:
+            logger.debug("resource directive proposal skipped: %s", e)
+
+        # ── EXPLORATION_BALANCE — from the MEASURED exploration quota ──
+        # Persistently over the exploration budget → favour exploiting (raise the
+        # exploit threshold); the threshold value tracks the measured overshoot.
+        try:
+            quota = self._calculate_exploration_quota()
+            limit = float(self.config.get("exploration_quota_limit", 0.10))
+            if quota is not None and quota > limit * 1.5:
+                proposed_thr = round(min(0.95, 0.7 + quota), 2)
+                active_params, _ = await ds.select_guidance(
+                    DirectiveCategory.EXPLORATION_BALANCE)
+                if active_params.get("exploit_threshold") != proposed_thr:
+                    await ds.create_directive_with_governance(
+                        directive_name=f"exploit-threshold-{proposed_thr}",
+                        category=DirectiveCategory.EXPLORATION_BALANCE,
+                        directive_text=(f"Favour exploiting learned competence "
+                                        f"(exploration quota {quota:.2f} over "
+                                        f"limit {limit:.2f})"),
+                        directive_parameters={"exploit_threshold": proposed_thr},
+                        created_by="self_optimization")
+        except Exception as e:
+            logger.debug("exploration directive proposal skipped: %s", e)
+
+        # Promote the drafts the learning authority has validated.
+        try:
+            promoted = await ds.promote_eligible_directives()
+            if promoted:
+                logger.info("[SELF_OPT] %d directive(s) promoted by the learning "
+                            "authority", promoted)
+        except Exception as e:
+            logger.debug("directive promotion skipped: %s", e)
 
     async def _handle_error(self, error: Exception, source: str):
         """
@@ -6843,6 +6967,23 @@ class AutonomousCoordinator:
         that safety refused to run. Both are negative evidence for the arm, but
         they are different kinds of negative, and the context records which.
         """
+        # Credit the ACTIVE resource_allocation directive (if one is in force) for
+        # this task's outcome — the acting cap it sets affects ALL tasks, so every
+        # outcome is evidence about it. Done before the adaptive-type gate below so
+        # it fires for every task, not only exploration ones. The learning
+        # authority owns the credit (log_directive_application → MetaLearner arm).
+        if getattr(self, "_directive_resource_id", None) and getattr(self, "directive_system", None):
+            try:
+                await self.directive_system.log_directive_application(
+                    directive_id=self._directive_resource_id,
+                    decision_id="",
+                    decision_context={"task_id": getattr(task, "id", None),
+                                      "outcome_class": outcome_class},
+                    outcome_metrics={"outcome_quality": 1.0 if success else 0.0,
+                                     "success": bool(success), "time_ms": time_ms})
+            except Exception as _de:
+                logger.debug("resource directive credit skipped: %s", _de)
+
         chosen = (task.metadata or {}).get("adaptive_task_type")
         if not chosen or not self.meta_learning:
             return
