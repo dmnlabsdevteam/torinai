@@ -40,41 +40,39 @@ integrated, and the place from which all behavior originates. (Nothing mystical 
 meant by the word — it is the integrating hub, the way a nervous system integrates
 organs.)
 
-```mermaid
-flowchart TB
-    C(("AutonomousCoordinator<br/>the integrating self<br/>perceive · decide · act · reflect"))
+```text
+                                ┌────────────────┐
+                                │   PERCEPTION   │
+                                └────────┬───────┘
+                                         │
+    ┌───────────────┐          ┌─────────▼─────────┐          ┌───────────────┐
+    │   Reasoning   │ ◀──────▶ │                   │ ◀──────▶ │   Learning    │
+    │ NeuralBridge  │          │    AUTONOMOUS     │          │ ULS·MetaLearn │
+    └───────────────┘          │    COORDINATOR    │          └───────────────┘
+    ┌───────────────┐          │                   │          ┌───────────────┐
+    │    Memory     │ ◀──────▶ │   the "self":     │ ◀──────▶ │    Domains    │
+    │ Postgres/pgv  │          │  perceive ·       │          │ DomainMaster  │
+    └───────────────┘          │  decide · act ·   │          └───────────────┘
+    ┌───────────────┐          │  reflect          │          ┌───────────────┐
+    │    Drives     │ ◀──────▶ │                   │ ◀──────▶ │  Governance   │
+    │ motiv·apprais │          │  (integrates      │          │ consti·gov·dir│
+    └───────────────┘          │   every faculty   │          └───────────────┘
+    ┌───────────────┐          │   as its own      │          ┌───────────────┐
+    │  Scheduling   │ ◀──────▶ │   authority)      │ ◀──────▶ │    Health     │
+    │ queue authrty │          │                   │          │  & recovery   │
+    └───────────────┘          └─────────┬─────────┘          └───────────────┘
+                                         │
+                                ┌────────▼───────┐
+                                │     ACTION     │
+                                │   (executor)   │
+                                └────────────────┘
 
-    R["Reasoning<br/>NeuralSymbolicBridge"]
-    L["Learning<br/>UnifiedLearningSystem · MetaLearner"]
-    M["Memory<br/>MemoryAgent · Postgres/pgvector"]
-    D["Domain knowledge<br/>UniversalDomainMaster"]
-    MOT["Drives<br/>Intrinsic motivation · Appraisal · Arbiter"]
-    G["Governance<br/>Constitution · GovernanceAgent · Directives"]
-    Q["Scheduling<br/>Queue authority"]
-    H["Health &amp; recovery<br/>Health monitor"]
-    P["Perception"]
-    X["Action<br/>substrate-only executor"]
-    T["Teacher model<br/>optional · external"]
-
-    C <--> R
-    C <--> L
-    C <--> M
-    C <--> D
-    C <--> MOT
-    C <--> G
-    C <--> Q
-    C <--> H
-    C <--> P
-    C <--> X
-    R -. "coverage only, never authority" .-> T
-
-    classDef hub fill:#1f2937,stroke:#111827,color:#f9fafb,stroke-width:2px;
-    classDef faculty fill:#eef2ff,stroke:#6366f1,color:#111827;
-    classDef optional fill:#fff7ed,stroke:#f59e0b,color:#111827,stroke-dasharray:4 3;
-    class C hub;
-    class R,L,M,D,MOT,G,Q,H,P,X faculty;
-    class T optional;
+     Teacher model (optional, external)  ┄┄┄▶  Reasoning
+     — used only for coverage; never in the decision path, never an authority —
 ```
+
+*The coordinator is the hub: every faculty plugs into it, and each faculty is the
+single authority for its concept. The teacher model sits outside and is optional.*
 
 The self runs a continuous loop — perceive, decide, act, reflect — and reacts to
 **events** (a task finished, an outcome was observed, competence changed) rather
